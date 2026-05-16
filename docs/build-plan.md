@@ -30,7 +30,7 @@ Work fans out from a single decision (repo layout). Everything after the scaffol
 | ID | Task | Blocks | Status |
 |---|---|---|---|
 | 2D | Repo layout & module boundaries | 4A | **done** → [`docs/arch/repo-layout.md`](arch/repo-layout.md) |
-| 4A | Repo scaffold + CLAUDE.md | 3B, 4B, all Phase 1 build | pending |
+| 4A | Repo scaffold + CLAUDE.md | 3B, 4B, all Phase 1 build | **done** → [`CLAUDE.md`](../CLAUDE.md) |
 | 3B | `scenario-runner` skill | — | pending |
 | 4B | Phase 0 spike (cross-device PTY attach) | Phase 1 begins | pending |
 | 2A | Persona-application mechanism | Phase 1 implementation | **done** → [`docs/arch/persona-application.md`](arch/persona-application.md) |
@@ -85,41 +85,9 @@ Work fans out from a single decision (repo layout). Everything after the scaffol
 
 ## Track 4 — AI build infra & repo bootstrap
 
-### 4A. Repo scaffold + CLAUDE.md
+### 4A. Repo scaffold + CLAUDE.md — **done**
 
-**Goal:** create the working repo per the 2D layout decision, with a `CLAUDE.md` that orients agents at the PRD and decision-log.
-**Output:** the repo itself (this very directory becomes a working project), plus `CLAUDE.md` at root.
-**Done when:** `git init`, package manager bootstrapped, top-level CLAUDE.md present, lint/format/test commands runnable (even if test suite is empty).
-
-```
-Read docs/arch/repo-layout.md (output of task 2D) and docs/prd.md.
-
-Set up the working repo:
-
-1. Initialize git in /Users/kianalikhani/Development/Projects/relay if not
-   already initialized. First commit should land the existing docs/ tree
-   verbatim (it's the PRD; don't touch it).
-2. Create the folder structure decided in docs/arch/repo-layout.md. Add
-   package.json (or workspace root config), tsconfig, lint config, test
-   runner config.
-3. Add a top-level CLAUDE.md that:
-   - Points new agents at docs/prd.md as the entry point
-   - Names docs/open-questions.md as the decision log
-   - Names docs/build-plan.md as the in-flight task tracker
-   - Sets the convention: code comments that reference a non-obvious
-     behavior cite the corresponding D-NN or ND-NN (e.g., "// Per ND-01,
-     claim auto-releases after 30s of inactivity")
-   - Notes the persona-application mechanism doc (docs/arch/persona-
-     application.md) as load-bearing reading before touching session spawn
-   - Lists the npm/pnpm script commands an agent can run
-4. Add a stub README.md (just the project name + a pointer to docs/prd.md
-   for now; full README is task 1C).
-5. Verify the lint/format/test commands run cleanly against the empty
-   scaffold.
-
-Don't write product code yet — the goal is a runnable shell. The Phase 0
-spike (task 4B) is the first product code.
-```
+**Output:** repo bootstrapped per [`docs/arch/repo-layout.md`](arch/repo-layout.md) §2 (tree) and §8 (tooling): pnpm workspace with `packages/{server,protocol,extension,pwa}`, TypeScript project references with `strict` + `noUncheckedIndexedAccess`, ESLint 9 flat config, Prettier 3, Vitest 2 with `passWithNoTests`, and lefthook pre-commit hooks running typecheck / lint / format:check. Root [`CLAUDE.md`](../CLAUDE.md) orients new agents to the PRD entry point, the decision log, the build-plan tracker, the load-bearing arch reading, the `D-NN`/`ND-NN` code-comment citation convention, and the pnpm script surface. Per-package and per-module `CLAUDE.md` are deferred (per-module is task 5D; per-package will land as packages get real code). Unblocks **3B** (`scenario-runner` skill), **4B** (Phase 0 spike), and all of Track 1 (1A/1B/1C) and Track 5 (5A–5D).
 
 ---
 
