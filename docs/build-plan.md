@@ -12,42 +12,76 @@ This file is an in-flight tracking artifact (peer of `open-questions.md`), not a
 Work fans out from a single decision (repo layout). Everything after the scaffold can run in parallel — only the dotted edges are hard dependencies.
 
 ```
-                     2D repo layout
+                     2D repo layout (done)
                            │
                            ▼
-                  4A repo scaffold + CLAUDE.md
+                  4A repo scaffold + CLAUDE.md (done)
                   ┌────────┼────────┐
                   ▼        ▼        ▼
-       3B scenario-runner  4B Phase 0 spike   (parallel architecture docs)
-                                              ├─ 2A persona mechanism
-                                              ├─ 2B WS message catalog
-                                              ├─ 2C SQLite schema
-                                              └─ 2E REST conventions
+       3B scenario-runner   4B Phase 0 spike   (parallel architecture docs — all done)
+       (done)                    │             ├─ 2A persona mechanism
+                                 │             ├─ 2B WS message catalog
+                                 │             ├─ 2C SQLite schema
+                                 │             └─ 2E REST conventions
+                                 ▼
+                  ── Track 6: Phase 1 implementation ──
+                ┌──────────┬───────────┬───────────────┐
+                ▼          ▼           ▼               ▼
+              6A store   6B auth   6C persona     6D pty+transcript
+                └──────────┴───────────┼───────────────┘
+                                       ▼
+                                   6E session
+                                       │
+                              ┌────────┴────────┐
+                              ▼                 ▼
+                         6F server/rest    6G server/ws
+                              └────────┬────────┘
+                                       ▼
+                               6H cli + attach
+                                       ▼
+                                  6I extension
+                                       ▼
+                                 6J distribution
+                                       ▼
+                            6Z Phase 1 done gate
 
-(late Phase 1, parallel)  1A persona content · 1B threat model · 1C README/deploy guide · 3C prd-link skill (optional)
+Feeders:   3F → 6A · 3E → 6C · 3D → 6G · 5D-stubs → 5A/5B/5C · 5A → 6A onward · 5B → 6D · 5D-expand folded into 6A/6C/6D
+Track 1:   1A pairs with 6C · 1B pairs with 6B · 1C landed early · 3C optional (done)
 ```
 
 | ID | Task | Blocks | Status |
 |---|---|---|---|
 | 2D | Repo layout & module boundaries | 4A | **done** → [`docs/arch/repo-layout.md`](arch/repo-layout.md) |
 | 4A | Repo scaffold + CLAUDE.md | 3B, 4B, all Phase 1 build | **done** → [`CLAUDE.md`](../CLAUDE.md) |
-| 3B | `scenario-runner` skill | — | pending |
-| 4B | Phase 0 spike (cross-device PTY attach) | Phase 1 begins | pending |
+| 3B | `scenario-runner` skill | — | **done** → [`.claude/skills/scenario-runner/SKILL.md`](../.claude/skills/scenario-runner/SKILL.md) |
+| 4B | Phase 0 spike (cross-device PTY attach) | Phase 1 begins | **done** → [`spike/`](../spike/) · [`docs/phase-0-report.md`](phase-0-report.md) |
 | 2A | Persona-application mechanism | Phase 1 implementation | **done** → [`docs/arch/persona-application.md`](arch/persona-application.md) |
 | 2B | WebSocket message catalog | Phase 1 implementation | **done** → [`docs/arch/ws-protocol.md`](arch/ws-protocol.md) |
 | 2C | SQLite schema / migrations | Phase 1 implementation | **done** → [`docs/arch/sqlite-schema.md`](arch/sqlite-schema.md) |
 | 2E | REST error response + verb conventions | Phase 1 implementation | **done** → [`docs/arch/rest-conventions.md`](arch/rest-conventions.md) |
-| 1A | Default persona content (seven YAMLs) | Phase 1 ship | pending |
-| 1B | Threat model one-pager | Phase 1 ship | pending |
-| 1C | README + deployment guide | Phase 1 ship | pending |
-| 3C | `prd-link` skill (optional) | — | pending |
-| 3D | `ws-protocol-check` skill | — | pending (from 2D §11; needs 2B) |
-| 3E | `persona-yaml-check` skill | — | pending (from 2D §11) |
-| 3F | `sqlite-migration` skill | — | pending (from 2D §11; needs 2C) |
-| 5A | `relay-architect` sub-agent | — | pending (from 2D §11; needs 4A) |
-| 5B | `relay-test-author` sub-agent | — | pending (from 2D §11; needs 4A) |
-| 5C | `relay-spec-reviewer` sub-agent | — | pending (from 2D §11; needs 4A) |
-| 5D | Per-module `CLAUDE.md` (load-bearing modules) | — | pending (from 2D §11; needs 4A) |
+| 1A | Default persona content (seven YAMLs) | 6C, 6Z | **done** → [`packages/server/personas/defaults/`](../packages/server/personas/defaults/) |
+| 1B | Threat model one-pager | 6Z | **done** → [`docs/threat-model.md`](threat-model.md) |
+| 1C | README + deployment guide | 6Z | **done** → [`README.md`](../README.md) · [`docs/deployment.md`](deployment.md) |
+| 3C | `prd-link` skill (optional) | — | **done** → [`.claude/skills/prd-link/SKILL.md`](../.claude/skills/prd-link/SKILL.md) |
+| 3D | `ws-protocol-check` skill | 6G | **done** → [`.claude/skills/ws-protocol-check/SKILL.md`](../.claude/skills/ws-protocol-check/SKILL.md) |
+| 3E | `persona-yaml-check` skill | 6C, 1A | **done** → [`.claude/skills/persona-yaml-check/SKILL.md`](../.claude/skills/persona-yaml-check/SKILL.md) |
+| 3F | `sqlite-migration` skill | 6A | **done** → [`.claude/skills/sqlite-migration/SKILL.md`](../.claude/skills/sqlite-migration/SKILL.md) |
+| 5D-stubs | Per-module `CLAUDE.md` stubs + root index | 5A, 5B, 5C | **done** → [`packages/server/src/{store,persona,pty,transcript}/CLAUDE.md`](../packages/server/src/) · root index in [`CLAUDE.md`](../CLAUDE.md) |
+| 5A | `relay-architect` sub-agent | 6A onward | **done** → [`.claude/agents/relay-architect.md`](../.claude/agents/relay-architect.md) |
+| 5B | `relay-test-author` sub-agent | 6D | **done** → [`.claude/agents/relay-test-author.md`](../.claude/agents/relay-test-author.md) |
+| 5C | `relay-spec-reviewer` sub-agent | PR review | **done** → [`.claude/agents/relay-spec-reviewer.md`](../.claude/agents/relay-spec-reviewer.md) |
+| 5D-expand | Per-module `CLAUDE.md` body fill | (folded into 6A/6C/6D) | tracked inside each 6x Done-when |
+| 6A | `store/` module + migrations runner | 6E, 6F, scenario A | **done** → [`packages/server/src/store/`](../packages/server/src/store/) |
+| 6B | `auth/` module + token CLI subcommands | 6F, scenario A | pending (needs 4B) |
+| 6C | `persona/` module + composition rule | 6E, 6F, scenario B | pending (needs 4B, 3E, 1A; expands `persona/CLAUDE.md` stub) |
+| 6D | `pty/` + `transcript/` modules (paired) | 6E, 6G, scenarios C/D | pending (needs 4B, 5B; expands `pty/CLAUDE.md` + `transcript/CLAUDE.md` stubs) |
+| 6E | `session/` orchestrator + boot orphan sweep | 6F, 6G, scenarios C/D/G | pending (needs 6A, 6C, 6D) |
+| 6F | `server/rest/` routes + Zod validation | 6H, scenarios A/B/C/G | pending (needs 6A, 6B, 6C, 6E) |
+| 6G | `server/ws/` handler + claim-lock state machine | 6H, scenarios D/E/F | pending (needs 6E, 3D) |
+| 6H | `cli/` subcommands + `attach/` thin client | 6I, scenarios C/D/E | pending (needs 6F, 6G) |
+| 6I | IDE extension wire-up (`packages/extension/`) | scenarios C/D/E | pending (needs 6H) |
+| 6J | Distribution: npm tarball, Docker image, Compose | scenario H | pending (needs 6H, 6I) |
+| 6Z | Phase 1 done gate — `scenario-runner` walks A–H + 1A/1B/1C land | — | pending |
 
 ---
 
@@ -91,227 +125,43 @@ Work fans out from a single decision (repo layout). Everything after the scaffol
 
 ---
 
-### 3B. `scenario-runner` skill
+### 3B. `scenario-runner` skill — **done**
 
-**Goal:** a `.claude/skills/scenario-runner/` skill that knows about the eight Phase 1 acceptance scenarios (A–H) and can drive verification of any one of them.
-**Output:** `.claude/skills/scenario-runner/SKILL.md` (and supporting scripts if useful).
-**Done when:** invoking the skill with a scenario letter walks the verification steps described in `08-acceptance.md`.
-
-```
-Read docs/prd/08-acceptance.md (the eight scenarios A through H), and look
-at .claude/skills/decision-log/SKILL.md as a reference for skill shape.
-
-Create .claude/skills/scenario-runner/ with a SKILL.md frontmatter + body
-that:
-
-1. Triggers on: "run scenario X", "verify scenario X", "check Phase 1
-   acceptance", or being passed a scenario letter A–H.
-2. For each scenario A–H, encodes the verification steps from
-   docs/prd/08-acceptance.md. Each step should be actionable: a CLI command
-   to run, a REST call to make, a file to inspect, etc.
-3. Reports per-step pass/fail/blocked.
-4. References the underlying D-NN / ND-NN entries so a reader can trace
-   "why this step exists" back to the PRD.
-
-The skill is read-only against the running system — it verifies, it doesn't
-modify state. It can spawn fresh sessions, attach, kill, but should not
-mutate persona files or project records.
-
-This skill should be useful from Phase 0 onward (scenarios D and E
-specifically gate Phase 0 → Phase 1 transition per 07-phasing.md). Phase 0
-won't have everything implemented; the skill should be graceful about
-"not-yet-implemented" steps.
-
-Out of scope: a CI-mode that runs all eight scenarios end-to-end in one
-shot. That's a Phase 1 deliverable; the skill is the interactive primitive
-it would be built on.
-```
+**Output:** [`.claude/skills/scenario-runner/SKILL.md`](../.claude/skills/scenario-runner/SKILL.md). Markdown-only skill (no scripts) that walks one Phase 1 acceptance scenario per invocation. Each check carries a `pass`/`fail`/`blocked`/`n/a` verdict with a `because:` reason and a citation to the originating `D-NN`/`ND-NN` or subdoc section. Read-only discipline enforced by an explicit `USER:`/`VERIFY:` action grammar — the skill spawns and kills sessions but never runs `relay project add`/`persona create`/`token create`. Three-layer check model (capability preflight → per-scenario preconditions → per-check verdicts) gracefully degrades for Phase 0 (D and E sub-checks emit `blocked (because: not in Phase 0 scope)` rather than `fail`) and for the unimplemented `relay` binary today (preflight short-circuits with one consolidated verdict). Phase-gate map at the top of the skill calls out D and E as the Phase 0 → Phase 1 gating scenarios; full A–H is the Phase 1 ship gate. CI-mode (run all eight non-stop) explicitly out of scope.
 
 ---
 
-### 4B. Phase 0 spike
+### 4B. Phase 0 spike — **done**
 
-**Goal:** prove the architectural backbone works under the cross-device test, per `07-phasing.md` Phase 0.
-**Output:** working spike code in the repo; a `docs/phase-0-report.md` summarizing what passed.
-**Done when:** all six Phase 0 bullets in `07-phasing.md` pass — including the two-different-machines variant of multi-client attach, which is the load-bearing one.
-
-```
-Read docs/prd/07-phasing.md Phase 0 (six bullets), docs/prd/02-architecture.md
-(architectural backbone), docs/prd/03-server.md §5 (the contracts the spike
-needs to demonstrate the rough shape of). The 2A persona-application doc
-should already exist but Phase 0 doesn't need persona logic — a bare
-`claude` spawn is enough.
-
-Build the Phase 0 spike:
-
-1. A minimal `relay server` that spawns `claude` under node-pty on a
-   POST /sessions request and exposes GET /sessions/:id/stream as a
-   WebSocket. No persona handling, no SQLite required if you keep state
-   in memory for the spike. Bearer-token check can be the same hardcoded
-   token from a config file.
-2. A minimal `relay attach <session-id>` that opens the WebSocket and
-   proxies stdin/stdout. This is the thin client the IDE extension will
-   later wrap.
-3. Demonstrate the six Phase 0 bullets in 07-phasing.md, particularly:
-   - Two clients attached from TWO DIFFERENT MACHINES, not just two
-     terminals on one box. This is the load-bearing test — same-host
-     multi-attach proves much less than cross-host.
-   - Bidirectional input from either client (per-message claim lock can
-     be a stub for Phase 0; 2B's full protocol lands in Phase 1).
-   - Disconnect + reattach without losing state.
-   - Server restart leaves session metadata recoverable; the agent
-     process is acceptably killed (D-11 already commits to this).
-
-4. Write docs/phase-0-report.md when the spike passes: what worked, what
-   was deferred, what surprised you, what the Phase 1 work order should
-   prioritize based on what you found.
-
-The spike code can live under spike/ or similar — it's not Phase 1 code,
-it's permission to start Phase 1. Don't over-engineer; this is a
-weekend exercise per 07-phasing.md.
-```
+**Output:** [`spike/`](../spike/) (HTTP+WS server, `attach` thin client, in-memory `Map` plus `~/.relay-spike/state.json` sidecar for D-11 metadata recovery, 32 KB on-attach ring-buffer replay). Report at [`docs/phase-0-report.md`](phase-0-report.md). All six Phase 0 bullets pass — including the load-bearing cross-LAN attach (MacBook ↔ Ubuntu 24.04 VM at 10.0.60.221) and the D-11 boot sweep with `terminatedReason: "server_restart"`. The cross-device run surfaced six surprises that reshape the Phase 1 work order — most load-bearing: (a) make boot sweep the *only* writer of `terminated_reason = "server_restart"` in 6E (caught a real shutdown-race bug in the spike); (b) ship claim-lock arbitration in 6G before 6I wires up the IDE; (c) fold node-pty install fixups (macOS spawn-helper chmod + Linux build-essential) into 6J; (d) ship `relay attach` as a real bin in 6H to avoid pnpm-run TTY breakage; (e) assign `agentSessionId` capture to 6E. Full list in the report.
 
 ---
 
 ## Track 1 — PRD close-out (late Phase 1)
 
-### 1A. Default persona content
+These three are the user-facing close-out deliverables. They pair with specific Track 6 tasks rather than landing as one batch at the end: **1A** (default personas) pairs with **6C** so the validator and the YAMLs it validates land together; **1B** (threat model) pairs with **6B** because the auth module is the locus of the trust boundaries the doc describes; **1C** (README + deployment) landed early as forward-looking docs with an explicit pre-MVP status banner, so packaging work (**6J**) and operator UX converge on the same shape. **3C** (prd-link skill) is optional and can land anywhere.
 
-**Goal:** author the seven default persona YAMLs (`product`, `design`, `dev`, `test`, `infra`, `architect`, `review`) shipping with `relay init`.
-**Output:** seven `.yaml` files in the repo (path per 2D's layout, conventionally `packages/server/personas/defaults/*.yaml`).
-**Done when:** each YAML validates against the D-09 schema and has a `systemPrompt` that's actually useful, not boilerplate.
+### 1A. Default persona content — **done**
 
-```
-Read docs/prd/09-persona-schema.md (the YAML schema, D-09) and
-docs/prd/01-conceptual-model.md (the conceptual role each persona plays).
-
-Author the seven default persona YAMLs that ship via `relay init`:
-
-  product · design · dev · test · infra · architect · review
-
-For each one:
-1. Write a systemPrompt that's actually useful for that role context —
-   2-6 paragraphs that frame the agent's mode of work, not a list of dos
-   and don'ts.
-2. Decide skills and mcpServers postures. Skills referenced should exist
-   as installable defaults (or be flagged as "depends on user-installed
-   skill X"). mcpServers similarly — many users won't have specific MCP
-   servers configured, so the default postures should degrade gracefully
-   when omitted.
-3. Leave `model` unset unless there's a strong reason — let the agent
-   CLI default apply.
-
-Validate each YAML against the schema in 09-persona-schema.md before
-considering it done. The schema's filename-equals-name rule matters here.
-
-Place the files where 2D's layout decision says default-config goes —
-they ship inside the npm package and get copied to ~/.relay/personas/
-by `relay init`.
-
-Out of scope: the persona authoring guide (separate Phase 1 deliverable;
-defers until users have actually written a custom persona and surfaced
-real friction).
-```
+**Output:** seven persona YAMLs at [`packages/server/personas/defaults/`](../packages/server/personas/defaults/) (`product`, `design`, `dev`, `test`, `infra`, `architect`, `review`). Each ships `schemaVersion: 1`, a one-line `description`, and a 5–6 paragraph `systemPrompt` framing the agent's mode of work; `skills`, `mcpServers`, and `model` are omitted on every file so the persona degrades to "all the agent's native capabilities" plus a behavior overlay — the honest default given that Relay does not own `~/.claude/skills/` or `~/.claude.json` and that ND-08 (non-empty `skills:` enforcement) is unresolved. Users curate per-project once they hit real friction; the persona authoring guide stays deferred until they do.
 
 ---
 
-### 1B. Threat model one-pager
+### 1B. Threat model one-pager — **done**
 
-**Goal:** name the security surface of a self-hosted single-user Relay deployment so users and contributors can reason about it.
-**Output:** `docs/threat-model.md`
-**Done when:** assets, actors, trust boundaries, and known mitigations / deferrals are enumerated in one short doc.
-
-```
-Read docs/prd/00-overview.md goal G-7 (network-local trust model, bearer-
-token auth) and docs/prd/03-server.md §6 (auth) and D-13 (pairing UX).
-The PRD is explicit that MVP is not enterprise-ready; this doc names what
-that means concretely.
-
-Write docs/threat-model.md as a short one-pager:
-
-1. Assets being protected (transcripts, project source, model credentials,
-   agent capability itself).
-2. Actors: legitimate user across N devices, network-adjacent observer
-   (LAN/Tailscale peer), opportunistic attacker if the user exposes the
-   server publicly without a tunnel.
-3. Trust boundaries: server process is trusted; the bearer token is the
-   only secret; tokens are plaintext on the wire under bearer-auth, so
-   TLS is the user's responsibility (covered by their tunnel choice).
-4. Known mitigations: bearer token entropy (D-13), tokens hashed at rest
-   (D-13), revocation via CLI, project marker is gitignored by default
-   (D-G6).
-5. Known deferrals: rotation (D-05), per-tenant credential isolation (D-10
-   re-eval trigger), audit logging (Phase 4), RBAC (Phase 4).
-6. User-facing guidance: when to put Relay behind Tailscale vs Caddy +
-   TLS vs nothing.
-
-Keep it to ~150 lines. This is to orient the user, not to satisfy a SOC2
-auditor.
-```
+**Output:** [`docs/threat-model.md`](threat-model.md). One-pager covering assets, actors, trust boundaries, Phase 1 mitigations (token entropy + hashing + revocation per D-13, marker file gitignored per D-G6, credentials never persisted per D-10, boot orphan sweep per D-11, WS upgrade-time bearer check), Phase 3/4 deferrals (rotation D-05, per-tenant credential isolation D-10 re-eval, RBAC, audit logging, SSO, multi-tenant runtime enforcement), and a network-shape decision tree (localhost / Tailscale / Caddy + TLS / don't). Pairs with **6B** — the auth module implements against the trust boundaries this doc names.
 
 ---
 
-### 1C. README + deployment guide
+### 1C. README + deployment guide — **done**
 
-**Goal:** the two top-level docs that a new user reads before installing.
-**Output:** `README.md` at repo root (full version, replacing the 4A stub); `docs/deployment.md` with the npm and Docker walkthroughs.
-**Done when:** a stranger can go from "I have Node 22 and an Anthropic key" to "scenario E works" by following the README + deployment guide.
-
-```
-Read docs/prd/00-overview.md (the value-prop framing), docs/prd/06-
-distribution.md (packaging), docs/prd/08-acceptance.md scenario E (the
-cross-device test the README should help a user reach), and docs/prd/07-
-phasing.md (so scope is clearly Phase 1 features).
-
-Write two docs:
-
-1. README.md at the repo root, replacing the stub from 4A:
-   - Value prop in 3-4 lines max — what Relay does, what it's not
-   - Quick install (npm) and Docker one-liner
-   - First-session walkthrough that lands at scenario E (start a session
-     from one machine, attach from another)
-   - Links to docs/prd.md for the spec, docs/deployment.md for ops, and
-     docs/threat-model.md for the security posture
-   - Phase status note ("Phase 1 / MVP — desktop only, no mobile yet")
-
-2. docs/deployment.md:
-   - Local mode (Node 22+, `npm install -g`, where state lives)
-   - Docker (image tag, mount points for ~/.relay/ and project dirs,
-     environment variables including ANTHROPIC_API_KEY per D-10)
-   - Docker Compose example with Caddy + Tailscale sidecar (per 06-
-     distribution.md)
-   - Backup posture (just ~/.relay/ and ~/.claude/, per 06-distribution.md)
-   - Pointer to docs/threat-model.md for the trust model
-
-Both docs should be runnable — a reader who follows them should land at a
-working session. If you find a gap between docs and reality, fix the docs
-and note the gap; don't paper over.
-```
+**Output:** [`README.md`](../README.md) at the repo root (value prop, npm + Docker quick install, machine-A → machine-B walkthrough that lands at scenario E, phase-status note) and [`docs/deployment.md`](deployment.md) (local Node 22+ mode, Docker, Docker Compose with Caddy + Tailscale sidecar, backup posture). Both ship an explicit pre-MVP status banner: the binary and Docker image are not yet published, but the docs describe the eventual Phase 1 surface so packaging work (6J) and operator UX converge on the same shape.
 
 ---
 
 ### 3C. `prd-link` skill (optional)
 
-**Goal:** a skill that resolves spec references (`D-NN`, `ND-NN`, `03-server.md §5.1`) to the exact source text, so PRs and code comments can be checked against the spec mechanically.
-**Output:** `.claude/skills/prd-link/SKILL.md`
-**Done when:** invoking the skill on a reference yields the cited text inline; broken references are flagged.
-
-```
-Read docs/open-questions.md (the D-NN / ND-NN format) and docs/prd.md (the
-subdoc index). Look at .claude/skills/decision-log/SKILL.md as a shape
-reference.
-
-Create .claude/skills/prd-link/ that:
-
-1. Triggers on patterns like "D-NN", "ND-NN", "<file>.md §N.N" in PRs,
-   commit messages, or code comments.
-2. Resolves the reference to the source text in docs/ and surfaces it
-   inline.
-3. Flags broken references (unknown ID, missing section, file moved).
-
-This is the lowest-priority task — it's a nice-to-have for keeping code
-comments honest as the spec evolves. Defer if anything else surfaces.
-```
+**Done.** See [`.claude/skills/prd-link/SKILL.md`](../.claude/skills/prd-link/SKILL.md) — resolves `D-NN` / `ND-NN` / `<subdoc>.md §N.N` / `[[kebab-slug]]` citations against `docs/open-questions.md` and `docs/prd/`, quotes the source inline, flags broken refs by reason (unknown_id, file_missing, section_missing, anchor_missing, ambiguous_section, malformed). On-demand only; read-only against the docs.
 
 ---
 
@@ -319,201 +169,278 @@ comments honest as the spec evolves. Defer if anything else surfaces.
 
 These tasks were surfaced by 2D §11 (`docs/arch/repo-layout.md`). The skill tasks (3D-3F) depend on the arch doc they verify against; the sub-agent and per-module CLAUDE.md tasks (5A-5D) depend on 4A having created the `.claude/` and `packages/server/src/` directory shape.
 
-### 3D. `ws-protocol-check` skill
+**Dependency flow within Track 5.** Claude Code auto-loads root `CLAUDE.md` at session start but pulls per-module `CLAUDE.md` files in only when an agent reads/edits a file in that subtree. Sub-agents (5A/5B/5C) need the per-module context at design time, **before** they touch files. The fix is two-step:
 
-**Goal:** verify a WS handler implementation matches the 2B message catalog. Catches drift between code and the CLAIM/SEND/RELEASE/BUSY frame contracts during implementation.
-**Output:** `.claude/skills/ws-protocol-check/SKILL.md`
-**Done when:** invoking the skill against a target file or diff flags any frame whose shape, name, or response code does not match the catalog from 2B. Blocked by 2B.
+1. **5D-stubs lands first** (single task, four files + a root-CLAUDE.md index). After this, every load-bearing module has a ~25-line `CLAUDE.md` with its must-know constraints, and root `CLAUDE.md` lists them so any agent — root session or sub-agent — can discover and Read them at plan time.
+2. **5A/5B/5C each require their sub-agent's system prompt to Read the relevant per-module `CLAUDE.md`** before designing/writing. Belt-and-braces: works whether or not Claude Code's directory-scoped auto-load fires.
 
-```
-Read docs/arch/ws-protocol.md (output of 2B) and docs/prd/03-server.md §5.
-Look at .claude/skills/decision-log/SKILL.md as a shape reference.
+**5D-expand** (the per-module body fill) is folded into each `6x` task's Done-when rather than tracked as a separate row — the constraints expand as the module's real code lands.
 
-Create .claude/skills/ws-protocol-check/ that triggers on patterns like
-"WS handler", "WebSocket frame", "CLAIM/SEND/RELEASE/BUSY" and checks a
-target file or diff for:
+### 3D. `ws-protocol-check` skill — **done**
 
-1. All frame types in the catalog have handlers in the code
-2. No frame types appear in code that aren't in the catalog
-3. Auto-release timeout (ND-01) is configurable, not hardcoded
-4. Universal-output rule (D-G3) holds — every attached client gets bytes
-   regardless of claim state
-
-Output per-violation citation back to the ws-protocol.md section that
-defines the contract. Out of scope: REST endpoints.
-```
+**Output:** [`.claude/skills/ws-protocol-check/SKILL.md`](../.claude/skills/ws-protocol-check/SKILL.md) — read-only audit of a WS handler file or diff against the 2B message catalog. Four checks: catalog coverage (every `type` discriminator has a handler), no extras (every code-side discriminator is in the catalog), `ND-01` configurability (auto-release timeout reads `claimLockTimeoutSeconds`, not a hardcoded literal), and `D-G2` universal output (binary PTY-output writes are not gated by claim state). Per-violation report with `ws-protocol.md` §N.N citations. REST out of scope.
 
 ---
 
-### 3E. `persona-yaml-check` skill
+### 3E. `persona-yaml-check` skill — **done**
 
-**Goal:** validate a persona YAML against the D-09 schema with precise per-rule error reporting, used both during default-persona authoring (1A) and as a gate before checking in user-edited personas.
-**Output:** `.claude/skills/persona-yaml-check/SKILL.md`
-**Done when:** invoking the skill on a persona YAML reports pass with the resolved persona shape, or fail with the specific schema rule that broke.
-
-```
-Read docs/prd/09-persona-schema.md (the schema, D-09).
-
-Create .claude/skills/persona-yaml-check/ that triggers on patterns like
-"validate persona", "check this persona YAML" or being passed a YAML path.
-
-For each candidate file, check in order:
-
-1. Required fields (schemaVersion, name) present
-2. schemaVersion is an integer the skill understands
-3. name is kebab-case and matches the filename stem
-4. Optional list fields (skills, mcpServers) are lists, not strings
-5. Optional model is a string
-
-Report per-rule pass/fail with a one-line citation back to
-09-persona-schema.md. Out of scope: authoring persona content (1A).
-```
+**Output:** [`.claude/skills/persona-yaml-check/SKILL.md`](../.claude/skills/persona-yaml-check/SKILL.md). Five rules in fixed order against the D-09 schema in [`09-persona-schema.md`](prd/09-persona-schema.md) — required fields, `schemaVersion=1` integer, `name` kebab-case + matches filename stem, optional list fields are lists, optional `model` is a string. Per-rule pass/fail report with one-line citations to §1, §2, §4 of the schema. Read-only; runtime field-shape validation deferred to `@relay/protocol` (4C). 6C and 1A are now unblocked on the linter dimension.
 
 ---
 
-### 3F. `sqlite-migration` skill
+### 3F. `sqlite-migration` skill — **done**
 
-**Goal:** scaffold a new SQLite migration file following the 2C convention so contributors don't have to re-read 2C every time.
-**Output:** `.claude/skills/sqlite-migration/SKILL.md`
-**Done when:** invoking the skill with a short description creates a new migration file with the correct filename pattern and a starter template. Blocked by 2C.
-
-```
-Read docs/arch/sqlite-schema.md (output of 2C) for the migration filename
-convention and the schema_version table contract.
-
-Create .claude/skills/sqlite-migration/ that triggers on patterns like
-"new migration", "add a migration for X" and:
-
-1. Reads the next migration number from existing files
-2. Writes a stub .sql file with the right filename pattern
-3. Includes the schema_version INSERT/UPDATE the convention requires
-4. Adds a one-line comment summarizing intent
-5. Returns the path to the new file
-
-Out of scope: writing the migration body itself — the skill scaffolds, the
-contributor fills.
-```
+**Output:** [`.claude/skills/sqlite-migration/SKILL.md`](../.claude/skills/sqlite-migration/SKILL.md). Scaffolds a new migration at `packages/server/src/store/migrations/NNNN_short_description.sql` against the [`sqlite-schema.md`](arch/sqlite-schema.md) §6 convention — reads the next `NNNN` from existing files (refusing if the sequence has gaps, duplicates, or filenames that fail the §6.1 regex), sanitizes a short description into a ≤40-char snake_case stem (confirming with the user when sanitization materially changes the input), writes a stub with filename header, one-line intent comment, `-- TODO:` body, and the trailing `INSERT INTO schema_versions (version, name, applied_at) VALUES (<N>, '<stem>', CAST(strftime('%s','now') AS INTEGER) * 1000)` filled in. Out of scope: the migration body itself, SQL syntax validation, running migrations, down migrations. 6A is now unblocked on the scaffold dimension.
 
 ---
 
-### 5A. `relay-architect` sub-agent
+### 5A. `relay-architect` sub-agent — **done**
 
-**Goal:** a read-only sub-agent that evaluates implementation plans for spec-fidelity before code is written.
-**Output:** `.claude/agents/relay-architect.md`
-**Done when:** invoking the sub-agent with a Plan-style proposal and the proposal's target subdoc(s) yields a fidelity report — which PRD claims hold, which the proposal contradicts, which it silently underspecifies.
-
-```
-Read docs/arch/repo-layout.md §9.2 (sub-agent role + tool posture) and
-docs/prd.md.
-
-Create .claude/agents/relay-architect.md with:
-
-- name: relay-architect
-- description: when to invoke (plan review, design questions, "is this
-  consistent with the PRD")
-- tools: read-only (Read, Glob, Grep, Explore)
-- system prompt: positions the agent as a spec-fidelity reviewer that
-  reads PRD subdocs first, names which D-NN / ND-NN entries are load-
-  bearing for the question at hand, and reports per-claim pass/fail
-  with citations
-
-Out of scope: editing PRD or proposing implementation; this agent is
-read-only.
-```
+**Output:** [`.claude/agents/relay-architect.md`](../.claude/agents/relay-architect.md) — read-only spec-fidelity reviewer. Frontmatter `tools: Read, Glob, Grep, Task` (Task scoped to read-only sub-agent delegation, e.g. `Explore`). System prompt locks the four-step workflow from the kickoff (PRD → open-questions → relevant arch doc → per-module `CLAUDE.md` when proposal touches `{persona, transcript, pty, store}`) and enforces a strict three-section output (load-bearing references / per-claim verdicts with citations / sub-questions surfaced). Explicit guardrails route diff review to 5C, test authoring to 5B, and editing to the user via the `decision-log` skill. Unblocks plan-time review for 6A onward.
 
 ---
 
-### 5B. `relay-test-author` sub-agent
+### 5B. `relay-test-author` sub-agent — **done**
 
-**Goal:** a sub-agent that authors Vitest specs for the three isolation targets (persona/transcript/pty) using shared fixtures.
-**Output:** `.claude/agents/relay-test-author.md`
-**Done when:** invoking the sub-agent with an implementation file and the target module's contract produces a Vitest spec that uses the shared fixture library and exercises both happy-path and every constraint named in the module's CLAUDE.md.
-
-```
-Read docs/arch/repo-layout.md §3 (module boundaries) and §9.5 (test-author
-context: Vitest, fixtures, property-based tests via fast-check).
-
-Create .claude/agents/relay-test-author.md with:
-
-- name: relay-test-author
-- description: when to invoke (writing tests for persona/transcript/pty,
-  or any module whose CLAUDE.md names must-know constraints)
-- tools: read + edit (Read, Glob, Grep, Edit, Write)
-- system prompt: positions the agent as a test author that
-  1) reads the module's CLAUDE.md and the module file under test,
-  2) reuses fixtures from packages/server/test/fixtures/,
-  3) covers happy-path + each constraint named in CLAUDE.md,
-  4) uses fast-check for byte-range math (ND-04) where applicable
-
-Out of scope: writing implementation; this agent writes tests only.
-```
+**Output:** [`.claude/agents/relay-test-author.md`](../.claude/agents/relay-test-author.md) — write-capable Vitest spec author for the four load-bearing modules (`persona`, `transcript`, `pty`, `store`) and any other module that ships a `CLAUDE.md`. Frontmatter `tools: Read, Glob, Grep, Edit, Write`. System prompt makes the per-module `CLAUDE.md` Read a hard precondition (every "Owns" / "Surprising constraints" / "Does NOT own" bullet becomes a required obligation in the spec), routes per-module fixture dirs + `fast-check` requirements via a recipe table (ND-04 byte-range math for `transcript/`, ND-03 ring-buffer wrap for `pty/`), commits to co-located `*.test.ts` per [`repo-layout.md`](arch/repo-layout.md) §8, and refuses (no spec written, configured diagnostic) when the module `CLAUDE.md`, the shared fixture dir, or the module-under-test file is missing — never inlines fixtures. Verification deferred to first `6x` integration (likely 6C or 6D). Unblocks 6D.
 
 ---
 
-### 5C. `relay-spec-reviewer` sub-agent
+### 5C. `relay-spec-reviewer` sub-agent — **done**
 
-**Goal:** a read-only sub-agent that surfaces D-NN / ND-NN drift in a branch diff — code that contradicts or silently ignores a resolved decision.
-**Output:** `.claude/agents/relay-spec-reviewer.md`
-**Done when:** invoking the sub-agent with a diff range produces a per-decision report: which decisions the diff respects, which it appears to violate, which it silently underspecifies. Used during PR review.
-
-```
-Read docs/arch/repo-layout.md §9.2, docs/open-questions.md (the decision
-log), and docs/prd.md.
-
-Create .claude/agents/relay-spec-reviewer.md with:
-
-- name: relay-spec-reviewer
-- description: when to invoke (PR review, branch-diff audit, "does this
-  diff break any resolved decisions")
-- tools: read-only (Read, Glob, Grep, Bash for `git diff`)
-- system prompt: positions the agent as a drift detector that
-  1) takes a diff range or branch name,
-  2) extracts which subdocs / D-NN entries are touched,
-  3) checks the diff against each touched decision,
-  4) reports per-D-NN pass/fail with file:line citations
-
-Out of scope: writing fixes; this agent reports only.
-```
+**Output:** [`.claude/agents/relay-spec-reviewer.md`](../.claude/agents/relay-spec-reviewer.md) — read-only drift detector for branch diffs. Frontmatter `tools: Read, Glob, Grep, Bash` (Bash scoped to read-only git verbs — `diff`, `log`, `show`, `rev-parse`, `ls-files`). Accepts a branch name, a `<ref-a>...<ref-b>` range, `--cached` / `--staged`, or no argument (defaults to `git diff main...HEAD`). Required reads mirror `relay-architect`'s skeleton, driven by the touched-files list from the diff: open-questions Index → PRD subdoc(s) → relevant arch doc (per the load-bearing-arch table) → per-module `CLAUDE.md` mandatory when the diff touches `packages/server/src/{persona, transcript, pty, store}/`, with every "Owns" / "Does NOT own" / "Test isolation" / "Surprising constraints" bullet becoming a drift dimension. Output is strict two-section: §1 per-decision verdicts (`pass` / `fail` / `underspecified`, one row per touched `D-NN` / `ND-NN`); §2 per-module `CLAUDE.md` constraint verdicts (`pass` / `fail`, one row per named constraint), skipped entirely when no load-bearing module is touched. Every non-`pass` row cites `path:Lstart-Lend` from the diff's post-image line numbers. No "Recommended changes", no "Sub-questions surfaced" section — `underspecified` rows in §1 are the channel for missing decisions, and filing an `ND-NN` is the user's job via the `decision-log` skill. Refuses with a verbatim diagnostic when the diff is empty, the range is malformed, the cwd is not a git work tree, or a touched `CLAUDE.md` cites a `D-NN` / `ND-NN` that does not resolve. Verification deferred to first real PR review during Track 6. Closes the third sub-agent committed by [`docs/arch/repo-layout.md`](arch/repo-layout.md) §9.2.
 
 ---
 
-### 5D. Per-module `CLAUDE.md` (load-bearing modules)
+### 5D-stubs. Per-module `CLAUDE.md` stubs + root index — **done**
 
-**Goal:** author short CLAUDE.md files for the four load-bearing modules so agents don't re-derive constraints from first principles each session.
-**Output:** four files at `packages/server/src/{persona,transcript,pty,store}/CLAUDE.md`, 20–50 lines each.
-**Done when:** each file names what the module owns, what it does not own, its test-isolation approach, and one or two surprising constraints with citations to the relevant D-NN / ND-NN.
+**Output:** four stub files (~25 lines each) at [`packages/server/src/store/CLAUDE.md`](../packages/server/src/store/CLAUDE.md), [`packages/server/src/persona/CLAUDE.md`](../packages/server/src/persona/CLAUDE.md), [`packages/server/src/pty/CLAUDE.md`](../packages/server/src/pty/CLAUDE.md), [`packages/server/src/transcript/CLAUDE.md`](../packages/server/src/transcript/CLAUDE.md). Each names what the module owns, what it does NOT own, its test-isolation approach, and two-to-three surprising constraints with D-NN / ND-NN citations. Content seeded from [`docs/arch/repo-layout.md`](arch/repo-layout.md) §3 (module ownership tables) and §9.3 (CLAUDE.md tiering examples) — no new module-design work. Root [`CLAUDE.md`](../CLAUDE.md) gained a "Per-module context" index immediately after the "Load-bearing arch reading" table so every agent — root session or sub-agent — discovers them at plan time. Unblocks 5A/5B/5C.
+
+---
+
+### 5D-expand. Per-module `CLAUDE.md` body fill — folded into 6A/6C/6D
+
+Not tracked as a separate row. As each `6x` task lands, the relevant per-module `CLAUDE.md` expands from stub to full constraint list:
+
+- **6A** expands [`packages/server/src/store/CLAUDE.md`](../packages/server/src/store/CLAUDE.md) with the migration runner's invariants and any DDL-specific gotchas the implementation surfaces.
+- **6C** expands [`packages/server/src/persona/CLAUDE.md`](../packages/server/src/persona/CLAUDE.md) with composition edge cases and any persona-application choices not captured in [`persona-application.md`](arch/persona-application.md).
+- **6D** expands [`packages/server/src/pty/CLAUDE.md`](../packages/server/src/pty/CLAUDE.md) and [`packages/server/src/transcript/CLAUDE.md`](../packages/server/src/transcript/CLAUDE.md) with ring-buffer / byte-range edge cases that fall out of implementation.
+
+Per-module `CLAUDE.md` for non-load-bearing modules (`auth`, `session`, `config`, `cli`, `attach`, `server/rest`, `server/ws`) remains out of scope; add only if re-derivation patterns emerge.
+
+---
+
+## Track 6 — Phase 1 implementation (module-by-module)
+
+Phase 1 implementation, decomposed by module per [`docs/arch/repo-layout.md`](arch/repo-layout.md) §3 and anchored to the acceptance scenarios in [`docs/prd/08-acceptance.md`](prd/08-acceptance.md). The dependency chain follows the inter-module flow in `repo-layout.md` §4: foundation modules (`store`, `auth`, `persona`, `pty+transcript`) are parallel; `session/` synthesizes; transport (`server/rest`, `server/ws`) sits on top of `session/`; client surfaces (`cli+attach`, then extension) sit on top of transport; distribution closes it out.
+
+**Kickoff prompts are written when each 6x task is ready to start, not pre-emptively** — per step 3 of "How to use this file" below. The arch docs are detailed enough that a fresh session can draft a kickoff against the named subdoc + arch doc in the **Reads** line.
+
+**Phase 1 ships when:** `.claude/skills/scenario-runner/SKILL.md` reports `pass` on every check of scenarios A–H (no `blocked`, no `fail`) AND tasks 1A, 1B, 1C are all `done`. See task **6Z** below.
+
+---
+
+### 6A. `store/` module + migrations runner — **done**
+
+**Output:** [`packages/server/src/store/`](../packages/server/src/store/) — `db.ts` (better-sqlite3 factory + monotonic ULID + `SINGLETON_TENANT_ID`), `migrations.ts` (runner per [`sqlite-schema.md`](arch/sqlite-schema.md) §6.2 + 6A's ahead-detection guard via `MigrationError.code: 'ahead'|'gap'|'duplicate'|'bad_filename'|'sql_error'`), `tenants.ts` / `projects.ts` / `sessions.ts` (typed accessors), `migrations/0001_initial_schema.sql` (§6.3 body verbatim). 35 Vitest tests across four `*.test.ts` files cover the runner contract, CASCADE/RESTRICT/CHECK invariants, and `markRunningAsKilled('server_restart')` semantics (call site owned by 6E). Repo-wide preflight closed for all subsequent 6x: Phase 1 deps installed on `@relay/relay` + `@relay/protocol`, seven previously-missing module dirs (`auth`, `session`, `server/rest`, `server/ws`, `cli`, `attach`, `config`) carry `index.ts` ownership stubs, `packages/protocol/src/{persona,frames,ws-frames}.ts` seeded as `export {}` placeholders, and `packages/server/test/fixtures/{personas,migrations,db}/` exist with `.gitkeep`. [`packages/server/src/store/CLAUDE.md`](../packages/server/src/store/CLAUDE.md) expanded with the `MigrationError.code` taxonomy, the `SINGLETON_TENANT_ID` constant, the `SqliteError.code` surface 6F maps to 409, and a correction of the original "transcript_path" stub line (the column doesn't exist — the sidecar path is computed from session id at read time).
+
+---
+
+### 6B. `auth/` module + token CLI subcommands
+
+**Goal:** Bearer-token issuance and verification for Relay. Generate 26-char Crockford-Base32 tokens with ≥128 bits of entropy, store them hashed in `~/.relay/tokens.json`, expose a verify primitive that 6F (REST) and 6G (WS upgrade) will call. Ship the four operator-facing CLI subcommands: `relay init`, `relay token create`, `relay token revoke`, `relay token list`.
+
+**Preflight** (resolve these before writing implementation code):
+
+1. **Add the missing deps.** No CLI framework, no hashing primitive, no YAML writer is installed yet. Recommended:
+   ```bash
+   pnpm -F @relay/relay add commander js-yaml
+   pnpm -F @relay/relay add -D @types/js-yaml
+   ```
+   Hashing: prefer Node built-ins (`node:crypto` `scrypt` or `createHash('sha256')` + per-token salt) over `argon2`/`bcrypt` — see the open decision below. Native-compile-free is the goal for Phase 1.
+
+2. **Resolve the hashing algorithm with the user before coding.** Spec says "hashed at rest" (D-13, threat-model §4) but does not name an algorithm. Tokens carry ≥128 bits of entropy, so a fast hash (SHA-256 + per-token random salt) is cryptographically sufficient and avoids native deps. Slow KDFs (`scrypt`, `argon2id`) are overkill for high-entropy random secrets. **File this via the `decision-log` skill as a new `ND-NN` before writing `auth/hash.ts`.** Proposed answer: SHA-256 with 16-byte per-token salt, stored as `{ id, deviceLabel, saltB64, hashB64, createdAt, revokedAt }` per record.
+
+3. **Confirm `relay token list` is in scope.** [`docs/prd/03-server.md`](prd/03-server.md) §7 enumerates `relay token create` and `relay token revoke` but does NOT list `relay token list`. The build-plan 6B row names all four. Treat the build-plan as the canonical task surface (it's the newer artifact) and ship `list` — but flag the PRD §7 omission to the user; it likely needs a one-line propagation via the `decision-log` skill.
+
+4. **Add a `bin` entry to `packages/server/package.json`.** No `relay` binary exists yet. Add:
+   ```json
+   "bin": { "relay": "./dist/cli/relay.js" }
+   ```
+   and a source entrypoint at `packages/server/src/cli/relay.ts` that wires the subcommands via `commander`. 6H will extend this entrypoint with the session/project/persona subcommands later — design the dispatcher so 6H can plug in without rewriting.
+
+5. **Create a `~/.relay/` path helper.** Grep confirms no `homedir()` / `~/.relay/` helpers exist yet. Place this in `packages/server/src/config/paths.ts` (not `auth/`) since `config/`, `auth/`, and `persona/` all need it. Functions: `relayHome()`, `tokensPath()`, `configPath()`, `personasDir()`, `transcriptsDir()`, `sessionsDir()`, `lastPairingPath()`.
+
+6. **Create the auth test fixtures dir.** `packages/server/test/fixtures/` exists with `db/`, `migrations/`, `personas/` — add `packages/server/test/fixtures/auth/` with a `.gitkeep` so [`relay-test-author`](../.claude/agents/relay-test-author.md) can drop a sample `tokens.json` there.
+
+7. **Workspace sanity after the above:** `pnpm typecheck && pnpm lint` clean before writing the first implementation file.
+
+**Required reads** (in this order):
+
+- [`docs/prd/03-server.md`](prd/03-server.md) §6 (token contract: format, entropy, storage, lifecycle, revocation semantics) and §7 (CLI surface: `relay init`, `relay token create --device <name>`, `relay token revoke <id>`).
+- [`docs/open-questions.md`](open-questions.md) [D-13](open-questions.md#d-13) — first-run pairing UX, the canonical `relay init` output spec including the `relay://pair?url=…&token=…` deep link.
+- [`docs/threat-model.md`](threat-model.md) §4 ("Known mitigations") — token entropy, hashing at rest, immediate revocation. This is the doc the auth module implements against; every mitigation bullet that names auth becomes a test.
+- [`docs/arch/rest-conventions.md`](arch/rest-conventions.md) §3 — 401 vs 403 distinction, `WWW-Authenticate: Bearer` header, RFC 9457 problem-details shape for auth errors. 6B exposes the verify primitive; 6F maps failures to this shape.
+- [`docs/arch/ws-protocol.md`](arch/ws-protocol.md) — find the `auth_expired` frame and close-code 4401. 6G owns the handler, but 6B's revocation flow must mark the token in a way that lets the WS handler detect "this connection's token just got revoked" on the next message boundary. Sketch the revocation-observer contract here; 6G consumes it.
+
+**Phase 0 surprises that apply:** None directly assigned to 6B. The Phase 0 spike used a shared plaintext bearer in `config.json` and explicitly deferred real token issuance to 6B — there are no spike gotchas constraining this surface. (Surprise §6 — `agentSessionId` capture — is assigned to 6E, not 6B.)
+
+**D-NN / ND-NN cheatsheet:**
+
+| ID | Status | Implication for this task |
+| -- | -- | -- |
+| [D-13](open-questions.md#d-13) | resolved | The canonical contract. 26-char Crockford-Base32, ≥128 bits, hashed at rest, shown plaintext exactly once, `relay init` emits the pairing snippet + writes `~/.relay/last-pairing.txt`. Build everything against this. |
+| [D-05](open-questions.md#d-05) | deferred to Phase 3 | Per-device token rotation is out of scope. MVP tokens are indefinite until revoked. Do NOT add rotation hooks; do NOT add expiry timestamps to the on-disk shape. |
+| [D-10](open-questions.md#d-10) | resolved | Agent model credentials (`ANTHROPIC_API_KEY`) are server-level env vars, NOT stored in `~/.relay/tokens.json`. 6B owns only bearer tokens for Relay's own auth. |
+| [ND-NN] hashing algorithm | **open — file before coding** | See preflight #2. Propose SHA-256 + per-token salt; resolve via `decision-log` skill before `auth/hash.ts` lands. |
+| [ND-NN] `relay token list` | **open — file before coding** | See preflight #3. Build-plan canonicalizes the four-subcommand surface; PRD §7 omits `list`. File a propagation note to align §7 with the build-plan. |
+
+**Done when:**
+
+- `relay init` on a fresh host writes `~/.relay/config.yaml`, scaffolds the seven default personas into `~/.relay/personas/` (copies from [`packages/server/personas/defaults/`](../packages/server/personas/defaults/) shipped by 1A), generates the initial bearer token, prints the `relay://pair?url=…&token=…` snippet + plain-text URL + token on stdout, and writes the same snippet to `~/.relay/last-pairing.txt`. **Unblocks scenario A bullet 1.**
+- `relay token create --device <name>` generates a new token, prints the plaintext exactly once, persists `{ id, deviceLabel, saltB64, hashB64, createdAt }` to `~/.relay/tokens.json`.
+- `relay token revoke <id>` sets `revokedAt` on the row and emits a server-side observable that 6G can subscribe to (so in-flight WSs close with `auth_expired` + 4401 on the next message boundary — 6G implements the close, 6B publishes the event).
+- `relay token list` prints `{ id, deviceLabel, createdAt, revokedAt | "active" }` rows; never prints the plaintext or the hash.
+- Verify primitive: `verify(plaintextToken: string): { ok: true, tokenId: string } | { ok: false, reason: 'unknown' | 'revoked' | 'malformed' }`. Constant-time hash comparison.
+- Vitest specs co-located: `auth/tokens.test.ts`, `auth/hash.test.ts`, `auth/store.test.ts`, `cli/init.test.ts`, `cli/token.test.ts`. Each [`relay-test-author`](../.claude/agents/relay-test-author.md)-authored.
+- 1B (threat model) is the natural companion deliverable here.
+
+**Output structure:**
 
 ```
-Read docs/arch/repo-layout.md §3 (module ownership tables) and §9.3
-(CLAUDE.md tiering examples).
-
-For each of persona/, transcript/, pty/, store/, author a CLAUDE.md
-(20–50 lines) at packages/server/src/<module>/CLAUDE.md that covers:
-
-1. What the module owns
-2. What it does NOT own (the negation half is what prevents scope creep)
-3. The test-isolation approach (in-memory SQLite, fixture YAML dirs, etc.)
-4. One or two surprising constraints with D-NN citations
-
-Examples from §9.3:
-- transcript: "writes are append-only; never seek; offsets are byte counts
-  from session start, never logical messages"
-- pty: "this module does not know about sessions or WS; surfacing byte
-  events + a kill handle is the whole contract"
-- persona: "project file replaces tenant file by name. No per-field
-  merging. The filename stem is canonical"
-
-Out of scope: per-module CLAUDE.md for non-load-bearing modules (auth,
-session, config, cli, attach, server/rest, server/ws). Add those later
-only if re-derivation patterns emerge.
+packages/server/
+├── package.json                     # add `bin` + `commander`/`js-yaml` deps
+└── src/
+    ├── config/
+    │   ├── paths.ts                 # relayHome(), tokensPath(), etc. (shared utility)
+    │   └── paths.test.ts
+    ├── auth/
+    │   ├── index.ts                 # public surface: verify(), generateToken(), revoke(), list()
+    │   ├── tokens.ts                # Crockford-Base32 generation, ≥128-bit entropy
+    │   ├── hash.ts                  # hash + constant-time verify (algorithm per ND-NN resolution)
+    │   ├── store.ts                 # ~/.relay/tokens.json I/O, schema
+    │   ├── events.ts                # revocation observer for 6G to subscribe to
+    │   ├── tokens.test.ts
+    │   ├── hash.test.ts
+    │   └── store.test.ts
+    └── cli/
+        ├── relay.ts                 # commander-based entrypoint (bin target)
+        ├── init.ts                  # `relay init` command handler
+        ├── token.ts                 # `relay token {create,revoke,list}` handlers
+        ├── init.test.ts
+        └── token.test.ts
+packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json fixtures
 ```
+
+**Verification:**
+
+- `pnpm -F @relay/relay test auth cli` — unit tests green.
+- `pnpm typecheck` — no TS errors across the workspace.
+- `pnpm lint` — clean.
+- Manual smoke (against a clean `$HOME` — use a temp `HOME=/tmp/relay-smoke` to avoid clobbering real state):
+  1. `HOME=/tmp/relay-smoke pnpm -F @relay/relay exec relay init` — verify `~/.relay/{config.yaml,tokens.json,last-pairing.txt,personas/}` all created; pairing snippet on stdout matches the format in D-13.
+  2. `HOME=/tmp/relay-smoke pnpm -F @relay/relay exec relay token create --device laptop` — token printed once.
+  3. `HOME=/tmp/relay-smoke pnpm -F @relay/relay exec relay token list` — shows two active tokens.
+  4. `HOME=/tmp/relay-smoke pnpm -F @relay/relay exec relay token revoke <id>` — list now shows one active, one revoked.
+- File the two new `ND-NN` entries via the [`decision-log`](../.claude/skills/decision-log/SKILL.md) skill (hashing algorithm; `relay token list` PRD propagation) BEFORE the implementation lands them as code.
+- Update this row to `done` with link to `packages/server/src/auth/`; replace this kickoff with a 1–2 line completion pointer.
+
+**Feeders** (skills + sub-agents to invoke during the work):
+
+- [`decision-log`](../.claude/skills/decision-log/SKILL.md) — file the two `ND-NN` entries flagged in preflight #2 and #3 before writing the affected code.
+- [`relay-architect`](../.claude/agents/relay-architect.md) — invoke before writing code to spec-check the planned `auth/` API surface (verify primitive shape, revocation-observer contract for 6G) against D-13 + threat-model §4.
+- [`relay-test-author`](../.claude/agents/relay-test-author.md) — invoke per `*.test.ts` file. Note: `auth/` has no per-module `CLAUDE.md` (5D-stubs scoped to load-bearing modules only), so the test author will need the spec contracts via prompt rather than auto-load.
+- [`relay-spec-reviewer`](../.claude/agents/relay-spec-reviewer.md) — invoke on the final branch diff before opening the 6B PR; will surface any drift against D-13 / D-05 / D-10.
+
+---
+
+### 6C. `persona/` module + composition rule
+
+**Goal:** Load `~/.relay/personas/*.yaml` and `<project>/.relay/personas/*.yaml`, Zod-validate against D-09, apply project-overrides-tenant-by-name composition, surface `PersonaInput` for `session/` to consume.
+**Output:** `packages/server/src/persona/`. Default personas land alongside as task 1A at `packages/server/personas/defaults/`.
+**Done when:** scenario B bullet 1 passes — default persona set enumerable via CLI and REST; bullet 2 passes — project override resolves correctly.
+**Reads:** [`docs/prd/09-persona-schema.md`](prd/09-persona-schema.md), [`docs/arch/persona-application.md`](arch/persona-application.md), [D-09](open-questions.md#d-09).
+**Feeders:** 3E (persona-yaml-check skill), 5A, 1A (default YAMLs). Expands the stub at [`packages/server/src/persona/CLAUDE.md`](../packages/server/src/persona/CLAUDE.md) per 5D-expand.
+
+---
+
+### 6D. `pty/` + `transcript/` modules (paired)
+
+**Goal:** node-pty supervisor with 32 KB per-session ring buffer (ND-03); append-only transcript writer to `~/.relay/transcripts/<sid>.bin` with byte-offset range reads (ND-04). Built as a pair because `transcript/` subscribes to `pty/`'s byte events and the two are tested together.
+**Output:** `packages/server/src/pty/`, `packages/server/src/transcript/`. `fast-check` property tests for byte-range math.
+**Done when:** can spawn a benign command (`cat`, `echo`), capture bytes, replay the last 32 KB, range-read at byte offsets. Together with 6E, unblocks scenarios C/D.
+**Reads:** [`docs/prd/03-server.md`](prd/03-server.md) §5.2, [D-07](open-questions.md#d-07), [ND-03](open-questions.md#nd-03), [ND-04](open-questions.md#nd-04).
+**Feeders:** 5A, 5B (relay-test-author). Expands the stubs at [`packages/server/src/pty/CLAUDE.md`](../packages/server/src/pty/CLAUDE.md) and [`packages/server/src/transcript/CLAUDE.md`](../packages/server/src/transcript/CLAUDE.md) per 5D-expand.
+
+---
+
+### 6E. `session/` orchestrator + boot orphan sweep
+
+**Goal:** Per the inter-module flow in [`docs/arch/repo-layout.md`](arch/repo-layout.md) §4 — resolve persona, spawn under `pty/`, wire `transcript/`, maintain attached-client registry, hold per-session claim-lock state. Boot-time orphan sweep transitioning `running` rows to `killed` with `terminated_reason = "server_restart"` per D-11.
+**Output:** `packages/server/src/session/`.
+**Done when:** `POST /sessions` end-to-end creates a row, spawns the agent, attaches the transcript, returns 201. Boot orphan sweep passes scenario A bullet 4.
+**Reads:** [`docs/arch/repo-layout.md`](arch/repo-layout.md) §4, [`docs/prd/03-server.md`](prd/03-server.md) §3–4, [D-11](open-questions.md#d-11), [D-G2](open-questions.md#d-g2).
+
+---
+
+### 6F. `server/rest/` routes + Zod validation
+
+**Goal:** Fastify routes for all REST endpoints in `prd/03-server.md` §2. Request validation via `@relay/protocol` Zod schemas. Error envelope per RFC 9457 problem-details.
+**Output:** `packages/server/src/server/rest/`, Zod schemas in `packages/protocol/`.
+**Done when:** scenarios A (project list, restart), B (persona list, override), C (session create/list/get), G (multi-session list) all return correct shapes. Supertest suite green.
+**Reads:** [`docs/prd/03-server.md`](prd/03-server.md) §2, [`docs/arch/rest-conventions.md`](arch/rest-conventions.md).
+
+---
+
+### 6G. `server/ws/` handler + claim-lock state machine
+
+**Goal:** `/sessions/:id/stream` WebSocket. Binary frames for PTY output; JSON frames for CLAIM/SEND/RELEASE/BUSY. 30-second auto-release (ND-01). Universal-output rule (D-G3). Bracketed replay on attach.
+**Output:** `packages/server/src/server/ws/`. State-machine tests covering the four race cases enumerated in `ws-protocol.md`.
+**Done when:** scenarios D (reattach + replay), E (cross-device), F (concurrent + claim) all pass.
+**Reads:** [`docs/arch/ws-protocol.md`](arch/ws-protocol.md), [`docs/prd/03-server.md`](prd/03-server.md) §5, [D-G2](open-questions.md#d-g2), [D-G3](open-questions.md#d-g3), [ND-01](open-questions.md#nd-01), [ND-03](open-questions.md#nd-03).
+**Feeders:** 3D (ws-protocol-check skill).
+
+---
+
+### 6H. `cli/` subcommands + `attach/` thin client
+
+**Goal:** All `relay` subcommands from `prd/03-server.md` §7 not already shipped in 6B. `relay attach` opens the WS, sets terminal raw mode, proxies stdin/stdout, exits on `^D`.
+**Output:** `packages/server/src/cli/` (session/project/persona subcommands), `packages/server/src/attach/`.
+**Done when:** `relay session list/kill/show` works; `relay attach <sid>` from an SSH terminal (scenario E's plain-attach variant) streams PTY output and accepts input.
+**Reads:** [`docs/prd/03-server.md`](prd/03-server.md) §7, [`docs/arch/ws-protocol.md`](arch/ws-protocol.md).
+
+---
+
+### 6I. IDE extension wire-up (`packages/extension/`)
+
+**Goal:** VS Code-family `.vsix`. First-run pairing (`relay://pair` deep link + manual URL+token), project marker discovery + bind, start-session command, attach-to-session command, status bar item. Spawns `relay attach` from the user's PATH for terminal integration.
+**Output:** `packages/extension/`. Build chain via esbuild + `@vscode/vsce`.
+**Done when:** scenarios C (single-client lifecycle in Cursor over Remote-SSH), D (close + reopen + reattach), E (cross-device with desktop as one of the clients) all pass with the extension as the client.
+**Reads:** [`docs/prd/04-ide-extension.md`](prd/04-ide-extension.md), [D-G6](open-questions.md#d-g6), [ND-05](open-questions.md#nd-05), [ND-07](open-questions.md#nd-07).
+
+---
+
+### 6J. Distribution: npm tarball, Docker image, Compose
+
+**Goal:** npm-publishable tarball (`tsup` bundle → `dist/relay.js`); Docker image; Docker Compose example with Caddy + Tailscale sidecar; GitHub Releases vsix attachment.
+**Output:** root `Dockerfile`, `docker-compose.example.yml`, npm publish workflow, release workflow attaching the `.vsix`.
+**Done when:** scenario H — `npm install -g` on Node 22+ produces a working `relay`; the Docker image runs scenarios A–E from a clean container; the `.vsix` installs into VS Code from a GitHub Release.
+**Reads:** [`docs/prd/06-distribution.md`](prd/06-distribution.md).
+
+---
+
+### 6Z. Phase 1 done gate
+
+**Goal:** Phase 1 ships.
+**Done when:** `.claude/skills/scenario-runner/SKILL.md` walks scenarios A–H and reports `pass` on every check (no `blocked`, no `fail`). Tasks 1A (default personas), 1B (threat model), 1C (README + deployment guide) all complete. Every Phase 1 row in the Sequencing table at the top of this file is marked `done` with an artifact link.
+**Reads:** [`docs/prd/07-phasing.md`](prd/07-phasing.md), [`docs/prd/08-acceptance.md`](prd/08-acceptance.md), [`.claude/skills/scenario-runner/SKILL.md`](../.claude/skills/scenario-runner/SKILL.md).
 
 ---
 
 ## How to use this file
 
 1. Pick the next task from the **Sequencing** table (top of file). Start with `4A` (2D is done).
-2. Open a fresh Claude Code session, paste the kickoff prompt for that task.
+2. **Draft the kickoff prompt** for that task. For Track 6 (and any later track that ships with one-line stubs), invoke the [`build-plan-kickoff` skill](../.claude/skills/build-plan-kickoff/SKILL.md) — it walks the five-step workflow (validate upstream `done` → resolve required reads → pull Phase 0 surprises assigned to the task → build a `D-NN` / `ND-NN` cheatsheet → probe preflight gaps) and emits a structured kickoff (Goal / Preflight / Required reads / Phase 0 surprises / Cheatsheet / Done when / Output structure / Verification / Feeders). 6A's row is the worked reference. Paste the output back into the row to replace its one-line stub, or feed it directly into a fresh Claude Code session.
 3. When the task lands:
    - Update the row's `Status` column to `done` and link the output artifact path
    - Replace the task's kickoff prompt with a 1–2 line completion pointer (the artifact is now authoritative; the prompt is historical churn)

@@ -818,3 +818,4 @@ Option A at MVP, with the enforcement gap explicitly documented in `docs/arch/pe
 
 ### Resolution
 *(unresolved)*
+
