@@ -1,0 +1,21 @@
+{
+  "name": "@relay/spike",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -b --pretty",
+    "fix-pty": "node scripts/fix-pty.mjs",
+    "serve": "tsx src/server.ts",
+    "attach": "tsx src/attach.ts"
+  },
+  "dependencies": {
+    "node-pty": "^1.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2"
+  }
+}

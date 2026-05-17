@@ -4,6 +4,7 @@
   "references": [
     { "path": "./packages/protocol" },
     { "path": "./packages/server" },
-    { "path": "./packages/extension" }
+    { "path": "./packages/extension" },
+    { "path": "./spike" }
   ]
 }
