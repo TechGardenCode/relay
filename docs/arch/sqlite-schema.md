@@ -98,7 +98,7 @@ CREATE TABLE sessions (
   pty_pid           INTEGER,                                      -- node-pty child PID; NULL once killed (01-conceptual-model.md:20)
   status            TEXT NOT NULL CHECK (status IN ('running','idle','killed')),
   terminated_reason TEXT,                                         -- string enum; populated when status -> killed (D-11)
-  total_bytes       INTEGER NOT NULL DEFAULT 0,                   -- running count of bytes in ~/.relay/transcripts/<id>.bin (ND-04)
+  total_bytes       INTEGER NOT NULL DEFAULT 0,                   -- running count of bytes in ~/.relay/transcripts/<id>.bin (ND-04); eventually consistent within ≤1 s on a live session (ND-13)
   created_at        INTEGER NOT NULL,
   updated_at        INTEGER NOT NULL,
 

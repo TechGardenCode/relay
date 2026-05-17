@@ -376,9 +376,9 @@ packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json f
 ### 6E. `session/` orchestrator + boot orphan sweep
 
 **Goal:** Per the inter-module flow in [`docs/arch/repo-layout.md`](arch/repo-layout.md) §4 — resolve persona, spawn under `pty/`, wire `transcript/`, maintain attached-client registry, hold per-session claim-lock state. Boot-time orphan sweep transitioning `running` rows to `killed` with `terminated_reason = "server_restart"` per D-11. Capture Claude Code's native session id by polling `~/.claude/projects/<encodedPath>/` per ND-11; write the UUID stem to `sessions.agent_session_id`.
-**Output:** `packages/server/src/session/` (includes `agent-session-id.ts` with the filesystem-poll capture per ND-11).
+**Output:** `packages/server/src/session/` (includes `byte-accounting.ts` per ND-13 and `agent-session-id.ts` with the filesystem-poll capture per ND-11).
 **Done when:** `POST /sessions` end-to-end creates a row, spawns the agent, attaches the transcript, returns 201. Boot orphan sweep passes scenario A bullet 4. `sessions.agent_session_id` is populated within 30 s for spawns whose agent emits a `.jsonl` under `~/.claude/projects/`, and remains `NULL` with no error surfaced if the file never appears (the WS `hello` frame omits `agentSessionId` in that case, per ws-protocol.md §2.3 "optional").
-**Reads:** [`docs/arch/repo-layout.md`](arch/repo-layout.md) §4, [`docs/prd/03-server.md`](prd/03-server.md) §3–4, [`docs/arch/persona-application.md`](arch/persona-application.md) §4.2–4.3, [`packages/protocol/src/spawn-record.ts`](../packages/protocol/src/spawn-record.ts), [D-11](open-questions.md#d-11), [D-G2](open-questions.md#d-g2), [ND-11](open-questions.md#nd-11-agentsessionid-capture-mechanism), [ND-12](open-questions.md#nd-12-spawn-json-schema-location).
+**Reads:** [`docs/arch/repo-layout.md`](arch/repo-layout.md) §4, [`docs/prd/03-server.md`](prd/03-server.md) §3–4, [`docs/arch/persona-application.md`](arch/persona-application.md) §4.2–4.3, [`packages/protocol/src/spawn-record.ts`](../packages/protocol/src/spawn-record.ts), [D-11](open-questions.md#d-11), [D-G2](open-questions.md#d-g2), [ND-11](open-questions.md#nd-11-agentsessionid-capture-mechanism), [ND-12](open-questions.md#nd-12-spawn-json-schema-location), [ND-13](open-questions.md#nd-13-byte-accounting-cadence-for-sessionstotal_bytes).
 
 ---
 
@@ -387,7 +387,7 @@ packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json f
 **Goal:** Fastify routes for all REST endpoints in `prd/03-server.md` §2. Request validation via `@relay/protocol` Zod schemas. Error envelope per RFC 9457 problem-details.
 **Output:** `packages/server/src/server/rest/`, Zod schemas in `packages/protocol/`.
 **Done when:** scenarios A (project list, restart), B (persona list, override), C (session create/list/get), G (multi-session list) all return correct shapes. Supertest suite green.
-**Reads:** [`docs/prd/03-server.md`](prd/03-server.md) §2, [`docs/arch/rest-conventions.md`](arch/rest-conventions.md).
+**Reads:** [`docs/prd/03-server.md`](prd/03-server.md) §2, [`docs/arch/rest-conventions.md`](arch/rest-conventions.md), [ND-04](open-questions.md#nd-04-transcript-pagination-api-shape), [ND-13](open-questions.md#nd-13-byte-accounting-cadence-for-sessionstotal_bytes).
 
 ---
 
