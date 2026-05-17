@@ -1,0 +1,3 @@
+schemaVersion: 1
+name: infra
+description: TENANT infra — no project override, survives composition.

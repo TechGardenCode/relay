@@ -1,0 +1,4 @@
+schemaVersion: 1
+name: extra-fields
+description: includes an unknown top-level key.
+favoriteColor: blue

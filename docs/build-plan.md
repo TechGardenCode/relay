@@ -73,7 +73,7 @@ Track 1:   1A pairs with 6C · 1B pairs with 6B · 1C landed early · 3C optiona
 | 5D-expand | Per-module `CLAUDE.md` body fill | (folded into 6A/6C/6D) | tracked inside each 6x Done-when |
 | 6A | `store/` module + migrations runner | 6E, 6F, scenario A | **done** → [`packages/server/src/store/`](../packages/server/src/store/) |
 | 6B | `auth/` module + token CLI subcommands | 6F, scenario A | **done** → [`packages/server/src/auth/`](../packages/server/src/auth/) · [`packages/server/src/cli/`](../packages/server/src/cli/) |
-| 6C | `persona/` module + composition rule | 6E, 6F, scenario B | pending (needs 4B, 3E, 1A; expands `persona/CLAUDE.md` stub) |
+| 6C | `persona/` module + composition rule | 6E, 6F, scenario B | **done** → [`packages/server/src/persona/`](../packages/server/src/persona/) · [`packages/protocol/src/persona.ts`](../packages/protocol/src/persona.ts) |
 | 6D | `pty/` + `transcript/` modules (paired) | 6E, 6G, scenarios C/D | pending (needs 4B, 5B; expands `pty/CLAUDE.md` + `transcript/CLAUDE.md` stubs) |
 | 6E | `session/` orchestrator + boot orphan sweep | 6F, 6G, scenarios C/D/G | pending (needs 6A, 6C, 6D) |
 | 6F | `server/rest/` routes + Zod validation | 6H, scenarios A/B/C/G | pending (needs 6A, 6B, 6C, 6E) |
@@ -361,13 +361,9 @@ packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json f
 
 ---
 
-### 6C. `persona/` module + composition rule
+### 6C. `persona/` module + composition rule — **done**
 
-**Goal:** Load `~/.relay/personas/*.yaml` and `<project>/.relay/personas/*.yaml`, Zod-validate against D-09, apply project-overrides-tenant-by-name composition, surface `PersonaInput` for `session/` to consume.
-**Output:** `packages/server/src/persona/`. Default personas land alongside as task 1A at `packages/server/personas/defaults/`.
-**Done when:** scenario B bullet 1 passes — default persona set enumerable via CLI and REST; bullet 2 passes — project override resolves correctly.
-**Reads:** [`docs/prd/09-persona-schema.md`](prd/09-persona-schema.md), [`docs/arch/persona-application.md`](arch/persona-application.md), [D-09](open-questions.md#d-09).
-**Feeders:** 3E (persona-yaml-check skill), 5A, 1A (default YAMLs). Expands the stub at [`packages/server/src/persona/CLAUDE.md`](../packages/server/src/persona/CLAUDE.md) per 5D-expand.
+**Output:** [`packages/server/src/persona/`](../packages/server/src/persona/) — `loader.ts` (readdir + `js-yaml` parse with ENOENT-on-dir tolerance), `validator.ts` (pre-Zod required-field check + Zod wrap + filename-stem match, mapping Zod issues to the nine-value `PersonaLoadReason` enum), `compose.ts` (Map-keyed project-overrides-tenant-by-name with full-struct replacement per D-09 §3), `index.ts` (`loadAll({ tenantDir, projectDir? })` one-shot helper). Strict Zod schema at [`packages/protocol/src/persona.ts`](../packages/protocol/src/persona.ts) exporting `PersonaSchema` + type `Persona` + `PERSONA_NAME_REGEX` + `SUPPORTED_PERSONA_SCHEMA_VERSIONS`; rejects unknown top-level keys so typos surface as `extra_fields`. 37 Vitest tests across four `*.test.ts` files cover every `reason` enum value, all six composition scenarios, missing-dir/empty-dir/non-yaml/io-error edge cases, and a regression smoke test that loads the seven 1A defaults clean. `packages/server/src/config/paths.ts` gained a `projectPersonasDir(canonicalProjectPath)` helper. ND-08 (skills-subset enforcement) remains open and is honored by passing `skills:` through to `PersonaInput` unenforced; citation comment lives at the `loadAll` boundary. [`packages/server/src/persona/CLAUDE.md`](../packages/server/src/persona/CLAUDE.md) expanded with the public surface, the priority order of the reason enum, and the strict-mode-on / missing-dir-isn't-error / no-merge invariants.
 
 ---
 

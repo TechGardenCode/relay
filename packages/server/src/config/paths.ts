@@ -23,6 +23,10 @@ export function personasDir(homeOverride?: string): string {
   return join(relayHome(homeOverride), 'personas');
 }
 
+export function projectPersonasDir(canonicalProjectPath: string): string {
+  return join(canonicalProjectPath, RELAY_DIR, 'personas');
+}
+
 export function transcriptsDir(homeOverride?: string): string {
   return join(relayHome(homeOverride), 'transcripts');
 }

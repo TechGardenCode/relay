@@ -1,0 +1,4 @@
+schemaVersion: 1
+name: model-type
+description: model is an integer instead of a string.
+model: 42

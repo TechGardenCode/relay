@@ -1,0 +1,5 @@
+schemaVersion: 1
+name: null-skills
+description: skills explicitly null — equivalent to "all skills".
+skills: null
+mcpServers: null

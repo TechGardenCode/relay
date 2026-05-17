@@ -4,6 +4,7 @@ import {
   configPath,
   lastPairingPath,
   personasDir,
+  projectPersonasDir,
   relayHome,
   sessionsDir,
   tokensPath,
@@ -27,6 +28,10 @@ describe('paths', () => {
 
   it('returns personas/ as a directory under ~/.relay/', () => {
     expect(personasDir(FAKE_HOME)).toBe('/tmp/relay-paths-test-home/.relay/personas');
+  });
+
+  it('returns <project>/.relay/personas/ for a canonical project path', () => {
+    expect(projectPersonasDir('/work/example')).toBe('/work/example/.relay/personas');
   });
 
   it('returns transcripts/ as a directory under ~/.relay/', () => {

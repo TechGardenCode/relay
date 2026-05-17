@@ -3,3 +3,6 @@ dist/
 coverage/
 pnpm-lock.yaml
 docs/
+
+# Intentionally malformed YAML fixture (validator parse_error coverage).
+packages/server/test/fixtures/personas/invalid/parse-error.yaml

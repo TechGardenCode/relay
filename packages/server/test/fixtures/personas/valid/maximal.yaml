@@ -1,0 +1,12 @@
+schemaVersion: 1
+name: maximal
+description: Every optional field set.
+systemPrompt: |
+  Work as a maximal-coverage persona.
+skills:
+  - test-runner
+  - shadcn
+mcpServers:
+  - github
+  - linear
+model: claude-sonnet-4-6

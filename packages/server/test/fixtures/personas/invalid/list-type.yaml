@@ -1,0 +1,4 @@
+schemaVersion: 1
+name: list-type
+description: skills is a string instead of a list.
+skills: test-runner
