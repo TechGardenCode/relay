@@ -21,6 +21,19 @@ Read these before touching the matching surface:
 | REST routes or error shapes          | [`docs/arch/rest-conventions.md`](docs/arch/rest-conventions.md)       |
 | repo layout / module boundaries      | [`docs/arch/repo-layout.md`](docs/arch/repo-layout.md)                 |
 
+## Per-module context
+
+Each load-bearing module ships a ~25-line `CLAUDE.md` with its must-know constraints (what it owns, what it does NOT own, test isolation, surprising invariants). Claude Code auto-loads these only when an agent reads or edits a file in that subtree — read them explicitly at plan time, before designing changes that touch the module:
+
+| Working on…                                   | Read                                                                                   |
+| --------------------------------------------- | -------------------------------------------------------------------------------------- |
+| SQLite repository layer or migrations         | [`packages/server/src/store/CLAUDE.md`](packages/server/src/store/CLAUDE.md)           |
+| Persona YAML loading / composition            | [`packages/server/src/persona/CLAUDE.md`](packages/server/src/persona/CLAUDE.md)       |
+| `node-pty` supervisor or ring buffer          | [`packages/server/src/pty/CLAUDE.md`](packages/server/src/pty/CLAUDE.md)               |
+| Transcript sidecar writes or byte-range reads | [`packages/server/src/transcript/CLAUDE.md`](packages/server/src/transcript/CLAUDE.md) |
+
+Sub-agents (`relay-architect`, `relay-test-author`, `relay-spec-reviewer`) Read these files explicitly in their system prompts — see [`docs/build-plan.md`](docs/build-plan.md) Track 5.
+
 ## Code-comment convention
 
 Any code comment that names a non-obvious behavior must cite the `D-NN` or `ND-NN` it traces back to. Examples:
@@ -42,7 +55,7 @@ When you introduce behavior that warrants a new decision, file it in `docs/open-
 - **`packages/extension/`** — `@relay/extension`, the VS Code family extension (`.vsix` output). Spawns `relay attach` from the user's PATH for terminal integration.
 - **`packages/pwa/`** — Phase 2 placeholder. Empty until Phase 2 begins.
 
-Per-module `CLAUDE.md` files in the four load-bearing modules (`persona`, `transcript`, `pty`, `store`) are planned for build-plan task **5D** and will land as those modules grow.
+Per-module `CLAUDE.md` stubs ship at the load-bearing modules (`persona`, `transcript`, `pty`, `store`) — indexed under [Per-module context](#per-module-context). Bodies expand as each module's `6x` implementation task lands; build-plan task **5D-stubs** seeded them, **5D-expand** is the per-module body fill.
 
 ## Scripts
 
