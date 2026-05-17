@@ -8,6 +8,7 @@ import {
   relayHome,
   sessionsDir,
   tokensPath,
+  transcriptPath,
   transcriptsDir,
 } from './paths.js';
 
@@ -36,6 +37,13 @@ describe('paths', () => {
 
   it('returns transcripts/ as a directory under ~/.relay/', () => {
     expect(transcriptsDir(FAKE_HOME)).toBe('/tmp/relay-paths-test-home/.relay/transcripts');
+  });
+
+  it('composes the per-session transcript sidecar path under transcripts/', () => {
+    // Per sqlite-schema.md §2: <sid>.bin under transcripts/, no DB column.
+    expect(transcriptPath('01J0SESSION', FAKE_HOME)).toBe(
+      '/tmp/relay-paths-test-home/.relay/transcripts/01J0SESSION.bin',
+    );
   });
 
   it('returns sessions/ as a directory under ~/.relay/', () => {

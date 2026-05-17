@@ -31,6 +31,13 @@ export function transcriptsDir(homeOverride?: string): string {
   return join(relayHome(homeOverride), 'transcripts');
 }
 
+// Per sqlite-schema.md §2: transcripts are sidecar files at
+// `~/.relay/transcripts/<sid>.bin`; no `transcript_path` column on `sessions`.
+// The path is computed from the session id at read/write time.
+export function transcriptPath(sid: string, homeOverride?: string): string {
+  return join(transcriptsDir(homeOverride), `${sid}.bin`);
+}
+
 export function sessionsDir(homeOverride?: string): string {
   return join(relayHome(homeOverride), 'sessions');
 }
