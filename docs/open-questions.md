@@ -60,6 +60,8 @@ When a decision flips to `resolved`, its spec content has to land in the affecte
 **Open / in-deliberation:**
 - [ND-08 — Skill subset enforcement mechanism](#nd-08-skill-subset-enforcement-mechanism)
 - [ND-10 — `relay token list` subcommand surface alignment](#nd-10-relay-token-list-subcommand-surface-alignment)
+- [ND-12 — `spawn.json` schema location](#nd-12-spawnjson-schema-location)
+- [ND-13 — Byte-accounting cadence for `sessions.total_bytes`](#nd-13-byte-accounting-cadence-for-sessionstotal_bytes)
 
 **Deferred:**
 - [D-02 — PWA initial server discovery](#d-02-pwa-initial-server-discovery) (deferred until Phase 2)
@@ -90,6 +92,7 @@ When a decision flips to `resolved`, its spec content has to land in the affecte
 - [ND-06 — Worktree project identity](#nd-06-worktree-project-identity) (resolved 2026-05-15)
 - [ND-07 — Marker file schema](#nd-07-marker-file-schema) (resolved 2026-05-15)
 - [ND-09 — Bearer token hashing algorithm](#nd-09-bearer-token-hashing-algorithm) (resolved 2026-05-17)
+- [ND-11 — `agentSessionId` capture mechanism](#nd-11-agentsessionid-capture-mechanism) (resolved 2026-05-17)
 
 ---
 
@@ -876,4 +879,110 @@ The build-plan is the newer artifact and explicitly canonicalizes the four-subco
 What to validate before resolving: (a) the exact output columns (`{ id, deviceLabel, createdAt, revokedAt | "active" }` is the build-plan 6B proposal — confirm against operator UX expectations); (b) that `list` never prints the plaintext or the hash (threat-model §4 makes this load-bearing); (c) whether `--all` is needed to include revoked rows or whether they're listed by default (build-plan 6B does not specify; lean toward listing revoked by default since the list will be short and operators want to see "did my revoke actually land"); (d) the propagation edit to `prd/03-server.md` §7 — add the `relay token list` row between `relay token create --device <name>` and `relay token revoke <id>`.
 
 This is filed as `open` so the resolution lands as a deliberate PRD edit rather than an inline implementation drift. Build-plan 6B ships `list` regardless (the build-plan is the canonical task surface for code that will be written); the PRD §7 propagation closes the doc gap.
+
+---
+
+## ND-11: `agentSessionId` capture mechanism
+
+**Status:** resolved (2026-05-17)
+**Affects:** `docs/arch/persona-application.md` §4.3 (new), `packages/server/src/session/agent-session-id.ts` (implementation), `packages/server/src/pty/CLAUDE.md` (correction), `docs/build-plan.md` task 6E (Reads list + Done-when)
+**Surfaced by:** build-plan 6E preflight (2026-05-17) — Phase 0 report Surprise §6 explicitly assigned `agentSessionId` capture to 6E but left the discovery mechanism unspecified.
+
+### Question
+How does the `session/` orchestrator (6E) discover Claude Code's native session id after spawning the agent under PTY, given that Claude Code writes the id to `~/.claude/projects/<encodedCanonicalProjectPath>/<sessionId>.jsonl` rather than emitting it on stdout?
+
+### Resolution
+Filesystem-poll discovery with non-fatal timeout. The mechanism:
+
+1. **Discovery mechanism.** Before spawn, the `session/` orchestrator snapshots the set of `.jsonl` filenames in `~/.claude/projects/<encodedPath>/`, where `encodedPath` is the project's canonical absolute path with every `/` replaced by `-` (including the leading `/`, which becomes the leading `-`). If the directory does not exist pre-spawn, the snapshot is the empty set.
+
+2. **Polling loop.** After spawn, the orchestrator polls the directory every 250 ms for up to 30 s. The capture target is the first newly-appearing directory entry whose name matches `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$` (case-insensitive UUID v4 shape with `.jsonl` extension). The UUID stem (without the extension) is written to `sessions.agent_session_id` via the existing `updateAgentSessionId(db, id, ...)` repository function in [`packages/server/src/store/sessions.ts`](../packages/server/src/store/sessions.ts).
+
+3. **Filter rule (both conditions required).** The entry must end in `.jsonl` AND its stem must be UUID-shaped. Claude Code creates three kinds of entries under the project dir: `<uuid>.jsonl` files (the capture target), bare-UUID directories with the same stem (sidecar storage), and a `memory/` directory. Filtering on `.jsonl` alone would let any future non-UUID `.jsonl` through; filtering on UUID-shape alone would match the bare sidecar directories. Empirically verified against a live `~/.claude/projects/` containing 12 project directories on 2026-05-17.
+
+4. **Tunables.** `POLL_INTERVAL_MS = 250` and `CAPTURE_TIMEOUT_MS = 30_000` are named constants at the top of `packages/server/src/session/agent-session-id.ts` with a `Per ND-11` citation. Not server-config, not persona-overridable. Operators have no realistic reason to tune internal discovery cadence; if a real reason emerges (e.g., a slow filesystem layer surfaces in production), a follow-up ND can promote them to `~/.relay/config.yaml` alongside `claimLockTimeoutSeconds` (per ND-01).
+
+5. **Failure mode.** Non-fatal. On timeout, `sessions.agent_session_id` stays `NULL`. When a client later attaches and the server builds the `hello` frame, the `agentSessionId` field is omitted entirely (no string, no null). Matches [`ws-protocol.md`](arch/ws-protocol.md) §2.3 "optional" wording without a wire-schema change. The IDE extension already has to handle the absent case (the agent may simply never write a `.jsonl` — e.g., during a future non-Claude agent integration).
+
+6. **Why not Option B (`fs.watch`).** Platform-specific failure surface on macOS APFS, where `rename` events are documented to be missed under specific timing patterns; the latency win (sub-100ms vs ~250ms) does not justify the testing burden for a one-shot discovery on session spawn. Polling at 250 ms means worst-case 120 `readdir` calls per spawn — bounded and cheap.
+
+7. **Why not Option C (parse stdout).** Claude Code does not emit its session id to stdout or stderr. Rejected on read of actual agent behavior.
+
+**Path-encoding edge case.** The empirical sample used during resolution did not contain a canonical project path with a space character. The implementation should pass spaces through textually (Claude Code's convention appears to be pure `/` → `-` replacement with no other escaping) and ship a unit test against a fixture path containing a space; if the agent's actual behavior diverges, file an ND.
+
+**Why this and not a wire-schema discriminator.** Adding an `agentSessionIdStatus: 'pending' | 'captured' | 'unavailable'` field to `hello` would let the IDE extension show a distinct "correlation unavailable" affordance, but: (i) under Option A the capture is synchronous before `hello` fires, so the `pending` state is a lie; (ii) the absent field already conveys "unavailable" — the extension can branch on `frame.agentSessionId !== undefined`; (iii) adding wire surface for a Phase-2 affordance is premature. If the extension later needs to distinguish "agent has no concept of session id" from "Relay gave up trying," a follow-up ND can extend the frame.
+
+**Propagated to:** `packages/server/src/pty/CLAUDE.md` (2026-05-17), `docs/arch/persona-application.md` §4.3 (2026-05-17), `docs/build-plan.md` task 6E (2026-05-17).
+
+---
+
+## ND-12: `spawn.json` schema location
+
+**Status:** resolved (2026-05-17)
+**Affects:** `docs/arch/persona-application.md` §4.2, [`packages/protocol/src/spawn-record.ts`](../packages/protocol/src/spawn-record.ts), `packages/server/src/session/spawn.ts` (6E)
+**Surfaced by:** build-plan 6E preflight (2026-05-17) — `docs/arch/persona-application.md` §4.2 names `spawn.json` as part of the transient session dir at `~/.relay/sessions/<sid>/` but gives no formal schema.
+
+### Question
+What is the formal schema for the `spawn.json` audit file written into `~/.relay/sessions/<sid>/` at session spawn, and where does the Zod definition live so 6E (writer) and the future `relay session inspect` (6H, reader) share a single source of truth?
+
+### Elaboration prompt
+[`docs/arch/persona-application.md`](arch/persona-application.md) §4.2 prose names `spawn.json` and describes its purpose ("records the resolved persona snapshot, argv, env names (not values), timestamps") but does not commit to field names, types, or schema-version handling. Without a formal schema, 6E will inline an ad-hoc object literal and 6H will reverse-engineer it later — the precise drift the `@relay/protocol` package exists to prevent (see [`docs/arch/repo-layout.md`](arch/repo-layout.md) §3 on the protocol package's role).
+
+Two location options:
+
+- **Option A — Define in `@relay/protocol` as a shared Zod schema.** New file `packages/protocol/src/spawn-record.ts` exports `SpawnRecordSchema` (Zod) and `type SpawnRecord = z.infer<typeof SpawnRecordSchema>`. 6E imports and validates writes; 6H imports and validates reads. Single source of truth; future-proof against the schema evolving (a `schemaVersion: number` field at the top discriminates readers).
+- **Option B — Define inline in `session/spawn.ts` as a local TypeScript type.** Lower ceremony, but creates the drift the protocol package was designed to prevent the moment 6H lands and writes its own reader.
+
+Proposed schema (Option A):
+
+```ts
+const SpawnRecordSchema = z.object({
+  schemaVersion: z.literal(1),
+  sessionId: z.string(),                              // ULID
+  projectId: z.string(),                              // ULID
+  personaName: z.string(),                            // kebab-case
+  personaSource: z.enum(['tenant', 'project']),       // which dir the persona was loaded from
+  argv: z.array(z.string()),                          // the resolved CLI argv passed to node-pty
+  envNames: z.array(z.string()),                      // env var NAMES only — values are secrets per persona-application.md §4.2
+  cwd: z.string(),                                    // canonical project path (per D-12)
+  agentCli: z.string(),                               // e.g. 'claude'
+  spawnedAt: z.string().datetime(),                   // ISO-8601 UTC
+});
+```
+
+What to validate before resolving: (a) whether `personaFilePath` and the persona's content hash should be captured alongside `personaName` so a forensic reader can prove which exact file resolved (useful when the same persona name resolved differently across tenant vs project dirs); (b) whether `mcpJsonPath` (when a transient `mcp.json` is written) gets a sibling field for cross-file audit; (c) whether the `0o600` file mode on `spawn.json` matches the threat-model boundary for the transient session dir (mode `0o700` on the dir is proposed in the build-plan, this aligns).
+
+### Resolution
+
+**Option A.** `SpawnRecordSchema` lives in `@relay/protocol` at [`packages/protocol/src/spawn-record.ts`](../packages/protocol/src/spawn-record.ts). 6E imports it to validate writes; the future `relay session inspect` reader (deferred past 6H) imports it to validate reads. Matches the `PersonaSchema` precedent (single source of truth for a wire/disk shape, `.strict()`, top-of-file citation comment). `schemaVersion: z.literal(1)` discriminates readers if the shape ever evolves.
+
+Sub-question answers:
+
+- **(a) `personaFilePath` + `personaContentHash`: both included.** `PersonaInput.filePath` is already exposed by the persona loader (`packages/server/src/persona/types.ts`), so `personaFilePath` is zero-cost. `personaContentHash` is `sha256:<hex>` over the YAML bytes at spawn — proves which exact bytes resolved even if the file is later edited. 6E computes it via `crypto.createHash('sha256').update(yamlBytes).digest('hex')` from the bytes read at `personaFilePath`.
+- **(b) `mcpJsonPath`: included as `z.string().nullable()`.** `null` when the persona has no `mcpServers` filter (no `mcp.json` written, per §4.2); absolute path when written.
+- **(c) `0o600` on `spawn.json`: yes.** Aligns with the proposed `0o700` on the transient session dir and matches the existing transcript-sidecar pattern in 6D (`packages/server/src/transcript/writer.ts`). Owner-only readable; treats spawn metadata as private to the host user. Behavioral constraint on the 6E writer — recorded here rather than in the schema.
+
+---
+
+## ND-13: Byte-accounting cadence for `sessions.total_bytes`
+
+**Status:** open
+**Affects:** `packages/server/src/session/byte-accounting.ts` (new), `packages/server/src/store/CLAUDE.md` (consistency note)
+**Surfaced by:** build-plan 6E preflight (2026-05-17) — 6E wires `pty.onBytes` to `transcript.writer.append`, and must also keep `sessions.total_bytes` reasonably accurate for [[nd-04-transcript-pagination-api-shape]]'s `before`-cursor semantics. The flush cadence has cost vs. accuracy trade-offs that should be resolved deliberately.
+
+### Question
+When does the `session/` orchestrator call `sessions.incrementTotalBytes(db, sid, delta, now)` to update the `sessions.total_bytes` column — on every PTY byte event (correct but expensive), batched on a timer (lossy on hard crash), or only on `pty.onExit` / `registry.shutdown()` (very lossy but simplest)?
+
+### Elaboration prompt
+[[nd-04-transcript-pagination-api-shape]] commits to a `before`-cursor over byte offsets where `totalBytes` is the canonical upper bound the server presents to clients. The transcript sidecar file is the ground truth for which bytes exist on disk (per [`docs/arch/sqlite-schema.md`](arch/sqlite-schema.md) §3); the `total_bytes` column is a denormalized read accelerator that lets `GET /transcript` answer without `fstat`-ing the sidecar on every paginated read.
+
+Three options:
+
+- **Option A — Per-chunk synchronous flush.** Every `pty.onBytes` event calls `incrementTotalBytes`. Accurate to the byte, but at terminal output rates (a `make` invocation can emit thousands of small chunks/sec), this is one SQL UPDATE per chunk — measurable IO load on a host with multiple live sessions. Correctness wins, perf loses.
+- **Option B — Batched 1-second flush with shutdown drain.** In-memory pending counter per session; a `setInterval(flush, 1000)` SQL-UPDATEs only sessions with non-zero pending deltas. `registry.shutdown()` and `pty.onExit` both flush synchronously. Lossy by ≤1 s on hard crash (kill -9, power loss) — but the sidecar file is the disaster-recovery source of truth and 6F's transcript pagination can fall back to `fstat()` on the sidecar when `total_bytes` is suspected stale (e.g., on first read after a `running` row's recent boot-sweep transition). Cost: one SQL UPDATE per active session per second, dominated by the rate of inactive sessions (which contribute zero updates). Lean.
+- **Option C — Flush only on `pty.onExit` and `registry.shutdown()`.** Zero overhead during the session's lifetime. `total_bytes` reports `0` until the agent exits — `GET /transcript` paginated reads must fall back to `fstat()` on every call for live sessions. Simplest code; pushes complexity into the read path.
+
+What to validate before resolving: (a) whether the 1-second cadence is the right tunable, or whether it should scale with session count (e.g., 100ms when one session, 5s when ten); (b) whether the lossiness on hard crash is acceptable given that the next boot's [[d-11-server-restart-and-session-orphaning]] sweep flips the row to `killed/server_restart` and the `total_bytes` lag becomes user-visible only via `GET /transcript` cursor edge cases (the sidecar `fstat()` fallback covers this); (c) whether the byte-accounting module should also expose a `force-flush` hook for tests and operator commands; (d) whether 6F needs a `transcript/CLAUDE.md` note that `total_bytes` is eventually consistent within the cadence window.
+
+Proposed direction is Option B (1-second batched flush + shutdown drain) with a consistency note added to `packages/server/src/store/CLAUDE.md` so 6F's transcript pagination code is aware of the freshness boundary. Code that touches `packages/server/src/session/byte-accounting.ts` and the consumer in `session/registry.ts` is blocked on this resolution.
 

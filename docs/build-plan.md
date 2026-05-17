@@ -74,7 +74,7 @@ Track 1:   1A pairs with 6C · 1B pairs with 6B · 1C landed early · 3C optiona
 | 6A | `store/` module + migrations runner | 6E, 6F, scenario A | **done** → [`packages/server/src/store/`](../packages/server/src/store/) |
 | 6B | `auth/` module + token CLI subcommands | 6F, scenario A | **done** → [`packages/server/src/auth/`](../packages/server/src/auth/) · [`packages/server/src/cli/`](../packages/server/src/cli/) |
 | 6C | `persona/` module + composition rule | 6E, 6F, scenario B | **done** → [`packages/server/src/persona/`](../packages/server/src/persona/) · [`packages/protocol/src/persona.ts`](../packages/protocol/src/persona.ts) |
-| 6D | `pty/` + `transcript/` modules (paired) | 6E, 6G, scenarios C/D | pending (needs 4B, 5B; expands `pty/CLAUDE.md` + `transcript/CLAUDE.md` stubs) |
+| 6D | `pty/` + `transcript/` modules (paired) | 6E, 6G, scenarios C/D | **done** → [`packages/server/src/pty/`](../packages/server/src/pty/) · [`packages/server/src/transcript/`](../packages/server/src/transcript/) |
 | 6E | `session/` orchestrator + boot orphan sweep | 6F, 6G, scenarios C/D/G | pending (needs 6A, 6C, 6D) |
 | 6F | `server/rest/` routes + Zod validation | 6H, scenarios A/B/C/G | pending (needs 6A, 6B, 6C, 6E) |
 | 6G | `server/ws/` handler + claim-lock state machine | 6H, scenarios D/E/F | pending (needs 6E, 3D) |
@@ -367,22 +367,18 @@ packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json f
 
 ---
 
-### 6D. `pty/` + `transcript/` modules (paired)
+### 6D. `pty/` + `transcript/` modules (paired) — **done**
 
-**Goal:** node-pty supervisor with 32 KB per-session ring buffer (ND-03); append-only transcript writer to `~/.relay/transcripts/<sid>.bin` with byte-offset range reads (ND-04). Built as a pair because `transcript/` subscribes to `pty/`'s byte events and the two are tested together.
-**Output:** `packages/server/src/pty/`, `packages/server/src/transcript/`. `fast-check` property tests for byte-range math.
-**Done when:** can spawn a benign command (`cat`, `echo`), capture bytes, replay the last 32 KB, range-read at byte offsets. Together with 6E, unblocks scenarios C/D.
-**Reads:** [`docs/prd/03-server.md`](prd/03-server.md) §5.2, [D-07](open-questions.md#d-07), [ND-03](open-questions.md#nd-03), [ND-04](open-questions.md#nd-04).
-**Feeders:** 5A, 5B (relay-test-author). Expands the stubs at [`packages/server/src/pty/CLAUDE.md`](../packages/server/src/pty/CLAUDE.md) and [`packages/server/src/transcript/CLAUDE.md`](../packages/server/src/transcript/CLAUDE.md) per 5D-expand.
+**Output:** [`packages/server/src/pty/`](../packages/server/src/pty/) — `supervisor.ts` (node-pty wrap, `encoding: null` for byte fidelity, callback-registration fan-out per D-G3, listener cleanup on exit), `ring-buffer.ts` (pure `Buffer.allocUnsafe(capacity)` + write cursor + `filled` flag — zero allocation per byte event, one allocation per `snapshot()` bounded by capacity per ND-03), `index.ts` barrel + `DEFAULT_RING_BUFFER_BYTES`. [`packages/server/src/transcript/`](../packages/server/src/transcript/) — `writer.ts` (`O_APPEND` fd, mode `0o600`, single final `fsync` on close), `reader.ts` (pure `readRange` over the sidecar with ND-04 half-open math, silent 1 MB clamp, throws on caller bugs, `before === 0` is the valid terminal call), `index.ts` re-exports the new `transcriptPath(sid)` helper from `config/paths.ts`. 40 Vitest tests across five `*.test.ts` files cover every ND-03 / ND-04 / D-G3 invariant; `fast-check` properties (5 ring-buffer + 4 reader) tile the boundary math. macOS spawn-helper skip guard at the top of `supervisor.test.ts` names `pnpm --filter @relay/spike fix-pty` as the fix. [`packages/server/src/pty/CLAUDE.md`](../packages/server/src/pty/CLAUDE.md) and [`packages/server/src/transcript/CLAUDE.md`](../packages/server/src/transcript/CLAUDE.md) expanded with public surface and implementation notes; the latter also corrects an inaccurate "sessions.transcript_path row" mention (path is computed, not stored, per sqlite-schema.md §2).
 
 ---
 
 ### 6E. `session/` orchestrator + boot orphan sweep
 
-**Goal:** Per the inter-module flow in [`docs/arch/repo-layout.md`](arch/repo-layout.md) §4 — resolve persona, spawn under `pty/`, wire `transcript/`, maintain attached-client registry, hold per-session claim-lock state. Boot-time orphan sweep transitioning `running` rows to `killed` with `terminated_reason = "server_restart"` per D-11.
-**Output:** `packages/server/src/session/`.
-**Done when:** `POST /sessions` end-to-end creates a row, spawns the agent, attaches the transcript, returns 201. Boot orphan sweep passes scenario A bullet 4.
-**Reads:** [`docs/arch/repo-layout.md`](arch/repo-layout.md) §4, [`docs/prd/03-server.md`](prd/03-server.md) §3–4, [D-11](open-questions.md#d-11), [D-G2](open-questions.md#d-g2).
+**Goal:** Per the inter-module flow in [`docs/arch/repo-layout.md`](arch/repo-layout.md) §4 — resolve persona, spawn under `pty/`, wire `transcript/`, maintain attached-client registry, hold per-session claim-lock state. Boot-time orphan sweep transitioning `running` rows to `killed` with `terminated_reason = "server_restart"` per D-11. Capture Claude Code's native session id by polling `~/.claude/projects/<encodedPath>/` per ND-11; write the UUID stem to `sessions.agent_session_id`.
+**Output:** `packages/server/src/session/` (includes `agent-session-id.ts` with the filesystem-poll capture per ND-11).
+**Done when:** `POST /sessions` end-to-end creates a row, spawns the agent, attaches the transcript, returns 201. Boot orphan sweep passes scenario A bullet 4. `sessions.agent_session_id` is populated within 30 s for spawns whose agent emits a `.jsonl` under `~/.claude/projects/`, and remains `NULL` with no error surfaced if the file never appears (the WS `hello` frame omits `agentSessionId` in that case, per ws-protocol.md §2.3 "optional").
+**Reads:** [`docs/arch/repo-layout.md`](arch/repo-layout.md) §4, [`docs/prd/03-server.md`](prd/03-server.md) §3–4, [`docs/arch/persona-application.md`](arch/persona-application.md) §4.2–4.3, [`packages/protocol/src/spawn-record.ts`](../packages/protocol/src/spawn-record.ts), [D-11](open-questions.md#d-11), [D-G2](open-questions.md#d-g2), [ND-11](open-questions.md#nd-11-agentsessionid-capture-mechanism), [ND-12](open-questions.md#nd-12-spawn-json-schema-location).
 
 ---
 

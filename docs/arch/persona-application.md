@@ -110,13 +110,29 @@ If a persona has no `systemPrompt`, no `model`, no `mcpServers` constraint, and 
 
 `spawn.json` is operational metadata, not a runtime input — Relay reads it for debugging and for the `relay session inspect` flow (which doesn't exist yet). Including it here documents that the transient dir is the natural place for per-session audit material, not just MCP config.
 
-### 4.3 Why this and not flags-only
+The formal shape is defined as `SpawnRecordSchema` in [`packages/protocol/src/spawn-record.ts`](../../packages/protocol/src/spawn-record.ts); 6E validates writes against it and the future `relay session inspect` reader validates reads against it. The `0o600` mode on `spawn.json` (and `0o700` on the parent dir) is the host-user-private threat-model boundary. *Resolved by [ND-12](../open-questions.md#nd-12-spawn-json-schema-location) on 2026-05-17.*
+
+### 4.3 `agentSessionId` capture
+
+Claude Code persists each session as a JSONL file under `~/.claude/projects/<encodedPath>/<sessionId>.jsonl`, where `encodedPath` is the project's canonical absolute path with every `/` replaced by `-` (the leading `/` becomes a leading `-`). The session id never appears on stdout or stderr — it is only the filename stem. To populate the optional `agentSessionId` field on the WS [`hello`](ws-protocol.md) frame, `session/` discovers the id via filesystem polling, not byte-stream scanning:
+
+1. **Pre-spawn snapshot.** Before invoking `node-pty`, the orchestrator records the set of existing `.jsonl` filenames in `~/.claude/projects/<encodedPath>/`. If the directory does not exist, the snapshot is the empty set.
+2. **Post-spawn poll.** Every 250 ms for up to 30 s, the orchestrator re-reads the directory and looks for a newly-appearing entry that matches **both** conditions: ends in `.jsonl` AND has a UUID-shaped stem (`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`, case-insensitive). The first such entry's stem is written to `sessions.agent_session_id` via the `store/sessions.ts` repository.
+3. **Timeout is non-fatal.** If no matching file appears within 30 s, `sessions.agent_session_id` stays `NULL`. The `hello` frame then omits `agentSessionId` entirely (matching the field's "optional" wording in `ws-protocol.md` §2.3). No error is surfaced to the client; the session continues normally.
+
+The dual filter is necessary because Claude Code creates three kinds of entries in the project directory: `<uuid>.jsonl` files (the capture target), bare-UUID directories with the same stem (sidecar storage), and a `memory/` directory. Either condition alone would misfire.
+
+Polling cadence (250 ms) and timeout (30 s) are hardcoded constants in `packages/server/src/session/agent-session-id.ts`; they are not exposed in `~/.relay/config.yaml` or the persona schema.
+
+*Resolved by [ND-11](../open-questions.md#nd-11-agentsessionid-capture-mechanism) on 2026-05-17.*
+
+### 4.4 Why this and not flags-only
 
 Flags-only would require either embedding the entire native MCP config inline in `--mcp-config` (which accepts JSON strings, but argv length and quoting make this brittle for any non-trivial set), or pointing `--mcp-config` at the native files directly without filtering — which defeats the persona's MCP restriction entirely.
 
 Writing a filtered MCP config to a transient path is the smallest deviation from flags-only that lets the persona schema's `mcpServers` field actually constrain the session. The transient dir naturally extends to other future per-session inputs as Claude Code or the persona schema grows.
 
-### 4.4 Why this and not transient-cwd
+### 4.5 Why this and not transient-cwd
 
 The agent's working directory matters to the developer. Every Read, Edit, Glob, and Bash call the agent makes resolves relative to its cwd. If Relay puts the agent in a scratch dir and tries to compensate via `--add-dir`, the agent's tool calls work but the developer's mental model — "the agent is at the project root" — quietly stops being true, with confusing path output in transcripts and broken assumptions in any custom skill that does `pwd`. The flags-and-flat-config approach keeps the agent in the project, exactly where the developer would run `claude` by hand.
 
