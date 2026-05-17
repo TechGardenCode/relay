@@ -59,6 +59,7 @@ When a decision flips to `resolved`, its spec content has to land in the affecte
 
 **Open / in-deliberation:**
 - [ND-08 — Skill subset enforcement mechanism](#nd-08-skill-subset-enforcement-mechanism)
+- [ND-10 — `relay token list` subcommand surface alignment](#nd-10-relay-token-list-subcommand-surface-alignment)
 
 **Deferred:**
 - [D-02 — PWA initial server discovery](#d-02-pwa-initial-server-discovery) (deferred until Phase 2)
@@ -88,6 +89,7 @@ When a decision flips to `resolved`, its spec content has to land in the affecte
 - [ND-05 — Multi-root workspace marker file precedence](#nd-05-multi-root-workspace-marker-file-precedence) (resolved 2026-05-15)
 - [ND-06 — Worktree project identity](#nd-06-worktree-project-identity) (resolved 2026-05-15)
 - [ND-07 — Marker file schema](#nd-07-marker-file-schema) (resolved 2026-05-15)
+- [ND-09 — Bearer token hashing algorithm](#nd-09-bearer-token-hashing-algorithm) (resolved 2026-05-17)
 
 ---
 
@@ -818,4 +820,60 @@ Option A at MVP, with the enforcement gap explicitly documented in `docs/arch/pe
 
 ### Resolution
 *(unresolved)*
+
+---
+
+## ND-09: Bearer token hashing algorithm
+
+**Status:** resolved (2026-05-17)
+**Affects:** `prd/03-server.md` §6, `docs/threat-model.md` §4
+**Surfaced by:** build-plan 6B preflight (2026-05-17) — `auth/hash.ts` needs a concrete algorithm before it can be written.
+
+### Question
+What algorithm does the `auth/` module use to hash bearer tokens at rest in `~/.relay/tokens.json`? [[d-13-first-run-pairing-ux]] commits to "hashed at rest" and `docs/threat-model.md` §4 restates it, but neither names the algorithm or salt scheme.
+
+### Context
+Tokens are 26-character Crockford-Base32 strings carrying ≥128 bits of cryptographically random entropy ([[d-13-first-run-pairing-ux]] §5). The hash exists to protect against a single failure mode: an attacker who reads `~/.relay/tokens.json` (e.g., via a backup leak, a stolen laptop, an over-permissive file mode) but who does not have the plaintext. With ≥128 bits of entropy in the input, the attacker cannot brute-force the preimage — a slow memory-hard KDF (`argon2id`, `scrypt`) earns nothing they wouldn't already be defended against by a fast cryptographic hash. Slow KDFs exist to defend low-entropy human-chosen passwords against offline grinding; that is not this threat.
+
+The choice has real implementation cost. `argon2` and `bcrypt` are native dependencies that need a C toolchain on every install target (macOS, Linux, the Docker base image). Node's built-in `node:crypto` `createHash('sha256')` is part of the runtime, has no install footprint, and is the same primitive used to validate the token on every authenticated request — so the verification hot path stays microseconds, not milliseconds.
+
+### Options under consideration
+- **Option A — SHA-256 + 16-byte per-token random salt.** Each token row stores `{ saltB64, hashB64 }`; on verify, recompute `sha256(salt || plaintext)` and constant-time-compare. Zero native deps, fast on the verify path, cryptographically sufficient for ≥128-bit input. Salt prevents identical-token collisions across rows and across server installs.
+- **Option B — `scrypt` via `node:crypto.scryptSync`.** Built-in (no native dep), memory-hard. Adds ~100 ms per verify call by default tuning — material on the WS upgrade path where verification gates every connection. Earns no security against the high-entropy threat model here.
+- **Option C — `argon2id` via the `argon2` package.** Industry default for password hashing. Native compile required (binding.gyp); installation friction on every target. Same "no security gain over Option A for high-entropy input" trade.
+
+### Resolution
+**Option A: SHA-256 with a 16-byte per-token random salt, stored as `{ saltB64, hashB64 }` columns on the token record.** Verification rehashes `sha256(saltBytes || utf8(plaintext))` and constant-time-compares (`crypto.timingSafeEqual`) against the stored hash.
+
+1. **Salt generation.** Each token gets a fresh 16-byte salt from `crypto.randomBytes(16)` at issue time. Salt is stored base64-encoded on the same record as the hash.
+2. **Hash function.** `crypto.createHash('sha256').update(saltBytes).update(plaintext).digest()` → base64-encode → stored as `hashB64`. The hash is a fixed 32 bytes (43 base64 chars unpadded).
+3. **Verify path.** `auth/verify(plaintext)` walks the active (non-revoked) token records, recomputes the salted hash per record, and `timingSafeEqual`s against the stored hash. Linear in active-token count, but bounded — operators typically hold <10 active tokens.
+4. **No algorithm tag on records.** The token record schema does not carry an `algorithm: 'sha256-v1'` field at MVP. If a future migration changes the algorithm, the schema gains the field and the migration writes it on read.
+5. **Implementation.** `auth/hash.ts` exposes two functions: `hashToken(plaintext) → { saltB64, hashB64 }` and `verifyTokenHash(plaintext, saltB64, hashB64) → boolean`. Both wrap `node:crypto` directly; no third-party dep.
+
+**Why this and not Option B/C (`scrypt`, `argon2id`):** Slow memory-hard KDFs are the right answer for low-entropy human-chosen passwords because they raise the per-guess cost of an offline brute-force. With ≥128 bits of entropy in the input, the offline brute-force is already infeasible by the input space alone — adding KDF cost protects against a threat that doesn't exist here. The verification hot path runs on every authenticated REST call and every WS upgrade; a 100ms `scrypt` per request would be material. `argon2` additionally adds a native compile dependency to every install target, which conflicts with the "npm install runs cleanly on any Node 22 host" posture in `prd/06-distribution.md`.
+
+**Why a per-token salt at all, given ≥128-bit input:** Salt is cheap (16 bytes per record) and defends two narrow but real scenarios — (1) two distinct Relay installs that, by astronomical chance, both issue the same plaintext token still produce different stored hashes, and (2) the hash output cannot be precomputed against a rainbow table of well-known token values (the table is empty today, but the discipline is free).
+
+**Re-open trigger:** A future threat-model change that introduces low-entropy or human-chosen credentials (e.g., a Phase 4 admin password); or a token-format change that drops below 128 bits of entropy. Neither is on the roadmap.
+
+**Propagated to:** `prd/03-server.md` §6 (2026-05-17), `docs/threat-model.md` §4 (2026-05-17).
+
+---
+
+## ND-10: `relay token list` subcommand surface alignment
+
+**Status:** open
+**Affects:** `prd/03-server.md` §7
+**Surfaced by:** build-plan 6B preflight (2026-05-17) — the build-plan 6B row commits to four token subcommands (`init`, `create`, `revoke`, `list`) but `prd/03-server.md` §7 enumerates only `init`, `create`, `revoke`.
+
+### Question
+Should `relay token list` ship as part of the Phase 1 CLI surface, and if so, what is its exact output shape? `prd/03-server.md` §7 omits it; `docs/build-plan.md` task 6B includes it. The two specs disagree by one subcommand.
+
+### Elaboration prompt
+The build-plan is the newer artifact and explicitly canonicalizes the four-subcommand surface. The PRD §7 omission appears to be an oversight rather than a deliberate exclusion: a user who has issued multiple tokens via `relay token create --device <name>` has no way to enumerate them, which makes `relay token revoke <id>` unusable in practice (the operator can't recover the `<id>` of a token they want to kill — `~/.relay/last-pairing.txt` only shows the most recent issue). Treating `list` as in-scope for Phase 1 also keeps `relay session list` / `relay project list` / `relay persona list` symmetric across the noun surface.
+
+What to validate before resolving: (a) the exact output columns (`{ id, deviceLabel, createdAt, revokedAt | "active" }` is the build-plan 6B proposal — confirm against operator UX expectations); (b) that `list` never prints the plaintext or the hash (threat-model §4 makes this load-bearing); (c) whether `--all` is needed to include revoked rows or whether they're listed by default (build-plan 6B does not specify; lean toward listing revoked by default since the list will be short and operators want to see "did my revoke actually land"); (d) the propagation edit to `prd/03-server.md` §7 — add the `relay token list` row between `relay token create --device <name>` and `relay token revoke <id>`.
+
+This is filed as `open` so the resolution lands as a deliberate PRD edit rather than an inline implementation drift. Build-plan 6B ships `list` regardless (the build-plan is the canonical task surface for code that will be written); the PRD §7 propagation closes the doc gap.
 

@@ -35,7 +35,7 @@ Out of scope: the user themselves (a single-user system cannot defend against it
 ## 4. Known mitigations (Phase 1)
 
 - **Token entropy.** ≥128 bits, server-generated, shown once (D-13).
-- **Tokens hashed at rest.** `~/.relay/tokens.json` contains hashes only; an attacker who reads the file does not recover usable tokens (D-13).
+- **Tokens hashed at rest.** `~/.relay/tokens.json` contains salted SHA-256 hashes only (16-byte per-token random salt, `node:crypto`-native, no third-party deps); an attacker who reads the file does not recover usable tokens (D-13, [ND-09](open-questions.md#nd-09-bearer-token-hashing-algorithm)). A fast cryptographic hash is sufficient here because tokens carry ≥128 bits of entropy at issue — a slow memory-hard KDF defends low-entropy human credentials against offline brute-force, which is not the threat for high-entropy random secrets.
 - **Immediate revocation.** `relay token revoke <id>` ends a token at once; in-flight WebSockets using it receive an `auth_expired` text frame followed by close code 4401 on the next message boundary (D-13 + `arch/ws-protocol.md` §`auth_expired`, §close-codes). No server restart required.
 - **Pairing never traverses the network.** `relay init` prints the token on stdout and writes it to `~/.relay/last-pairing.txt` (D-13, `prd/03-server.md` §6). The user copies it into the IDE by hand or via the `relay://pair?…` deep link. There is no over-the-wire token-issue flow that an observer could intercept.
 - **WS rejects invalid tokens before bytes flow.** The bearer is validated at HTTP `Upgrade` time; missing/invalid tokens fail with close 1008 before any session output is streamed (`arch/ws-protocol.md` §close-codes; `arch/rest-conventions.md` §401).

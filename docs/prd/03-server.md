@@ -102,12 +102,12 @@ The reattach contract is what makes the cross-device value prop work: closing a 
 
 ## 6. Auth
 
-- **Bearer token per device.** Tokens are 26-character Crockford-Base32 strings with ≥128 bits of entropy. Server-side generated; stored hashed in `~/.relay/tokens.json`; the plaintext is shown to the operator exactly once at issue time.
+- **Bearer token per device.** Tokens are 26-character Crockford-Base32 strings with ≥128 bits of entropy. Server-side generated; stored as a salted SHA-256 hash in `~/.relay/tokens.json` (16-byte per-token random salt; see [`docs/threat-model.md`](../threat-model.md) §4 for the rationale); the plaintext is shown to the operator exactly once at issue time.
 - **First-run pairing.** `relay init` prints a single copy-paste snippet on stdout (and writes it to `~/.relay/last-pairing.txt`) containing a `relay://pair?url=…&token=…` deep link plus the URL and token in plain text. The IDE extension's first-run "Connect to server" command-palette entry accepts either form. The first authenticated use of a token is itself the pairing handshake — there is no server-side "approve this device" step (self-host single-user posture; see [[d-13-first-run-pairing-ux]] for rationale).
 - **Long-lived and reusable.** Tokens are valid indefinitely until revoked. `relay token revoke <id>` ends the token immediately; in-flight WebSockets using it close on next message boundary. Long-term rotation is deferred to Phase 3 ([[d-05-per-device-token-rotation]]).
 - **Mobile pairing.** The Phase 2 mobile PWA uses the same `relay://pair?…` URL embedded in a QR code. Phase 1 ships only the desktop flow.
 
-*Pairing UX resolved by [D-13](../open-questions.md#d-13-first-run-pairing-ux) on 2026-05-15.*
+*Pairing UX resolved by [D-13](../open-questions.md#d-13-first-run-pairing-ux) on 2026-05-15. Token hashing algorithm resolved by [ND-09](../open-questions.md#nd-09-bearer-token-hashing-algorithm) on 2026-05-17.*
 
 ## 7. CLI
 

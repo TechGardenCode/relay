@@ -72,7 +72,7 @@ Track 1:   1A pairs with 6C · 1B pairs with 6B · 1C landed early · 3C optiona
 | 5C | `relay-spec-reviewer` sub-agent | PR review | **done** → [`.claude/agents/relay-spec-reviewer.md`](../.claude/agents/relay-spec-reviewer.md) |
 | 5D-expand | Per-module `CLAUDE.md` body fill | (folded into 6A/6C/6D) | tracked inside each 6x Done-when |
 | 6A | `store/` module + migrations runner | 6E, 6F, scenario A | **done** → [`packages/server/src/store/`](../packages/server/src/store/) |
-| 6B | `auth/` module + token CLI subcommands | 6F, scenario A | pending (needs 4B) |
+| 6B | `auth/` module + token CLI subcommands | 6F, scenario A | **done** → [`packages/server/src/auth/`](../packages/server/src/auth/) · [`packages/server/src/cli/`](../packages/server/src/cli/) |
 | 6C | `persona/` module + composition rule | 6E, 6F, scenario B | pending (needs 4B, 3E, 1A; expands `persona/CLAUDE.md` stub) |
 | 6D | `pty/` + `transcript/` modules (paired) | 6E, 6G, scenarios C/D | pending (needs 4B, 5B; expands `pty/CLAUDE.md` + `transcript/CLAUDE.md` stubs) |
 | 6E | `session/` orchestrator + boot orphan sweep | 6F, 6G, scenarios C/D/G | pending (needs 6A, 6C, 6D) |
@@ -246,7 +246,12 @@ Phase 1 implementation, decomposed by module per [`docs/arch/repo-layout.md`](ar
 
 ---
 
-### 6B. `auth/` module + token CLI subcommands
+### 6B. `auth/` module + token CLI subcommands — **done**
+
+**Output:** [`packages/server/src/auth/`](../packages/server/src/auth/) (`tokens.ts` Crockford-Base32 26-char generator, `hash.ts` SHA-256 + 16-byte salt per [ND-09](open-questions.md#nd-09-bearer-token-hashing-algorithm), `store.ts` `TokenStore` with atomic 0600 `~/.relay/tokens.json` I/O + `verify(plaintext) → { ok, tokenId | reason }`, `events.ts` `RevocationBus` for 6G to subscribe to) and [`packages/server/src/cli/`](../packages/server/src/cli/) (`relay.ts` commander entrypoint with `#!/usr/bin/env node` shebang preserved through `tsc -b`, `init.ts` scaffolds `~/.relay/{config.yaml,tokens.json,personas/,last-pairing.txt}` + emits `relay://pair?url=…&token=…` snippet per [D-13](open-questions.md#d-13-first-run-pairing-ux), `token.ts` create/revoke/list handlers). `bin: { relay: ./dist/cli/relay.js }` added to `packages/server/package.json`; `commander` + `js-yaml` deps installed. `packages/server/src/config/paths.ts` shared helper for `relayHome()` / `tokensPath()` / `configPath()` / `personasDir()` / `transcriptsDir()` / `sessionsDir()` / `lastPairingPath()`. 51 Vitest tests across six `*.test.ts` files (tokens, hash, store, paths, init, token). Two ND entries filed during preflight and propagated: [ND-09](open-questions.md#nd-09-bearer-token-hashing-algorithm) (resolved; landed in `prd/03-server.md` §6 and `docs/threat-model.md` §4) and [ND-10](open-questions.md#nd-10-relay-token-list-subcommand-surface-alignment) (open; PRD §7 propagation is the work item — 6B ships `list` regardless per the build-plan-canonicalizes-task-surface rule).
+
+<details>
+<summary>Original kickoff (historical)</summary>
 
 **Goal:** Bearer-token issuance and verification for Relay. Generate 26-char Crockford-Base32 tokens with ≥128 bits of entropy, store them hashed in `~/.relay/tokens.json`, expose a verify primitive that 6F (REST) and 6G (WS upgrade) will call. Ship the four operator-facing CLI subcommands: `relay init`, `relay token create`, `relay token revoke`, `relay token list`.
 
@@ -351,6 +356,8 @@ packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json f
 - [`relay-architect`](../.claude/agents/relay-architect.md) — invoke before writing code to spec-check the planned `auth/` API surface (verify primitive shape, revocation-observer contract for 6G) against D-13 + threat-model §4.
 - [`relay-test-author`](../.claude/agents/relay-test-author.md) — invoke per `*.test.ts` file. Note: `auth/` has no per-module `CLAUDE.md` (5D-stubs scoped to load-bearing modules only), so the test author will need the spec contracts via prompt rather than auto-load.
 - [`relay-spec-reviewer`](../.claude/agents/relay-spec-reviewer.md) — invoke on the final branch diff before opening the 6B PR; will surface any drift against D-13 / D-05 / D-10.
+
+</details>
 
 ---
 
