@@ -240,6 +240,21 @@ describe('createRegistry — create happy path', () => {
     expect(h.lastSupervisor?.spawnArgs.cwd).toBe(CANONICAL);
     await reg.shutdown();
   });
+
+  it('stamps sessions.pty_pid with the supervisor pid after spawn (regression: vm-e2e found null)', async () => {
+    seedPersona(h);
+    const reg = createRegistry(buildDeps(h));
+    const handle = await reg.create({
+      projectId: h.projectId,
+      personaName: 'tester',
+      canonicalProjectPath: CANONICAL,
+    });
+    const expectedPid = (h.lastSupervisor as FakeSupervisor).pid;
+    expect(expectedPid).toBeTypeOf('number');
+    const fresh = sessions.findById(h.db, handle.id) as SessionRow;
+    expect(fresh.ptyPid).toBe(expectedPid);
+    await reg.shutdown();
+  });
 });
 
 describe('createRegistry — shutdown discipline (Phase 0 §2)', () => {

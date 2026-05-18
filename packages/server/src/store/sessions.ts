@@ -160,6 +160,18 @@ export function updateAgentSessionId(
   ).run(agentSessionId, now, id);
 }
 
+// Called by session/registry once the PTY supervisor has spawned the child
+// process and reported its OS pid. The column is nullable because the row
+// is inserted before spawn (so a spawn-failure path leaves it NULL); a live
+// `running` session always has a non-NULL pid after this call lands.
+// Operators use `relay session show <id>` to read the pid for ad-hoc
+// `kill -9` recovery when the supervisor itself becomes unreachable.
+export function updatePtyPid(db: Database, id: string, ptyPid: number, now: number): void {
+  db.prepare<[number, number, string]>(
+    'UPDATE sessions SET pty_pid = ?, updated_at = ? WHERE id = ?',
+  ).run(ptyPid, now, id);
+}
+
 // Per ND-04: total_bytes is the running upper bound used by the transcript
 // pagination API. Callers in the transcript/ module pass the delta each
 // time bytes are appended to the sidecar file.

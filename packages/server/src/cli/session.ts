@@ -36,6 +36,7 @@ export interface SessionListRow {
   terminatedReason: string | null;
   totalBytes: number;
   agentSessionId: string | null;
+  ptyPid: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,6 +50,7 @@ function toViewRow(row: SessionRow): SessionListRow {
     terminatedReason: row.terminatedReason,
     totalBytes: row.totalBytes,
     agentSessionId: row.agentSessionId,
+    ptyPid: row.ptyPid,
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
   };

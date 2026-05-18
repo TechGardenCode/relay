@@ -120,6 +120,21 @@ describe('sessions — happy path', () => {
     expect(refetched.updatedAt).toBe(5);
   });
 
+  it('updatePtyPid populates the pty_pid column (regression: vm-e2e found null)', () => {
+    const inserted = sessions.insert(
+      db,
+      { projectId, personaName: 'coder', agentCli: 'claude' },
+      1,
+    );
+    expect(inserted.ptyPid).toBeNull();
+
+    sessions.updatePtyPid(db, inserted.id, 4242, 7);
+
+    const refetched = sessions.findById(db, inserted.id) as SessionRow;
+    expect(refetched.ptyPid).toBe(4242);
+    expect(refetched.updatedAt).toBe(7);
+  });
+
   it('incrementTotalBytes accumulates the running upper bound (ND-04)', () => {
     const inserted = sessions.insert(
       db,

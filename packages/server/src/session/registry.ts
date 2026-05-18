@@ -140,6 +140,11 @@ export function createRegistry(deps: RegistryDeps): SessionRegistry {
       throw err;
     }
 
+    // Stamp the OS pid onto the row now that the supervisor has spawned the
+    // child. Operators read this via `relay session show <id>` for ad-hoc
+    // recovery when the supervisor itself is unreachable.
+    sessions.updatePtyPid(db, sid, supervisor.pid, Date.now());
+
     const byteHandle = byteAccountant.track(sid);
     const attached = new Set<AttachedClient>();
 

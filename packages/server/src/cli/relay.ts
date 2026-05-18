@@ -1,13 +1,22 @@
 #!/usr/bin/env node
+// Per ND-18: this dispatcher must not load `node-pty`, `better-sqlite3`, or
+// `fastify` at module-init time. `relay --help`, `relay --version`, and
+// `relay attach` should run on a thin-client device that has Node 22 but no
+// native build toolchain. Heavy modules are loaded via dynamic `await
+// import(...)` inside the matching commander `.action()` callback. The
+// top-level imports below are restricted to:
+//   - commander (the dispatcher itself)
+//   - cli/attach.js + cli/http.js + cli/persona.js (no native deps)
+//   - error-class values needed by the global catch
+//
+// Adding a new subcommand whose handler pulls a heavy dep MUST use the
+// dynamic-import pattern; an integration test guards against drift.
+
 import { Command } from 'commander';
 
 import { runAttach } from './attach.js';
 import { CliHttpError, CliHttpUnreachableError } from './http.js';
-import { runInit } from './init.js';
 import { PersonaCreateError, runPersonaCreate, runPersonaList } from './persona.js';
-import { runProjectAdd, runProjectList, runProjectRemove } from './project.js';
-import { runServer } from './server.js';
-import { runSessionKill, runSessionList, runSessionShow } from './session.js';
 import { runTokenCreate, runTokenList, runTokenRevoke } from './token.js';
 
 const program = new Command();
@@ -21,7 +30,9 @@ program
   )
   .option('--url <url>', 'Server URL embedded in the pairing snippet')
   .option('--force', 'Overwrite an existing ~/.relay/ scaffold')
-  .action((opts: { url?: string; force?: boolean }) => {
+  .action(async (opts: { url?: string; force?: boolean }) => {
+    // Lazy-load: init.ts opens better-sqlite3 to migrate the schema.
+    const { runInit } = await import('./init.js');
     const result = runInit({ url: opts.url, force: opts.force });
     process.stdout.write(result.pairingSnippet + '\n');
   });
@@ -87,6 +98,9 @@ project
   .option('--agent-cli <cli>', 'Override the default agent CLI (claude)')
   .action(
     async (path: string, opts: { name?: string; displayName?: string; agentCli?: string }) => {
+      // Lazy-load: project.ts pulls @relay/relay store (better-sqlite3) +
+      // the loopback REST client.
+      const { runProjectAdd } = await import('./project.js');
       const row = await runProjectAdd({
         path,
         slug: opts.name,
@@ -100,7 +114,8 @@ project
 project
   .command('list')
   .description('List registered projects (id, slug, displayName, canonicalPath).')
-  .action(() => {
+  .action(async () => {
+    const { runProjectList } = await import('./project.js');
     const rows = runProjectList();
     if (rows.length === 0) {
       process.stdout.write('No projects.\n');
@@ -116,6 +131,7 @@ project
   .description('Remove a project row (cascades sessions). The on-disk directory is NOT touched.')
   .argument('<id>', 'Project id from `relay project list`')
   .action(async (id: string) => {
+    const { runProjectRemove } = await import('./project.js');
     await runProjectRemove(id);
     process.stdout.write(`Removed ${id}.\n`);
   });
@@ -161,7 +177,7 @@ session
   .option('--all', 'Include rows for every status (alias for --status all)')
   .option('--status <status>', 'Filter: running | idle | killed | all', 'running')
   .option('--project-id <id>', 'Restrict to a single project id')
-  .action((opts: { all?: boolean; status?: string; projectId?: string }) => {
+  .action(async (opts: { all?: boolean; status?: string; projectId?: string }) => {
     const status = opts.all === true ? 'all' : opts.status;
     if (
       status !== undefined &&
@@ -174,6 +190,7 @@ session
       process.exitCode = 1;
       return;
     }
+    const { runSessionList } = await import('./session.js');
     const rows = runSessionList({
       status: status as 'running' | 'idle' | 'killed' | 'all' | undefined,
       projectId: opts.projectId,
@@ -199,6 +216,7 @@ session
   )
   .argument('<id>', 'Session id from `relay session list`')
   .action(async (id: string) => {
+    const { runSessionKill } = await import('./session.js');
     await runSessionKill(id);
     process.stdout.write(`Killed ${id}.\n`);
   });
@@ -207,7 +225,8 @@ session
   .command('show')
   .description('Show one session row (id, status, persona, project, total bytes, timestamps).')
   .argument('<id>', 'Session id')
-  .action((id: string) => {
+  .action(async (id: string) => {
+    const { runSessionShow } = await import('./session.js');
     const row = runSessionShow(id);
     if (row === undefined) {
       process.stderr.write(`No session with id ${id}.\n`);
@@ -222,6 +241,7 @@ session
         `projectId: ${row.projectId}`,
         `terminatedReason: ${row.terminatedReason ?? 'null'}`,
         `agentSessionId: ${row.agentSessionId ?? 'null'}`,
+        `ptyPid: ${row.ptyPid === null ? 'null' : String(row.ptyPid)}`,
         `totalBytes: ${String(row.totalBytes)}`,
         `createdAt: ${row.createdAt}`,
         `updatedAt: ${row.updatedAt}`,
@@ -234,6 +254,10 @@ program
   .description('Run the long-lived API + WebSocket process. Default config: ~/.relay/config.yaml.')
   .option('--config <path>', 'Override the path to config.yaml')
   .action(async (opts: { config?: string }) => {
+    // Lazy-load: server.ts is the heaviest module — pulls fastify, node-pty
+    // (via session/registry), and the full store. Per ND-18 nothing else
+    // should reach into server.ts on the main code path.
+    const { runServer } = await import('./server.js');
     const { app, config, shutdown } = await runServer({ configPath: opts.config });
     process.stdout.write(
       `relay server listening on http://${config.host}:${String(config.port)}\n`,
@@ -249,13 +273,8 @@ program
     };
     process.once('SIGINT', onSignal);
     process.once('SIGTERM', onSignal);
-    // Keep the process alive; Fastify's listen() is non-blocking.
     void app;
-    return new Promise<void>(() => {
-      // Intentional — `await runServer()` doesn't keep the loop alive on its
-      // own; this Promise never resolves so commander's parseAsync stays
-      // pending until a signal handler exits.
-    });
+    return new Promise<void>(() => {});
   });
 
 program
