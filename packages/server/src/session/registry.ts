@@ -24,6 +24,7 @@ import {
   type AttachedClient,
   type RegistryDeps,
   type SessionCreateInput,
+  type SessionEndInfo,
   type SessionHandle,
   type SessionRegistry,
 } from './types.js';
@@ -159,7 +160,7 @@ export function createRegistry(deps: RegistryDeps): SessionRegistry {
       }
     });
 
-    const unsubExit = supervisor.onExit((): void => {
+    const unsubExit = supervisor.onExit((info): void => {
       // Per Phase 0 surprise §2: do NOT touch the row during shutdown. The
       // next boot's D-11 sweep writes 'server_restart' as the authoritative
       // terminated_reason. Without this guard, the spike's listener stamped
@@ -167,6 +168,30 @@ export function createRegistry(deps: RegistryDeps): SessionRegistry {
       if (shuttingDown) return;
       const rec = records.get(sid);
       const wasExplicitlyKilled = rec?.explicitlyKilled ?? false;
+      // Per ws-protocol.md §2.3 + state machine §5.2: notify attached clients
+      // BEFORE the async writer.close()/drain chain so the WS `session_ended`
+      // frame and the close 1000 land as close to the actual exit as possible.
+      // The handler reads the freshest row inside onSessionEnd, so the
+      // 'operator_kill' write (which markKilled performed before the signal
+      // for that path) is already visible.
+      if (rec !== undefined) {
+        const reason: 'agent_exit' | 'operator_kill' = wasExplicitlyKilled
+          ? 'operator_kill'
+          : 'agent_exit';
+        const freshRow = sessions.findById(db, sid);
+        const endInfo: SessionEndInfo = {
+          reason,
+          exitCode: info.exitCode,
+          terminatedReason: freshRow?.terminatedReason ?? null,
+        };
+        for (const client of rec.attached) {
+          try {
+            client.onSessionEnd?.(endInfo);
+          } catch {
+            // A misbehaving handler must not block the cleanup chain.
+          }
+        }
+      }
       records.delete(sid);
       // Per ND-13 §5: drain order on pty.onExit is writer.close() (await) →
       // handle.drain() → handle.release(). The fsync must land before the
@@ -293,6 +318,22 @@ export function createRegistry(deps: RegistryDeps): SessionRegistry {
       // this path writes a terminated_reason; the next boot's sweep does.
       // Per ND-13 §5: close(await) → drain → release so the SQL UPDATE
       // reflects the on-disk sidecar size, not the still-buffered count.
+      // Per ws-protocol.md §2.3: server-initiated shutdown emits
+      // `session_ended { reason: server_shutdown }` to every attached client
+      // before the supervisor is signalled, so each client surfaces the
+      // shutdown rather than seeing a bare TCP close.
+      const endInfo: SessionEndInfo = {
+        reason: 'server_shutdown',
+        exitCode: null,
+        terminatedReason: null,
+      };
+      for (const client of rec.attached) {
+        try {
+          client.onSessionEnd?.(endInfo);
+        } catch {
+          // Defensive: a throwing handler must not block the cleanup chain.
+        }
+      }
       rec.supervisor.kill();
       rec.attached.clear();
       rec.unsubBytes();

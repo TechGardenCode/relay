@@ -7,3 +7,4 @@ export * from './rest/projects.js';
 export * from './rest/personas.js';
 export * from './rest/sessions.js';
 export * from './rest/transcript.js';
+export * from './ws-frames.js';

@@ -56,6 +56,9 @@ importers:
       '@relay/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
       better-sqlite3:
         specifier: ^12.10.0
         version: 12.10.0
@@ -74,6 +77,9 @@ importers:
       ulid:
         specifier: ^3.0.2
         version: 3.0.2
+      ws:
+        specifier: ^8.20.1
+        version: 8.20.1
       zod:
         specifier: ^4.4.3
         version: 4.4.3

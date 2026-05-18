@@ -39,6 +39,7 @@ export {
   type RegistryDeps,
   type SessionCreateErrorCode,
   type SessionCreateInput,
+  type SessionEndInfo,
   type SessionHandle,
   type SessionRegistry,
   type SupervisorFactory,

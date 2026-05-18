@@ -41,11 +41,27 @@ export interface SessionCreateInput {
   canonicalProjectPath: string;
 }
 
+export interface SessionEndInfo {
+  // Per ws-protocol.md §2.3: 'session_ended' frame discriminator. The
+  // registry distinguishes these two locally; 'server_shutdown' is fired
+  // from registry.shutdown() instead of pty.onExit.
+  reason: 'agent_exit' | 'operator_kill' | 'server_shutdown';
+  exitCode: number | null;
+  // Mirrors sessions.terminated_reason at the moment of dispatch. NULL
+  // when the row is still 'running' (e.g., shutdown path where the boot
+  // sweep owns the eventual flip per D-11).
+  terminatedReason: string | null;
+}
+
 // A connected client receiving the universal output stream (per D-G3). 6G's
 // WS handler implements this; tests use a thin in-memory shim.
 export interface AttachedClient {
   readonly id: string;
   onBytes(chunk: Buffer): void;
+  // Optional: the WS handler (6G) uses this to emit `session_ended` + close
+  // 1000 when the supervisor exits or the registry shuts down. Tests that
+  // only care about byte fan-out may omit it.
+  onSessionEnd?(info: SessionEndInfo): void;
 }
 
 // What create() returns to 6F. Read-only view of the underlying supervisor

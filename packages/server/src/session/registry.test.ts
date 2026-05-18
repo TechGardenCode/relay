@@ -51,6 +51,7 @@ import {
   type AgentSessionIdCapture,
   type AttachedClient,
   type RegistryDeps,
+  type SessionEndInfo,
   type SupervisorFactory,
   type WriterFactory,
 } from './types.js';
@@ -184,14 +185,22 @@ function seedPersona(h: Harness, name = 'tester'): void {
   writePersonaFixture(h.homeOverride, name, minimalPersonaYaml(name));
 }
 
-function fakeClient(id: string): AttachedClient & { received: Buffer[] } {
+function fakeClient(id: string): AttachedClient & {
+  received: Buffer[];
+  ended: SessionEndInfo[];
+} {
   const received: Buffer[] = [];
+  const ended: SessionEndInfo[] = [];
   return {
     id,
     onBytes(chunk: Buffer): void {
       received.push(chunk);
     },
+    onSessionEnd(info: SessionEndInfo): void {
+      ended.push(info);
+    },
     received,
+    ended,
   };
 }
 
@@ -528,6 +537,73 @@ describe('createRegistry — agent-session-id capture (ND-11)', () => {
     // hello frame omits the field per ws-protocol.md §2.3.
     expect(row.agentSessionId).toBeNull();
     await reg.shutdown();
+  });
+});
+
+describe('createRegistry — onSessionEnd notifications (ws-protocol.md §2.3)', () => {
+  it('natural exit fires onSessionEnd with reason=agent_exit and the exitCode', async () => {
+    seedPersona(h);
+    const reg = createRegistry(buildDeps(h));
+    const handle = await reg.create({
+      projectId: h.projectId,
+      personaName: 'tester',
+      canonicalProjectPath: CANONICAL,
+    });
+    const sup = h.lastSupervisor as FakeSupervisor;
+
+    const client = fakeClient('a');
+    reg.attach(handle.id, client);
+
+    sup.emitExit({ exitCode: 7, signal: null });
+    await tick();
+
+    expect(client.ended).toHaveLength(1);
+    expect(client.ended[0]).toMatchObject({ reason: 'agent_exit', exitCode: 7 });
+    await reg.shutdown();
+  });
+
+  it('operator kill fires onSessionEnd with reason=operator_kill and terminatedReason mirrored from the row', async () => {
+    seedPersona(h);
+    const reg = createRegistry(buildDeps(h));
+    const handle = await reg.create({
+      projectId: h.projectId,
+      personaName: 'tester',
+      canonicalProjectPath: CANONICAL,
+    });
+    const sup = h.lastSupervisor as FakeSupervisor;
+
+    const client = fakeClient('a');
+    reg.attach(handle.id, client);
+
+    reg.kill(handle.id, 'operator_kill');
+    sup.emitExit({ exitCode: 0, signal: null });
+    await tick();
+
+    expect(client.ended).toHaveLength(1);
+    expect(client.ended[0]?.reason).toBe('operator_kill');
+    expect(client.ended[0]?.terminatedReason).toBe('operator_kill');
+    await reg.shutdown();
+  });
+
+  it('shutdown fires onSessionEnd with reason=server_shutdown (Phase 0 §2 — boot sweep owns the row flip)', async () => {
+    seedPersona(h);
+    const reg = createRegistry(buildDeps(h));
+    const handle = await reg.create({
+      projectId: h.projectId,
+      personaName: 'tester',
+      canonicalProjectPath: CANONICAL,
+    });
+
+    const client = fakeClient('a');
+    reg.attach(handle.id, client);
+
+    await reg.shutdown();
+
+    expect(client.ended).toHaveLength(1);
+    expect(client.ended[0]?.reason).toBe('server_shutdown');
+    // Per Phase 0 §2 + D-11: shutdown does not write terminated_reason; the
+    // row stays 'running' until the next boot's sweep flips it.
+    expect(client.ended[0]?.terminatedReason).toBeNull();
   });
 });
 

@@ -77,7 +77,7 @@ Track 1:   1A pairs with 6C · 1B pairs with 6B · 1C landed early · 3C optiona
 | 6D | `pty/` + `transcript/` modules (paired) | 6E, 6G, scenarios C/D | **done** → [`packages/server/src/pty/`](../packages/server/src/pty/) · [`packages/server/src/transcript/`](../packages/server/src/transcript/) |
 | 6E | `session/` orchestrator + boot orphan sweep | 6F, 6G, scenarios C/D/G | **done** → [`packages/server/src/session/`](../packages/server/src/session/) |
 | 6F | `server/rest/` routes + Zod validation | 6H, scenarios A/B/C/G | **done** → [`packages/server/src/server/`](../packages/server/src/server/) · [`packages/protocol/src/rest/`](../packages/protocol/src/rest/) · [`packages/protocol/src/problem-details.ts`](../packages/protocol/src/problem-details.ts) |
-| 6G | `server/ws/` handler + claim-lock state machine | 6H, scenarios D/E/F | pending (needs 6E, 3D) |
+| 6G | `server/ws/` handler + claim-lock state machine | 6H, scenarios D/E/F | **done** → [`packages/server/src/server/ws/`](../packages/server/src/server/ws/) |
 | 6H | `cli/` subcommands + `attach/` thin client | 6I, scenarios C/D/E | pending (needs 6F, 6G) |
 | 6I | IDE extension wire-up (`packages/extension/`) | scenarios C/D/E | pending (needs 6H) |
 | 6J | Distribution: npm tarball, Docker image, Compose | scenario H | pending (needs 6H, 6I) |
@@ -387,11 +387,7 @@ packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json f
 
 ### 6G. `server/ws/` handler + claim-lock state machine
 
-**Goal:** `/sessions/:id/stream` WebSocket. Binary frames for PTY output; JSON frames for CLAIM/SEND/RELEASE/BUSY. 30-second auto-release (ND-01). Universal-output rule (D-G3). Bracketed replay on attach.
-**Output:** `packages/server/src/server/ws/`. State-machine tests covering the four race cases enumerated in `ws-protocol.md`.
-**Done when:** scenarios D (reattach + replay), E (cross-device), F (concurrent + claim) all pass.
-**Reads:** [`docs/arch/ws-protocol.md`](arch/ws-protocol.md), [`docs/prd/03-server.md`](prd/03-server.md) §5, [D-G2](open-questions.md#d-g2), [D-G3](open-questions.md#d-g3), [ND-01](open-questions.md#nd-01), [ND-03](open-questions.md#nd-03).
-**Feeders:** 3D (ws-protocol-check skill).
+**Done.** Artifact: [`packages/server/src/server/ws/`](../packages/server/src/server/ws/). `@relay/protocol` ws-frames Zod schemas + 11-discriminator catalog, pure `ClaimLock` FSM (§5.2 transitions + ND-01 timer, no socket coupling), Fastify route mounted from `buildServer`. 36 new tests across `claim-lock.test.ts` (FSM unit + §5.3 race-1 ordering) and `handler.test.ts` (integration via `app.injectWS`, covering §6 attach sequence, §3 empty replay, D-G3 universal fan-out, §4.2 4404 + 4401, all §5.2 transitions, all four §5.3 races). `AttachedClient.onSessionEnd` added to `session/types.ts` so the WS handler emits `session_ended` without owning supervisor `onExit`.
 
 ---
 

@@ -11,6 +11,7 @@ import type { SessionRegistry } from '../session/index.js';
 import type { Database } from '../store/index.js';
 
 import { registerRest, type RestPluginOptions } from './rest/index.js';
+import { registerWs } from './ws/index.js';
 
 export interface BuildServerOptions {
   db: Database;
@@ -37,6 +38,12 @@ export async function buildServer(opts: BuildServerOptions): Promise<FastifyInst
     homeOverride: opts.homeOverride,
   };
   await registerRest(app, restOpts);
+  await registerWs(app, {
+    db: opts.db,
+    registry: opts.registry,
+    tokenStore: opts.tokenStore,
+    config: opts.config,
+  });
 
   return app;
 }
