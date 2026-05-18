@@ -1,7 +1,13 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 
+import { runAttach } from './attach.js';
+import { CliHttpError, CliHttpUnreachableError } from './http.js';
 import { runInit } from './init.js';
+import { PersonaCreateError, runPersonaCreate, runPersonaList } from './persona.js';
+import { runProjectAdd, runProjectList, runProjectRemove } from './project.js';
+import { runServer } from './server.js';
+import { runSessionKill, runSessionList, runSessionShow } from './session.js';
 import { runTokenCreate, runTokenList, runTokenRevoke } from './token.js';
 
 const program = new Command();
@@ -66,7 +72,224 @@ token
     process.stdout.write(lines.join('\n') + '\n');
   });
 
+const project = program
+  .command('project')
+  .description('Manage registered project working directories.');
+
+project
+  .command('add')
+  .description(
+    'Register <path> in place as a project (writes <path>/.relay/project.json and appends to .gitignore).',
+  )
+  .argument('<path>', 'Absolute or relative path to the project working directory')
+  .option('--name <slug>', 'Override the auto-derived slug (kebab-case)')
+  .option('--display-name <name>', 'Override the human-readable display name')
+  .option('--agent-cli <cli>', 'Override the default agent CLI (claude)')
+  .action(
+    async (path: string, opts: { name?: string; displayName?: string; agentCli?: string }) => {
+      const row = await runProjectAdd({
+        path,
+        slug: opts.name,
+        name: opts.displayName,
+        agentCli: opts.agentCli,
+      });
+      process.stdout.write(`${row.id}\t${row.slug}\t${row.displayName}\t${row.canonicalPath}\n`);
+    },
+  );
+
+project
+  .command('list')
+  .description('List registered projects (id, slug, displayName, canonicalPath).')
+  .action(() => {
+    const rows = runProjectList();
+    if (rows.length === 0) {
+      process.stdout.write('No projects.\n');
+      return;
+    }
+    for (const row of rows) {
+      process.stdout.write(`${row.id}\t${row.slug}\t${row.displayName}\t${row.canonicalPath}\n`);
+    }
+  });
+
+project
+  .command('remove')
+  .description('Remove a project row (cascades sessions). The on-disk directory is NOT touched.')
+  .argument('<id>', 'Project id from `relay project list`')
+  .action(async (id: string) => {
+    await runProjectRemove(id);
+    process.stdout.write(`Removed ${id}.\n`);
+  });
+
+const persona = program.command('persona').description('List or scaffold persona YAML files.');
+
+persona
+  .command('list')
+  .description('List effective personas for the current tenant (+ project, if --project given).')
+  .option('--project <path>', 'Canonical path to a registered project for overrides')
+  .action((opts: { project?: string }) => {
+    const result = runPersonaList({ projectPath: opts.project });
+    if (result.rows.length === 0) {
+      process.stdout.write('No personas.\n');
+    } else {
+      for (const row of result.rows) {
+        const desc = row.description ?? '';
+        process.stdout.write(`${row.name}\t${row.source}\t${desc}\n`);
+      }
+    }
+    if (result.errors.length > 0) {
+      process.stderr.write(`\n${String(result.errors.length)} persona file(s) had errors:\n`);
+      for (const err of result.errors) {
+        process.stderr.write(`  ${err.filePath}: ${err.reason}\n`);
+      }
+    }
+  });
+
+persona
+  .command('create')
+  .description('Scaffold a new persona YAML under ~/.relay/personas/ and open in $EDITOR.')
+  .argument('<name>', 'Persona name (kebab-case, matches filename stem)')
+  .action(async (name: string) => {
+    const { filePath } = await runPersonaCreate({ name });
+    process.stdout.write(`Wrote ${filePath}.\n`);
+  });
+
+const session = program.command('session').description('Inspect or kill agent sessions.');
+
+session
+  .command('list')
+  .description('List sessions (defaults to --status running; --all shows every row).')
+  .option('--all', 'Include rows for every status (alias for --status all)')
+  .option('--status <status>', 'Filter: running | idle | killed | all', 'running')
+  .option('--project-id <id>', 'Restrict to a single project id')
+  .action((opts: { all?: boolean; status?: string; projectId?: string }) => {
+    const status = opts.all === true ? 'all' : opts.status;
+    if (
+      status !== undefined &&
+      status !== 'running' &&
+      status !== 'idle' &&
+      status !== 'killed' &&
+      status !== 'all'
+    ) {
+      process.stderr.write(`relay session list: unknown --status '${status}'\n`);
+      process.exitCode = 1;
+      return;
+    }
+    const rows = runSessionList({
+      status: status as 'running' | 'idle' | 'killed' | 'all' | undefined,
+      projectId: opts.projectId,
+    });
+    if (rows.length === 0) {
+      process.stdout.write('No sessions.\n');
+      return;
+    }
+    for (const row of rows) {
+      const term = row.terminatedReason ?? '';
+      process.stdout.write(
+        `${row.id}\t${row.status}\t${row.personaName}\t${row.projectId}\t${term}\t${String(
+          row.totalBytes,
+        )}\n`,
+      );
+    }
+  });
+
+session
+  .command('kill')
+  .description(
+    'Terminate a running session (DELETE /sessions/:id; transitions row to killed/operator_kill).',
+  )
+  .argument('<id>', 'Session id from `relay session list`')
+  .action(async (id: string) => {
+    await runSessionKill(id);
+    process.stdout.write(`Killed ${id}.\n`);
+  });
+
+session
+  .command('show')
+  .description('Show one session row (id, status, persona, project, total bytes, timestamps).')
+  .argument('<id>', 'Session id')
+  .action((id: string) => {
+    const row = runSessionShow(id);
+    if (row === undefined) {
+      process.stderr.write(`No session with id ${id}.\n`);
+      process.exitCode = 1;
+      return;
+    }
+    process.stdout.write(
+      [
+        `id: ${row.id}`,
+        `status: ${row.status}`,
+        `personaName: ${row.personaName}`,
+        `projectId: ${row.projectId}`,
+        `terminatedReason: ${row.terminatedReason ?? 'null'}`,
+        `agentSessionId: ${row.agentSessionId ?? 'null'}`,
+        `totalBytes: ${String(row.totalBytes)}`,
+        `createdAt: ${row.createdAt}`,
+        `updatedAt: ${row.updatedAt}`,
+      ].join('\n') + '\n',
+    );
+  });
+
+program
+  .command('server')
+  .description('Run the long-lived API + WebSocket process. Default config: ~/.relay/config.yaml.')
+  .option('--config <path>', 'Override the path to config.yaml')
+  .action(async (opts: { config?: string }) => {
+    const { app, config, shutdown } = await runServer({ configPath: opts.config });
+    process.stdout.write(
+      `relay server listening on http://${config.host}:${String(config.port)}\n`,
+    );
+    const onSignal = async (signal: NodeJS.Signals): Promise<void> => {
+      process.stdout.write(`\n[relay] caught ${signal}, draining...\n`);
+      try {
+        await shutdown();
+      } catch (err) {
+        process.stderr.write(`[relay] shutdown error: ${(err as Error).message}\n`);
+      }
+      process.exit(0);
+    };
+    process.once('SIGINT', onSignal);
+    process.once('SIGTERM', onSignal);
+    // Keep the process alive; Fastify's listen() is non-blocking.
+    void app;
+    return new Promise<void>(() => {
+      // Intentional — `await runServer()` doesn't keep the loop alive on its
+      // own; this Promise never resolves so commander's parseAsync stays
+      // pending until a signal handler exits.
+    });
+  });
+
+program
+  .command('attach')
+  .description(
+    'Thin terminal client. Streams PTY output and accepts input over /sessions/:id/stream.',
+  )
+  .argument('<session-id>', 'Target session id')
+  .option('--url <url>', 'Override the server URL (default: ~/.relay/config.yaml)')
+  .option('--token <token>', 'Override the bearer token (default: RELAY_TOKEN env)')
+  .action(async (sessionId: string, opts: { url?: string; token?: string }) => {
+    const code = await runAttach({
+      sessionId,
+      url: opts.url,
+      token: opts.token,
+    });
+    if (code !== 0) process.exitCode = code;
+  });
+
 program.parseAsync(process.argv).catch((err: unknown) => {
+  if (err instanceof CliHttpUnreachableError) {
+    process.stderr.write(
+      `${err.message}\nHint: is the relay server running? Start it with \`relay server\`.\n`,
+    );
+    process.exit(3);
+  }
+  if (err instanceof CliHttpError) {
+    process.stderr.write(`${err.message}\n`);
+    process.exit(err.status >= 500 ? 4 : 2);
+  }
+  if (err instanceof PersonaCreateError) {
+    process.stderr.write(`relay persona create: ${err.message}\n`);
+    process.exit(err.code === 'already_exists' ? 2 : 1);
+  }
   process.stderr.write(`${(err as Error).message}\n`);
   process.exit(1);
 });

@@ -15,6 +15,11 @@ export function configPath(homeOverride?: string): string {
   return join(relayHome(homeOverride), 'config.yaml');
 }
 
+// `relay server` opens this for persistence; tests use ':memory:' instead.
+export function dbPath(homeOverride?: string): string {
+  return join(relayHome(homeOverride), 'relay.db');
+}
+
 export function tokensPath(homeOverride?: string): string {
   return join(relayHome(homeOverride), 'tokens.json');
 }

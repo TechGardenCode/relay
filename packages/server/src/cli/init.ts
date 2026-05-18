@@ -6,12 +6,16 @@ import { dump as yamlDump } from 'js-yaml';
 
 import {
   configPath,
+  dbPath,
   lastPairingPath,
   personasDir,
   relayHome,
   tokensPath,
 } from '../config/paths.js';
 import { TokenStore } from '../auth/store.js';
+import { openDatabase, runMigrations, tenants } from '../store/index.js';
+
+import { resolveMigrationsDir } from './migrations-dir.js';
 
 // Defaults mirror config/loader.ts so the file init scaffolds is the
 // canonical-shape document loadConfig() reads. Per ND-01 (30 s) / ND-03
@@ -31,6 +35,8 @@ export interface InitOptions {
   home?: string;
   url?: string;
   defaultPersonasDir?: string;
+  /** Test seam: override the migrations directory. Production resolves it next to dist/cli/. */
+  migrationsDir?: string;
   /** When false, abort if ~/.relay/ already contains config/tokens. Defaults to false. */
   force?: boolean;
 }
@@ -58,6 +64,18 @@ export function runInit(opts: InitOptions = {}): InitResult {
   mkdirSync(home_, { recursive: true });
   writeConfig(home);
   copyDefaultPersonas(sourcePersonasDir, personasDir(home));
+
+  // Migrate the DB so direct-read CLIs (`relay project list`, `relay session
+  // list`) work immediately after init, without requiring a prior `relay
+  // server` start. This is the same boot sequence initServer (6E) runs.
+  const migrationsDir = opts.migrationsDir ?? resolveMigrationsDir(import.meta.url);
+  const db = openDatabase({ filename: dbPath(home) });
+  try {
+    runMigrations(db, migrationsDir);
+    tenants.ensureSingleton(db, Date.now());
+  } finally {
+    db.close();
+  }
 
   const store = new TokenStore(tokensPath(home));
   const created = store.createToken(INITIAL_TOKEN_LABEL);

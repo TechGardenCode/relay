@@ -61,6 +61,9 @@ When a decision flips to `resolved`, its spec content has to land in the affecte
 - [ND-08 — Skill subset enforcement mechanism](#nd-08-skill-subset-enforcement-mechanism)
 - [ND-10 — `relay token list` subcommand surface alignment](#nd-10-relay-token-list-subcommand-surface-alignment)
 - [ND-12 — `spawn.json` schema location](#nd-12-spawnjson-schema-location)
+- [ND-15 — `relay session show` subcommand surface alignment](#nd-15-relay-session-show-subcommand-surface-alignment)
+- [ND-16 — CLI ↔ data-plane boundary rule](#nd-16-cli--data-plane-boundary-rule)
+- [ND-17 — `relay attach` raw-mode TTY variant of the §5.1 client FSM](#nd-17-relay-attach-raw-mode-tty-variant-of-the-51-client-fsm)
 
 **Deferred:**
 - [D-02 — PWA initial server discovery](#d-02-pwa-initial-server-discovery) (deferred until Phase 2)
@@ -1037,3 +1040,82 @@ When 6F implements the `GET /sessions/:id/transcript` handler, which key naming 
 
 **Propagated to:** `prd/03-server.md` §2 (2026-05-17).
 
+---
+
+## ND-15: `relay session show` subcommand surface alignment
+
+**Status:** open
+**Affects:** `prd/03-server.md` §7
+**Surfaced by:** build-plan 6H preflight (2026-05-18) — the build-plan 6H Done-when names `relay session show` as a required subcommand but `prd/03-server.md` §7 enumerates only `relay session list` and `relay session kill`. Same shape as [[nd-10-relay-token-list-subcommand-surface-alignment]].
+
+### Question
+Should `relay session show <id>` ship as part of the Phase 1 CLI surface, and if so, what is its exact output shape? `prd/03-server.md` §7 omits it; `docs/build-plan.md` task 6H includes it. The two specs disagree by one subcommand.
+
+### Elaboration prompt
+The build-plan is the newer artifact and explicitly canonicalizes `show` as part of the 6H surface. The PRD §7 omission appears to be an oversight rather than a deliberate exclusion: a user who has located a session id via `relay session list` will reasonably expect a `show` verb to render its full record (status, terminated_reason, project, persona, agent_session_id, total_bytes, createdAt/updatedAt) — the same shape the IDE extension's "session details" view will need from the corresponding `GET /sessions/:id` REST route. Without `show`, an operator inspecting a session has to resort to `sqlite3 ~/.relay/relay.db` or piping `GET /sessions` through `jq`, both of which break the otherwise complete CLI noun/verb grid (`{project,persona,session,token} × {list, …}`).
+
+What to validate before resolving: (a) the exact field set (proposal: `id`, `status`, `terminatedReason`, `projectSlug`, `personaName`, `agentSessionId`, `totalBytes`, `createdAt`, `updatedAt`); (b) the output format — plain text (one `key: value` per line, matching `relay token list` columnar precedent) vs. JSON (machine-readable for scripting, easier to keep aligned with the REST shape); (c) error behavior when `<id>` does not exist (exit 1 with a one-line message vs. RFC 9457 problem-details echo from the REST route); (d) whether `show` reads SQLite directly (read-only path per the [[nd-16-cli--data-plane-boundary-rule]] proposal) or hits the running server's `GET /sessions/:id` route (consistency with how the IDE extension will render the same data).
+
+This is filed as `open` so the resolution lands as a deliberate PRD edit rather than an inline implementation drift. Build-plan 6H ships `show` regardless (the build-plan is the canonical task surface for code that will be written); the PRD §7 propagation closes the doc gap.
+
+---
+
+## ND-16: CLI ↔ data-plane boundary rule
+
+**Status:** open
+**Affects:** `docs/arch/repo-layout.md` §3 (module boundaries for `cli/`), `docs/arch/rest-conventions.md` (cross-reference from CLI), `packages/server/src/cli/CLAUDE.md` (new — to be authored when this resolves), `docs/build-plan.md` task 6H (Done-when)
+**Surfaced by:** build-plan 6H preflight (2026-05-18) — 6B established the precedent that `relay token {create,revoke,list}` talks to `~/.relay/tokens.json` directly without going through the running server (no HTTP). 6H must extend the CLI surface with subcommands that **cannot** uniformly follow that rule: `relay session kill` needs to terminate a live PTY supervised by the long-running `relay server` process; `relay project add` needs the canonicalization + marker-file + gitignore logic already centralized in 6F's `POST /projects` handler. The CLI ↔ data-plane boundary is unspecified.
+
+### Question
+For each Phase 1 CLI subcommand, which data plane does it operate against — the local SQLite database + filesystem directly (no running server required), or the long-lived `relay server`'s REST API over loopback (server must be running)?
+
+### Elaboration prompt
+Three concrete subcommand groups force the question:
+
+1. **Read-only subcommands** (`relay session list`, `relay project list`, `relay persona list`, `relay token list`). Both options are technically correct: the SQLite reader is a pure function over the on-disk state, and the REST route returns the same data. Direct SQLite has the advantage that it works without a running server (handy for offline inspection and recovery) and avoids the latency + dependency on `127.0.0.1:7777` being bound. The REST route has the advantage that any future row-level access control or audit logging lands in one place.
+
+2. **State-mutating subcommands that DON'T touch live PTYs** (`relay project add`, `relay project remove`, `relay persona create`). `relay project add` specifically duplicates non-trivial logic if it goes direct-to-SQLite: 6F's `POST /projects` handler already owns `realpathSync` canonicalization, slug derivation, `409 Conflict` mapping of `SQLITE_CONSTRAINT_UNIQUE`, marker-file write at `<path>/.relay/project.json` per [[nd-07-marker-file-schema]], and idempotent `.gitignore` append. A direct-SQLite path either re-implements all of that (drift risk) or extracts a shared internal module that both the CLI and the REST handler call (a third option below). `relay persona create` is the inverse: it writes a YAML file under `~/.relay/personas/`, no SQLite involvement, and `POST /personas` adds nothing beyond the file write — direct is the same code path.
+
+3. **State-mutating subcommands that DO touch live PTYs** (`relay session kill`). The PTY supervisor (`registry`) only exists inside the running `relay server` process — there's no IPC mechanism that would let a one-shot CLI invocation reach into the server's in-memory `Map<sid, AttachedSession>` and call `kill('operator_kill')`. Direct SQLite would mark the row `killed` but leave the actual `node-pty` child alive until the next boot orphan sweep ([[d-11-server-restart-and-session-orphaning]]) — a correctness violation. REST is the only correct option.
+
+Three options for the boundary rule:
+
+- **Option A — Uniform REST.** Every CLI subcommand hits the local server's REST API. Pros: one code path per operation, no logic duplication, future-proof against in-process state. Cons: every CLI invocation requires `relay server` running; offline inspection becomes impossible; latency on small `relay token list` ops where the SQLite read is sub-millisecond.
+
+- **Option B — Uniform direct-SQLite/filesystem.** Every CLI subcommand talks to the data layer directly. Forced shared-module extraction for the canonicalization logic in `POST /projects`. Forced design of an IPC mechanism (e.g., a UNIX socket the server listens on for control commands) to support `session kill`. Pros: CLI works without server; one canonical data-plane layer. Cons: significant new surface area (control-plane IPC) for one subcommand; defeats the point of having a REST API.
+
+- **Option C — Split rule: read direct, mutate to REST, with one carve-out for filesystem-only writes.** Read-only subcommands talk to SQLite/filesystem directly (no server required). State-mutating subcommands that touch live sessions talk to the running server's REST API over loopback. State-mutating subcommands that only write files (`relay persona create`) talk to the filesystem directly. State-mutating subcommands that have non-trivial logic centralized in a REST handler (`relay project add`, `relay project remove`) talk to REST to avoid duplicating that logic. Pros: matches each subcommand's actual constraints; offline inspection still works; no new IPC surface. Cons: the rule is "it depends" — slightly less uniform.
+
+What to validate before resolving: (a) whether `relay session list` should be REST-only on the grounds that running-session data lives in the server's in-memory registry (e.g., currently-attached client count, in-flight claim holder); answer for Phase 1 appears to be "no" — `relay session list` per `prd/03-server.md` §7 only renders persisted DB columns, no in-memory state; (b) error behavior when `relay session kill` is invoked while no server is running (proposal: exit 1 with a clear "no relay server reachable at <url>" message and a hint to start one — do NOT fall back to direct DB mutation, which would orphan the PTY); (c) where the loopback URL + bearer token come from (proposal: read `~/.relay/config.yaml` for URL — defaults `127.0.0.1:7777` — and `~/.relay/tokens.json` for the most-recent active token, same posture as the IDE extension's first-run pairing snippet); (d) whether the rule belongs in `docs/arch/repo-layout.md` §3 (as a new "CLI data-plane rule" subsection under the `cli/` module entry) or in a brand-new `packages/server/src/cli/CLAUDE.md` (no per-module CLAUDE.md exists for `cli/` today, but if the rule is load-bearing it would justify one).
+
+Proposed direction is Option C with the carve-out for `relay persona create` being filesystem-direct. Build-plan 6H is blocked on this resolution because the CLI dispatchers for `session/project/persona` need to know which client (SQLite reader, REST client, filesystem writer) to instantiate per subcommand.
+
+This is filed as `open` so the resolution lands as a deliberate arch-doc edit + a CLI per-module CLAUDE.md (if warranted) rather than an inline implementation drift. Build-plan 6H ships against the Option C posture provisionally; the propagation closes the doc gap.
+
+---
+
+
+## ND-17: `relay attach` raw-mode TTY variant of the §5.1 client FSM
+
+**Status:** open
+**Affects:** `docs/arch/ws-protocol.md` §5.1 (client lock state), `packages/server/src/attach/client.ts`, `packages/server/src/attach/tty.ts`
+**Surfaced by:** build-plan 6H spec-reviewer pass (2026-05-18) — the §5.1 client lock FSM and its transition table are written against the IDE compose-field UX (two-Enter flow: first Enter commits the draft → claim; second Enter on the same draft → send). The `relay attach` thin client is a raw-mode TTY where the user has already typed a line and pressed Enter exactly once before the FSM sees it, so two §5.1 transitions don't map cleanly: (a) `Claimed → Sending` ("User hits Enter again on same draft") is collapsed into the same wire turn as `Claiming → Claimed`; (b) `Backoff → Idle` ("4 seconds elapse or user types any key") only fires on full-line submission, since individual keystrokes accumulate in the TTY bridge's line buffer rather than being forwarded to the client.
+
+### Question
+Does the §5.1 client FSM also bind the `relay attach` raw-mode TTY client, or is the raw-mode variant a distinct (compatible) FSM that the spec should name explicitly? If the former, what specifically does each compose-field-shaped transition mean in a raw-mode TTY context — should the CLI implement a "first Enter commits, second Enter sends" two-Enter flow that would feel broken in a terminal, or is the collapsed-FSM the canonical CLI behavior with the spec needing a §5.1.1 addendum?
+
+### Elaboration prompt
+
+The wire-level invariants are unchanged either way — the server still sees `claim → claim_ack → send → claim_released { delivered }` in that order, and the §5.2 server-side FSM ([D-G2](#d-g2-multi-client-input-arbitration)) doesn't care which client surface produced the frames. What's underspecified is the **client-side** transitions:
+
+- **Transition C-A (`Claimed → Sending`).** §5.1 says the trigger is "User hits Enter again on same draft." For the IDE compose-field this is the canonical UX (one Enter = commit; second Enter on the same line = send). For `relay attach`, the user has typed `ls -la\n` once; a UX that demands a second Enter would feel like a stuck terminal. The 6H implementation collapses `Claiming → Sending` immediately on `claim_ack` arrival, bypassing the `Claimed` rest state entirely. Whether that's a spec-compliant simplification or a strict §5.1 violation is unclear.
+
+- **Transition C-B (`Backoff → Idle`).** §5.1 says the trigger is "4 seconds elapse or user types any key." In a raw-mode TTY the user already typed the line that got `busy`-rejected, so "user types any key" is redundant; in practice individual keystrokes during backoff accumulate in the TTY bridge's `lineBuffer` and never reach the client until a newline. The 6H implementation lets the 4-second timer be the only `Backoff → Idle` driver in the CLI path. Same question: spec-compliant simplification or strict §5.1 violation.
+
+What to validate before resolving: (a) whether the §5.1 FSM is a wire-correctness contract (the server doesn't care which sub-FSM the client uses, only the order of frames on the wire) or a UX-mandatory client contract (every client surface must show the user the same affordances); (b) whether the IDE extension's two-Enter compose UX is actually what ships in 6I (it's plausible the extension also uses a single-Enter flow once the compose field is mounted in the terminal widget), in which case the spec is wrong and the CLI is right; (c) whether the §5.1 transition labels should be reworded to be client-agnostic (e.g., "User commits the line" instead of "User hits Enter again on same draft") with a §5.1.1 footnote noting the IDE compose-field interprets "commit" as the second-Enter affordance; (d) whether the `release` transition ("User cancels (e.g., clears the draft)") needs a CLI-flavored counterpart (Ctrl-C in the middle of a draft would be the natural mapping, but in a raw-mode TTY Ctrl-C is a SIGINT byte that the user expects to pass through to the remote agent — so the CLI may correctly have no in-state `release` path).
+
+Proposed direction: treat §5.1 as a **wire-correctness** contract that names one canonical client UX (the IDE compose-field) without forbidding compatible variants, and add a §5.1.1 footnote to `ws-protocol.md` that documents the `relay attach` raw-mode variant: `Claimed` is a degenerate state (zero-tick), `Backoff` dismisses on the timer only, no in-state `release`. The 6H implementation already matches that variant; the doc edit just makes it explicit.
+
+This is filed as `open` so the resolution lands as a deliberate `ws-protocol.md` §5.1 / §5.1.1 edit rather than an inline implementation drift. Build-plan 6H ships against the collapsed-FSM variant provisionally; the propagation closes the doc gap.
+
+---

@@ -78,7 +78,7 @@ Track 1:   1A pairs with 6C · 1B pairs with 6B · 1C landed early · 3C optiona
 | 6E | `session/` orchestrator + boot orphan sweep | 6F, 6G, scenarios C/D/G | **done** → [`packages/server/src/session/`](../packages/server/src/session/) |
 | 6F | `server/rest/` routes + Zod validation | 6H, scenarios A/B/C/G | **done** → [`packages/server/src/server/`](../packages/server/src/server/) · [`packages/protocol/src/rest/`](../packages/protocol/src/rest/) · [`packages/protocol/src/problem-details.ts`](../packages/protocol/src/problem-details.ts) |
 | 6G | `server/ws/` handler + claim-lock state machine | 6H, scenarios D/E/F | **done** → [`packages/server/src/server/ws/`](../packages/server/src/server/ws/) |
-| 6H | `cli/` subcommands + `attach/` thin client | 6I, scenarios C/D/E | pending (needs 6F, 6G) |
+| 6H | `cli/` subcommands + `attach/` thin client | 6I, scenarios C/D/E | **done** → [`packages/server/src/cli/`](../packages/server/src/cli/) · [`packages/server/src/attach/`](../packages/server/src/attach/) |
 | 6I | IDE extension wire-up (`packages/extension/`) | scenarios C/D/E | pending (needs 6H) |
 | 6J | Distribution: npm tarball, Docker image, Compose | scenario H | pending (needs 6H, 6I) |
 | 6Z | Phase 1 done gate — `scenario-runner` walks A–H + 1A/1B/1C land | — | pending |
@@ -391,12 +391,9 @@ packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json f
 
 ---
 
-### 6H. `cli/` subcommands + `attach/` thin client
+### 6H. `cli/` subcommands + `attach/` thin client — **done**
 
-**Goal:** All `relay` subcommands from `prd/03-server.md` §7 not already shipped in 6B. `relay attach` opens the WS, sets terminal raw mode, proxies stdin/stdout, exits on `^D`.
-**Output:** `packages/server/src/cli/` (session/project/persona subcommands), `packages/server/src/attach/`.
-**Done when:** `relay session list/kill/show` works; `relay attach <sid>` from an SSH terminal (scenario E's plain-attach variant) streams PTY output and accepts input.
-**Reads:** [`docs/prd/03-server.md`](prd/03-server.md) §7, [`docs/arch/ws-protocol.md`](arch/ws-protocol.md).
+**Output:** [`packages/server/src/cli/`](../packages/server/src/cli/) — `project.ts` (add/list/remove), `persona.ts` (list/create with `$EDITOR` spawn), `session.ts` (list/kill/show), `server.ts` (long-lived REST+WS boot via `initServer` → `buildServer`), `attach.ts` (thin-client dispatcher), `http.ts` (loopback REST client wrapping Node 22's fetch with RFC 9457 problem-details → typed `CliHttpError`/`CliHttpUnreachableError`), `migrations-dir.ts` (dist-then-source fallback resolver for the migrations dir, since 6J's distribution copy is pending). `relay.ts` extended with the seven new commander entries; bin shebang preserved through `tsc -b`. [`packages/server/src/attach/`](../packages/server/src/attach/) — `client.ts` (WS connection, `Authorization: Bearer` header, §5.1 client FSM with the ND-17 collapsed-Claimed variant for raw-mode TTYs, hello/replay/binary/control frame dispatch, `subscribe()` for TTY-layer callback layering), `tty.ts` (raw-mode stdin → line-buffered submit, ^D clean close, ^C single-byte send pass-through, binary frames → stdout, raw-mode restore on close), `config.ts` (URL/token precedence: `--url`/`--token` → `~/.relay/config.yaml`/`RELAY_TOKEN` → defaults). 50 new Vitest tests across 8 `*.test.ts` files (15 FSM + 6 TTY + 7 config + 8 project + 7 persona + 9 session + 3 server + 2 attach-dispatcher); full suite 371 green, typecheck + lint clean. `runInit` now also opens `~/.relay/relay.db` and runs migrations so direct-read CLIs (`project list`, `session list`, `session show`) work immediately on a fresh scaffold without requiring a prior `relay server` start. Scenario A walks pass (checks 1–6 verified live; check 7 requires a real `claude` binary, `n/a` for this gate). Three NDs filed and propagation-pending: [ND-15](open-questions.md#nd-15-relay-session-show-subcommand-surface-alignment) (`relay session show` PRD §7 alignment, same shape as ND-10), [ND-16](open-questions.md#nd-16-cli--data-plane-boundary-rule) (read-direct / mutate-via-REST split — the rule the 6H implementation ships against), [ND-17](open-questions.md#nd-17-relay-attach-raw-mode-tty-variant-of-the-51-client-fsm) (§5.1 raw-mode TTY FSM variant — collapses `Claimed → Sending` and dismisses `Backoff` on timer only).
 
 ---
 
