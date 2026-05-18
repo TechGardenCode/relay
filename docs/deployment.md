@@ -38,7 +38,7 @@ The token is shown **exactly once** in plain text. Copy it into the IDE extensio
 relay server                            # default config: ~/.relay/config.yaml
 ```
 
-The server binds `0.0.0.0:7777` by default. Supervise it under whatever you already use:
+The server binds `127.0.0.1:7777` by default (loopback-only — set `host: 0.0.0.0` in `~/.relay/config.yaml` when fronting via a reverse proxy or binding inside a container). Supervise it under whatever you already use:
 
 - **systemd** (Linux): a unit file with `Environment=ANTHROPIC_API_KEY=…`, `ExecStart=/usr/bin/relay server`, `Restart=on-failure`.
 - **launchd** (macOS): a `LaunchAgent` plist with `EnvironmentVariables` and `KeepAlive`.
@@ -191,7 +191,7 @@ Twelve-factor: declarative config in `~/.relay/config.yaml`, environment variabl
 Other notable config keys (full surface lives in `prd/03-server.md`):
 
 - `replayBufferBytes` — the on-attach replay size (default 32 KB, see `prd/03-server.md` §5.2).
-- `port` / `host` — server bind. Defaults `0.0.0.0:7777`.
+- `port` / `host` — server bind. Defaults `127.0.0.1:7777` (loopback-only). Container and reverse-proxy operators set `host: 0.0.0.0` in `~/.relay/config.yaml` so the server binds all interfaces inside its namespace.
 
 ---
 

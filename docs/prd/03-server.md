@@ -24,18 +24,18 @@
 - `POST /sessions` (creates session, spawns agent) `GET /sessions` `DELETE /sessions/:id` (kills agent)
 - `GET /sessions/:id/transcript` — Phase 1 endpoint with two mutually-exclusive query shapes:
   - **Full export.** `?format=full` returns the entire session transcript. Use cases: backups, offline review, future audit tooling.
-  - **Paginated read.** `?before=<byte_offset>&limit=<n>` returns raw PTY bytes in the half-open range `[max(0, before - limit), before)`. `before` is an **exclusive** upper-bound byte offset; the client passes the lowest `from` it has already received as the next call's `before` to walk backward. `limit` is a byte count, server-clamped to 1 MB. Initial scroll-back from the reattach contract (§5.2) calls with `before=<total_bytes>`.
+  - **Paginated read.** `?before=<byte_offset>&limit=<n>` returns raw PTY bytes in the half-open range `[max(0, before - limit), before)`. `before` is an **exclusive** upper-bound byte offset; the client passes the lowest `from` it has already received as the next call's `before` to walk backward. `limit` is a byte count, server-clamped to 1 MB. Initial scroll-back from the reattach contract (§5.2) calls with `before=<totalBytes>`.
   - **Response framing (both modes).**
     ```json
     {
-      "session_id": "<uuid>",
+      "sessionId": "<ULID>",
       "range": { "from": 0, "to": 32768 },
-      "total_bytes": 1048576,
+      "totalBytes": 1048576,
       "bytes": "<base64-encoded raw PTY bytes>",
-      "has_more": true
+      "hasMore": true
     }
     ```
-    `range.from` is inclusive, `range.to` is exclusive, both relative to the session's first captured byte (offset 0). `has_more` is `true` when `range.from > 0`. Full export returns `range = { from: 0, to: total_bytes }`.
+    `range.from` is inclusive, `range.to` is exclusive, both relative to the session's first captured byte (offset 0). `hasMore` is `true` when `range.from > 0`. Full export returns `range = { from: 0, to: totalBytes }`.
   - **Offsets, not cursors.** PTY bytes are append-only and never rewritten, so offsets are stable for the session's lifetime. Bytes — not logical messages — are the addressable unit, consistent with the PTY-layer capture in §10.
   - **Single contract, two renderings.** The IDE terminal widget decodes `bytes` and feeds them into its PTY renderer; the (future) PWA chat renderer decodes the same `bytes` and applies its own framing. The server does not branch by client surface.
 
@@ -43,7 +43,7 @@
 
 - `GET /sessions/:id/stream` — bidirectional. Client receives PTY output; client sends PTY input. Multiple concurrent connections per session permitted; behavioral contract for concurrent input is in §5.
 
-*Resolved by [D-04](../open-questions.md#d-04-transcript-export-endpoint) on 2026-05-14. Pagination shape resolved by [ND-04](../open-questions.md#nd-04-transcript-pagination-api-shape) on 2026-05-15.*
+*Resolved by [D-04](../open-questions.md#d-04-transcript-export-endpoint) on 2026-05-14. Pagination shape resolved by [ND-04](../open-questions.md#nd-04-transcript-pagination-api-shape) on 2026-05-15. Field-naming aligned to camelCase per [ND-14](../open-questions.md#nd-14-transcript-response-field-naming-camelcase) on 2026-05-17.*
 
 ## 3. State
 

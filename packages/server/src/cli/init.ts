@@ -13,15 +13,16 @@ import {
 } from '../config/paths.js';
 import { TokenStore } from '../auth/store.js';
 
-const DEFAULT_LISTEN_PORT = 8787;
+// Defaults mirror config/loader.ts so the file init scaffolds is the
+// canonical-shape document loadConfig() reads. Per ND-01 (30 s) / ND-03
+// (32 KB) and docs/deployment.md (7777). 127.0.0.1 keeps the local-dev
+// default loopback-only; Docker / reverse-proxy operators override `host`
+// in ~/.relay/config.yaml.
+const DEFAULT_LISTEN_PORT = 7777;
 const DEFAULT_LISTEN_HOST = '127.0.0.1';
-const INITIAL_TOKEN_LABEL = 'initial';
-
-// Per ND-01 / ND-03: these are the server-side defaults that operators can
-// override in ~/.relay/config.yaml. Surfaced here at init time so the file is
-// self-documenting after first run.
 const DEFAULT_CLAIM_LOCK_TIMEOUT_SECONDS = 30;
 const DEFAULT_REPLAY_BUFFER_BYTES = 32768;
+const INITIAL_TOKEN_LABEL = 'initial';
 
 const cliDir = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_PERSONAS_DIR = resolve(cliDir, '..', '..', 'personas', 'defaults');
@@ -72,9 +73,13 @@ export function runInit(opts: InitOptions = {}): InitResult {
 }
 
 function writeConfig(home: string | undefined): void {
+  // Flat shape; matches the RelayConfigSchema in config/loader.ts. Keys here
+  // are exactly the ones loadConfig() accepts — strict mode rejects extras
+  // (including `schemaVersion` and `listen` nesting), so adding a key here
+  // means adding it to RelayConfigSchema first.
   const config = {
-    schemaVersion: 1,
-    listen: { host: DEFAULT_LISTEN_HOST, port: DEFAULT_LISTEN_PORT },
+    host: DEFAULT_LISTEN_HOST,
+    port: DEFAULT_LISTEN_PORT,
     claimLockTimeoutSeconds: DEFAULT_CLAIM_LOCK_TIMEOUT_SECONDS,
     replayBufferBytes: DEFAULT_REPLAY_BUFFER_BYTES,
   };

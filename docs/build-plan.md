@@ -76,7 +76,7 @@ Track 1:   1A pairs with 6C · 1B pairs with 6B · 1C landed early · 3C optiona
 | 6C | `persona/` module + composition rule | 6E, 6F, scenario B | **done** → [`packages/server/src/persona/`](../packages/server/src/persona/) · [`packages/protocol/src/persona.ts`](../packages/protocol/src/persona.ts) |
 | 6D | `pty/` + `transcript/` modules (paired) | 6E, 6G, scenarios C/D | **done** → [`packages/server/src/pty/`](../packages/server/src/pty/) · [`packages/server/src/transcript/`](../packages/server/src/transcript/) |
 | 6E | `session/` orchestrator + boot orphan sweep | 6F, 6G, scenarios C/D/G | **done** → [`packages/server/src/session/`](../packages/server/src/session/) |
-| 6F | `server/rest/` routes + Zod validation | 6H, scenarios A/B/C/G | pending (needs 6A, 6B, 6C, 6E) |
+| 6F | `server/rest/` routes + Zod validation | 6H, scenarios A/B/C/G | **done** → [`packages/server/src/server/`](../packages/server/src/server/) · [`packages/protocol/src/rest/`](../packages/protocol/src/rest/) · [`packages/protocol/src/problem-details.ts`](../packages/protocol/src/problem-details.ts) |
 | 6G | `server/ws/` handler + claim-lock state machine | 6H, scenarios D/E/F | pending (needs 6E, 3D) |
 | 6H | `cli/` subcommands + `attach/` thin client | 6I, scenarios C/D/E | pending (needs 6F, 6G) |
 | 6I | IDE extension wire-up (`packages/extension/`) | scenarios C/D/E | pending (needs 6H) |
@@ -379,12 +379,9 @@ packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json f
 
 ---
 
-### 6F. `server/rest/` routes + Zod validation
+### 6F. `server/rest/` routes + Zod validation — **done**
 
-**Goal:** Fastify routes for all REST endpoints in `prd/03-server.md` §2. Request validation via `@relay/protocol` Zod schemas. Error envelope per RFC 9457 problem-details.
-**Output:** `packages/server/src/server/rest/`, Zod schemas in `packages/protocol/`.
-**Done when:** scenarios A (project list, restart), B (persona list, override), C (session create/list/get), G (multi-session list) all return correct shapes. Supertest suite green.
-**Reads:** [`docs/prd/03-server.md`](prd/03-server.md) §2, [`docs/arch/rest-conventions.md`](arch/rest-conventions.md), [ND-04](open-questions.md#nd-04-transcript-pagination-api-shape), [ND-13](open-questions.md#nd-13-byte-accounting-cadence-for-sessionstotal_bytes).
+**Output:** [`packages/server/src/server/`](../packages/server/src/server/) — `index.ts` `buildServer({ db, registry, tokenStore, config })` Fastify factory, `rest/plugins/auth.ts` (D-13 bearer preHandler — 401 with `WWW-Authenticate: Bearer` on missing/unknown/revoked/malformed, slug-discriminated `auth-missing | auth-malformed | auth-revoked | auth-unknown`), `rest/plugins/error-mapper.ts` (RFC 9457 envelope: `HttpProblemError` extensions ride at the top level; `ZodError` → 400 with `validationErrors[]`; `RangeError` → 400; Fastify 4xx forwarded; default 500), and `rest/routes/{tenants,projects,personas,sessions,transcript}.ts`. POST /projects canonicalizes via `realpathSync`, derives a kebab slug from the basename (or 422 `project-slug-undeducible`), writes `.relay/project.json` per ND-07, idempotently appends to `.gitignore`, maps `SQLITE_CONSTRAINT_UNIQUE` to 409 (`project-path-taken` vs `project-slug-taken`). POST /personas writes to `~/.relay/personas/<name>.yaml` (0o600); PATCH refuses rename; DELETE is non-idempotent for personas/projects but idempotent for sessions per D-11. GET /sessions defaults to `?status=running` per D-11; GET transcript ships camelCase `sessionId/range/totalBytes/bytes/hasMore` per the new ND-14. Config loader at `config/loader.ts` reads `~/.relay/config.yaml` with strict Zod and defaults `host=127.0.0.1`, `port=7777`, `claimLockTimeoutSeconds=30` (ND-01), `replayBufferBytes=32768` (ND-03). 53 new Vitest specs (4 tenants + 10 projects + 10 personas + 8 sessions + 8 transcript + 5 auth + 8 config) green; pnpm typecheck + lint clean across all workspaces. ND-14 (transcript field naming) filed + propagated to `prd/03-server.md` §2.
 
 ---
 

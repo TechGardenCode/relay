@@ -93,6 +93,7 @@ When a decision flips to `resolved`, its spec content has to land in the affecte
 - [ND-09 — Bearer token hashing algorithm](#nd-09-bearer-token-hashing-algorithm) (resolved 2026-05-17)
 - [ND-11 — `agentSessionId` capture mechanism](#nd-11-agentsessionid-capture-mechanism) (resolved 2026-05-17)
 - [ND-13 — Byte-accounting cadence for `sessions.total_bytes`](#nd-13-byte-accounting-cadence-for-sessionstotal_bytes) (resolved 2026-05-17)
+- [ND-14 — Transcript response field naming (camelCase)](#nd-14-transcript-response-field-naming-camelcase) (resolved 2026-05-17)
 
 ---
 
@@ -1003,4 +1004,36 @@ Proposed direction is Option B (1-second batched flush + shutdown drain) with a 
 **Why not Option C:** flush-only-on-exit pushes the cost into the read path: `GET /transcript` on a live session would read `total_bytes = 0` and have to `fstat` the sidecar on every paginated read. That's more state for 6F (discriminating "live, use fstat" from "killed, use column") and the fstat cost compounds across the N range-reads a UI does while scrolling.
 
 **Propagated to:** `store/CLAUDE.md`, `transcript/CLAUDE.md`, `sqlite-schema.md` §3.3 (column comment), `build-plan.md` §6E + §6F (2026-05-17).
+
+---
+
+## ND-14: Transcript response field naming (camelCase)
+
+**Status:** resolved (2026-05-17)
+**Affects:** `prd/03-server.md` §2 (transcript response snippet)
+**Surfaced by:** build-plan 6F preflight (2026-05-17) — `docs/arch/rest-conventions.md` §6 explicitly names the `prd/03-server.md` §2 transcript snippet as a known inconsistency: it predates the REST conventions doc and uses `snake_case` keys (`session_id`, `total_bytes`, `has_more`), but the project-wide convention per rest-conventions §6 is `camelCase` for payload fields. The doc also commits to filing this propagation entry at implementation time (rest-conventions.md §7).
+
+### Question
+When 6F implements the `GET /sessions/:id/transcript` handler, which key naming does the response body use — the `snake_case` shown in `prd/03-server.md` §2 (and historically in [[nd-04-transcript-pagination-api-shape]]'s Resolution example) or the `camelCase` mandated by `docs/arch/rest-conventions.md` §6?
+
+### Resolution
+**`camelCase`. The implementation ships `sessionId`, `totalBytes`, `hasMore`; the PRD snippet is rewritten to match.** No other field renames — `range`, `bytes` are unchanged because they are already single-token, `range.from` / `range.to` are unchanged because they were already `camelCase`-by-default.
+
+1. **Wire shape (both modes).**
+   ```json
+   {
+     "sessionId": "<ULID>",
+     "range": { "from": 0, "to": 32768 },
+     "totalBytes": 1048576,
+     "bytes": "<base64-encoded raw PTY bytes>",
+     "hasMore": true
+   }
+   ```
+2. **Zod schema location.** `packages/protocol/src/rest/transcript.ts` — co-located with the rest of the 6F REST schemas (per `packages/server/src/server/rest/` plan in 6F).
+3. **ND-04 deliberation record stays.** [[nd-04-transcript-pagination-api-shape]]'s Resolution example uses the original `snake_case` rendering. Per the propagation protocol's separation of concerns (Resolution = deliberation record, subdoc = spec), that record is **not** rewritten — the canonical wire shape lives in this entry and in `prd/03-server.md` §2. A reader walking ND-04 should treat the field names there as illustrative-at-time-of-resolution and defer to ND-14 + the propagated PRD snippet for the canonical rendering.
+4. **Status codes / cursor semantics unchanged.** Half-open `[max(0, before - limit), before)`, 1 MB silent clamp on `limit`, `hasMore = range.from > 0`, full-export mode returns `range = { from: 0, to: totalBytes }` — all inherited from [[nd-04-transcript-pagination-api-shape]]. ND-14 is **only** about field-name spelling on the wire.
+
+**Why a separate ND and not an in-place edit of ND-04:** ND-04 resolved on 2026-05-15 before `docs/arch/rest-conventions.md` was filed. The convention shift came from 2E, not from re-litigating ND-04. Filing this as a discrete entry keeps the deliberation timeline honest (the inconsistency was identified *after* both ND-04 and the PRD §2 snippet were written) and makes the propagation queryable — anyone scanning the log can see exactly when the field-name shift landed and where it propagated.
+
+**Propagated to:** `prd/03-server.md` §2 (2026-05-17).
 
