@@ -42,6 +42,14 @@ export function sessionsDir(homeOverride?: string): string {
   return join(relayHome(homeOverride), 'sessions');
 }
 
+// Per persona-application.md §4.2 + ND-12: each session gets a transient
+// scratch dir at `~/.relay/sessions/<sid>/` holding `spawn.json` (always) and
+// `mcp.json` (when persona.mcpServers is set). Owner-only at 0o700; spawn.json
+// at 0o600.
+export function sessionWorkDir(sid: string, homeOverride?: string): string {
+  return join(sessionsDir(homeOverride), sid);
+}
+
 export function lastPairingPath(homeOverride?: string): string {
   return join(relayHome(homeOverride), 'last-pairing.txt');
 }

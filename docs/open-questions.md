@@ -962,6 +962,8 @@ Sub-question answers:
 - **(b) `mcpJsonPath`: included as `z.string().nullable()`.** `null` when the persona has no `mcpServers` filter (no `mcp.json` written, per §4.2); absolute path when written.
 - **(c) `0o600` on `spawn.json`: yes.** Aligns with the proposed `0o700` on the transient session dir and matches the existing transcript-sidecar pattern in 6D (`packages/server/src/transcript/writer.ts`). Owner-only readable; treats spawn metadata as private to the host user. Behavioral constraint on the 6E writer — recorded here rather than in the schema.
 
+**Propagated to:** `packages/protocol/src/spawn-record.ts` (2026-05-17), `docs/arch/persona-application.md` §4.2 (2026-05-17).
+
 ---
 
 ## ND-13: Byte-accounting cadence for `sessions.total_bytes`

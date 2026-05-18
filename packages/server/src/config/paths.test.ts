@@ -6,6 +6,7 @@ import {
   personasDir,
   projectPersonasDir,
   relayHome,
+  sessionWorkDir,
   sessionsDir,
   tokensPath,
   transcriptPath,
@@ -48,6 +49,13 @@ describe('paths', () => {
 
   it('returns sessions/ as a directory under ~/.relay/', () => {
     expect(sessionsDir(FAKE_HOME)).toBe('/tmp/relay-paths-test-home/.relay/sessions');
+  });
+
+  it('composes the per-session transient work dir under sessions/', () => {
+    // Per persona-application.md §4.2 + ND-12: ~/.relay/sessions/<sid>/.
+    expect(sessionWorkDir('01J0SESSION', FAKE_HOME)).toBe(
+      '/tmp/relay-paths-test-home/.relay/sessions/01J0SESSION',
+    );
   });
 
   it('places last-pairing.txt directly under ~/.relay/', () => {
