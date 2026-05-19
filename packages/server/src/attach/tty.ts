@@ -23,6 +23,14 @@ interface TtyStdoutLike extends Writable {
   rows?: number;
 }
 
+function readStdoutSize(stdout: TtyStdoutLike): { cols: number; rows: number } | undefined {
+  const cols = stdout.columns;
+  const rows = stdout.rows;
+  if (typeof cols !== 'number' || typeof rows !== 'number') return undefined;
+  if (cols <= 0 || rows <= 0) return undefined;
+  return { cols, rows };
+}
+
 const CTRL_C = 0x03;
 const CTRL_D = 0x04;
 const LF = 0x0a;
@@ -56,11 +64,23 @@ export function runTty(opts: RunTtyOptions): RunTtyResult {
       }
     });
 
+  // Per ND-23: emit current TTY size on startup and on SIGWINCH so the server
+  // PTY tracks the client's viewport. The listener is detached during cleanup
+  // so a re-run inside the same Node process doesn't leak a handler.
+  const onStdoutResize = (): void => {
+    const size = readStdoutSize(stdout);
+    if (size === undefined) return;
+    client.resize(size.cols, size.rows);
+  };
+
   let cleanedUp = false;
   function cleanup(): void {
     if (cleanedUp) return;
     cleanedUp = true;
     enableRaw(false);
+    if (typeof stdout.off === 'function') {
+      stdout.off('resize', onStdoutResize);
+    }
   }
 
   enableRaw(true);
@@ -68,6 +88,14 @@ export function runTty(opts: RunTtyOptions): RunTtyResult {
     opts.installExitHook(cleanup);
   } else {
     process.once('exit', cleanup);
+  }
+
+  const initialSize = readStdoutSize(stdout);
+  if (initialSize !== undefined) {
+    client.resize(initialSize.cols, initialSize.rows);
+  }
+  if (typeof stdout.on === 'function') {
+    stdout.on('resize', onStdoutResize);
   }
 
   const done = new Promise<number>((resolve) => {

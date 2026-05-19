@@ -29,22 +29,23 @@ If invoked without a target file or diff, prompt the user for one. Don't guess w
 
 ## The catalog (frozen reference)
 
-The eleven JSON `type` discriminators in force at the time this SKILL.md was written, grouped by direction, with one-line purpose each. The catalog is inlined here on purpose: it keeps the audit deterministic and makes the SKILL.md itself the canary if `ws-protocol.md` §2 grows or renames a frame type without a paired SKILL.md update.
+The twelve JSON `type` discriminators in force at the time this SKILL.md was written, grouped by direction, with one-line purpose each. The catalog is inlined here on purpose: it keeps the audit deterministic and makes the SKILL.md itself the canary if `ws-protocol.md` §2 grows or renames a frame type without a paired SKILL.md update.
 
-| Direction       | `type`           | Purpose                                                     |
-| --------------- | ---------------- | ----------------------------------------------------------- |
-| Client → Server | `claim`          | Request the per-session input lock. (§2.2)                  |
-| Client → Server | `send`           | Deliver one line-buffered PTY input (base64). (§2.2)        |
-| Client → Server | `release`        | Voluntarily release a held claim. (§2.2)                    |
-| Server → Client | `hello`          | Always the first frame; pins session config. (§2.3)         |
-| Server → Client | `claim_ack`      | Claim granted; carries `expiresAt`. (§2.3)                  |
-| Server → Client | `busy`           | Claim rejected because another connection holds it. (§2.3)  |
-| Server → Client | `claim_released` | Broadcast on lock release; `reason` enum. (§2.3)            |
-| Server → Client | `replay_start`   | Opens the on-attach ring-buffer flush. (§2.3, §3)           |
-| Server → Client | `replay_end`     | Closes the on-attach ring-buffer flush. (§2.3, §3)          |
-| Server → Client | `session_ended`  | Agent exited or session killed; precedes close 1000. (§2.3) |
-| Server → Client | `auth_expired`   | Token revoked mid-stream; precedes close 4401. (§2.3)       |
-| Server → Client | `error`          | In-band protocol error with `fatal` flag. (§2.3, §4.1)      |
+| Direction       | `type`           | Purpose                                                                                                                    |
+| --------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Client → Server | `claim`          | Request the per-session input lock. (§2.2)                                                                                 |
+| Client → Server | `send`           | Deliver one line-buffered PTY input (base64). (§2.2)                                                                       |
+| Client → Server | `release`        | Voluntarily release a held claim. (§2.2)                                                                                   |
+| Client → Server | `resize`         | PTY size update (cols, rows). Side-channel — independent of the §5.1 FSM. Last-writer-wins for multi-client. (§2.2, ND-23) |
+| Server → Client | `hello`          | Always the first frame; pins session config. (§2.3)                                                                        |
+| Server → Client | `claim_ack`      | Claim granted; carries `expiresAt`. (§2.3)                                                                                 |
+| Server → Client | `busy`           | Claim rejected because another connection holds it. (§2.3)                                                                 |
+| Server → Client | `claim_released` | Broadcast on lock release; `reason` enum. (§2.3)                                                                           |
+| Server → Client | `replay_start`   | Opens the on-attach ring-buffer flush. (§2.3, §3)                                                                          |
+| Server → Client | `replay_end`     | Closes the on-attach ring-buffer flush. (§2.3, §3)                                                                         |
+| Server → Client | `session_ended`  | Agent exited or session killed; precedes close 1000. (§2.3)                                                                |
+| Server → Client | `auth_expired`   | Token revoked mid-stream; precedes close 4401. (§2.3)                                                                      |
+| Server → Client | `error`          | In-band protocol error with `fatal` flag. (§2.3, §4.1)                                                                     |
 
 Plus one un-typed payload: **binary WebSocket frames** carry raw PTY output bytes server→client, with no application-layer envelope (§2.4). Rule 4 (D-G2 universal output) is the audit on the send-path for those binary frames.
 

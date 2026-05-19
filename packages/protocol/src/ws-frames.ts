@@ -1,6 +1,6 @@
 // WebSocket wire-format schemas for GET /sessions/:id/stream. The contract
-// lives in docs/arch/ws-protocol.md §2. The eleven JSON discriminators below
-// must stay in lockstep with the catalog inlined in
+// lives in docs/arch/ws-protocol.md §2. The JSON discriminators below must
+// stay in lockstep with the catalog inlined in
 // .claude/skills/ws-protocol-check/SKILL.md — adding a frame here requires
 // editing both that catalog and the spec.
 
@@ -43,10 +43,24 @@ export const ReleaseFrameSchema = z
   .strict();
 export type ReleaseFrame = z.infer<typeof ReleaseFrameSchema>;
 
+// Per ND-23: client-emitted PTY size update. Side-channel — independent of
+// the §5.1 claim FSM and accepted from any attached connection regardless of
+// claim state (multi-client policy: last-writer-wins).
+export const ResizeFrameSchema = z
+  .object({
+    type: z.literal('resize'),
+    id: CorrelationIdSchema.optional(),
+    cols: z.number().int().positive().max(1000),
+    rows: z.number().int().positive().max(1000),
+  })
+  .strict();
+export type ResizeFrame = z.infer<typeof ResizeFrameSchema>;
+
 export const ClientFrameSchema = z.discriminatedUnion('type', [
   ClaimFrameSchema,
   SendFrameSchema,
   ReleaseFrameSchema,
+  ResizeFrameSchema,
 ]);
 export type ClientFrame = z.infer<typeof ClientFrameSchema>;
 

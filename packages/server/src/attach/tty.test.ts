@@ -184,6 +184,60 @@ describe('runTty ^D close handling', () => {
   });
 });
 
+describe('runTty resize forwarding (ND-23)', () => {
+  it('emits resize on startup with current stdout dimensions', async () => {
+    const rig = await newRig();
+    (rig.stdout as unknown as { columns: number; rows: number }).columns = 100;
+    (rig.stdout as unknown as { columns: number; rows: number }).rows = 40;
+    runTty({
+      client: rig.client,
+      stdin: rig.stdin,
+      stdout: rig.stdout,
+      stderr: rig.stderr,
+      setRawMode: () => {},
+      installExitHook: () => {},
+    });
+    expect(rig.socket.sent).toEqual([{ type: 'resize', cols: 100, rows: 40 }]);
+  });
+
+  it("re-emits resize when stdout fires 'resize' (SIGWINCH simulation)", async () => {
+    const rig = await newRig();
+    (rig.stdout as unknown as { columns: number; rows: number }).columns = 80;
+    (rig.stdout as unknown as { columns: number; rows: number }).rows = 24;
+    runTty({
+      client: rig.client,
+      stdin: rig.stdin,
+      stdout: rig.stdout,
+      stderr: rig.stderr,
+      setRawMode: () => {},
+      installExitHook: () => {},
+    });
+    expect(rig.socket.sent).toEqual([{ type: 'resize', cols: 80, rows: 24 }]);
+    (rig.stdout as unknown as { columns: number; rows: number }).columns = 132;
+    (rig.stdout as unknown as { columns: number; rows: number }).rows = 50;
+    rig.stdout.emit('resize');
+    expect(rig.socket.sent[rig.socket.sent.length - 1]).toEqual({
+      type: 'resize',
+      cols: 132,
+      rows: 50,
+    });
+    expect(rig.socket.sent.length).toBe(2);
+  });
+
+  it('does not emit resize when stdout has no columns/rows (non-TTY)', async () => {
+    const rig = await newRig();
+    runTty({
+      client: rig.client,
+      stdin: rig.stdin,
+      stdout: rig.stdout,
+      stderr: rig.stderr,
+      setRawMode: () => {},
+      installExitHook: () => {},
+    });
+    expect(rig.socket.sent).toEqual([]);
+  });
+});
+
 describe('runTty binary frame forwarding', () => {
   it('writes server binary frames to stdout verbatim (D-G3 universal output)', async () => {
     const rig = await newRig();

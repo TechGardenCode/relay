@@ -303,3 +303,31 @@ describe('AttachClient close()', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 });
+
+describe('AttachClient resize() — ND-23 side-channel', () => {
+  it('emits a single { type: "resize", cols, rows } frame with no FSM transition', async () => {
+    const rig = await newConnected();
+    expect(rig.client.currentState).toBe('idle');
+    rig.client.resize(80, 24);
+    expect(rig.socket.sent).toEqual([{ type: 'resize', cols: 80, rows: 24 }]);
+    // State unchanged — resize is a side-channel; not part of the §5.1 FSM.
+    expect(rig.client.currentState).toBe('idle');
+    expect(rig.states).toEqual([]);
+  });
+
+  it('emits resize independently of any in-flight claim', async () => {
+    const rig = await newConnected();
+    rig.client.submit(Buffer.from('hi\n'));
+    expect(rig.client.currentState).toBe('claiming');
+    const beforeCount = rig.socket.sent.length;
+    rig.client.resize(120, 32);
+    expect(rig.socket.sent.length).toBe(beforeCount + 1);
+    expect(rig.socket.sent[rig.socket.sent.length - 1]).toEqual({
+      type: 'resize',
+      cols: 120,
+      rows: 32,
+    });
+    // FSM unchanged — still claiming.
+    expect(rig.client.currentState).toBe('claiming');
+  });
+});

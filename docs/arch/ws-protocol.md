@@ -68,6 +68,17 @@ Input could in principle be sent as a separate binary frame to avoid base64's �
 
 [D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) §5.1 rule 4 specifies three automatic release paths (PTY delivery, WS close, 30-second timeout per [ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration)); none requires a client-initiated release. `release` exists only for "user opens compose, the other device is queued, user changes their mind without pressing Enter" — the client frees the lock immediately instead of letting the other device wait out the 30-second window. A `release` from a connection that does not hold the active claim is a no-op (the server replies `error { code: "release_without_claim", fatal: false }`).
 
+**`resize`** — communicate the client's current terminal dimensions to the server's PTY ([ND-23](../open-questions.md#nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients)). Client → server only — the server never tells the client what size to be.
+
+```json
+{ "type": "resize", "cols": 100, "rows": 40 }
+```
+
+- `cols` (int, required) — positive integer, capped at 1000 by the server schema. Columns of the client's terminal viewport.
+- `rows` (int, required) — positive integer, capped at 1000 by the server schema. Rows of the client's terminal viewport.
+
+`resize` is a **side-channel**: it is independent of the §5.1 claim-lock FSM, accepted from any attached connection regardless of claim state, and triggers no server→client acknowledgement. The server forwards the dimensions to `node-pty`'s `resize(cols, rows)` and emits no frame in response. Clients SHOULD emit one `resize` immediately after the WebSocket upgrade (before any `claim`) so the PTY's reported dimensions match the operator's viewport before any TUI agent draws its first frame, and SHOULD re-emit on SIGWINCH (or the host's equivalent terminal-resize signal). The matching `process.stdout.on('resize', …)` listener is the canonical Node implementation. **Multi-client policy: last-writer-wins** — when two or more attachers are at mismatched sizes, the most recent `resize` is in force, matching `ssh` + `tmux attach` + `screen` reference behavior. The initial PTY spawn defaults to 120×32 (per `pty/supervisor.ts`); every realistic flow attaches within a tick, so the initial `resize` frame lands before any first-frame TUI draw.
+
 ### 2.3 Server → Client (control)
 
 **`hello`** — always the first frame sent after a successful WebSocket upgrade. Communicates the server-configured values in force for the session, so the client UI can render countdowns and scrollback hints without a separate REST roundtrip and without risk of drift if the operator changed config between calls.
@@ -369,6 +380,7 @@ Clients SHOULD respond to pings automatically — every standard WS library does
 | 5 | Server `hello` frame | Required, always first | §6 — pins server config (`replayBufferBytes`, `claimLockTimeoutSeconds`) without a separate REST roundtrip |
 | 6 | Error model | In-band `error` frame with `fatal` flag, plus WS close codes for transport-level termination | §4 — distinguishes protocol error from connection death |
 | 7 | Keepalive | WS native ping/pong only; no application-layer claim extension | §7 — [ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration) forbids re-arming |
+| 8 | PTY size negotiation | Client → server `resize { cols, rows }` side-channel, last-writer-wins for multi-client | §2.2 — [ND-23](../open-questions.md#nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients) matches `ssh`/`tmux attach` semantics |
 
 **Versioning deferred.** v1 messages carry no `v` field. Relay's deployment model (self-hosted server, IDE extension and PWA shipped by the same project) means client/server upgrade cadence is effectively coupled and the "v1 client in the wild meets v3 server" scenario that justifies versioning ceremony does not arise. If a v2 ever becomes necessary, the migration rule is "absence of `v` ≡ v1" — a one-line server change. The `unknown_type` error code (§4.1) already provides graceful degradation for additive minor changes (new optional message types) independent of any versioning scheme.
 
@@ -381,4 +393,4 @@ Clients SHOULD respond to pings automatically — every standard WS library does
 
 ---
 
-*Resolves the wire-format question raised by [D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) and [D-G3](../open-questions.md#d-g3-reattach-semantics); pins down on-the-wire shape for [ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration), [ND-02](../open-questions.md#nd-02-rejection-ux-for-busy-response), and [ND-03](../open-questions.md#nd-03-ring-buffer-size-for-attach-replay).*
+*Resolves the wire-format question raised by [D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) and [D-G3](../open-questions.md#d-g3-reattach-semantics); pins down on-the-wire shape for [ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration), [ND-02](../open-questions.md#nd-02-rejection-ux-for-busy-response), [ND-03](../open-questions.md#nd-03-ring-buffer-size-for-attach-replay), and [ND-23](../open-questions.md#nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients).*

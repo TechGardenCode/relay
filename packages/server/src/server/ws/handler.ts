@@ -354,6 +354,12 @@ function dispatchClientFrame(
     handleRelease(ctx, state, frame.id);
     return;
   }
+  if (frame.type === 'resize') {
+    // Per ND-23: resize is a side-channel; independent of claim state,
+    // multi-client last-writer-wins. Schema caps cols/rows at 1000.
+    handle.resize(frame.cols, frame.rows);
+    return;
+  }
 }
 
 function handleClaim(
@@ -487,7 +493,7 @@ function closeSocket(ctx: ConnectionContext, code: number, reason: string): void
   }
 }
 
-const KNOWN_CLIENT_TYPES = new Set<string>(['claim', 'send', 'release']);
+const KNOWN_CLIENT_TYPES = new Set<string>(['claim', 'send', 'release', 'resize']);
 
 function mapTerminatedReasonToSessionEndedReason(
   terminatedReason: string | null,

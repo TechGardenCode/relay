@@ -65,6 +65,8 @@ When a decision flips to `resolved`, its spec content has to land in the affecte
 - [ND-16 — CLI ↔ data-plane boundary rule](#nd-16-cli--data-plane-boundary-rule)
 - [ND-17 — `relay attach` raw-mode TTY variant of the §5.1 client FSM](#nd-17-relay-attach-raw-mode-tty-variant-of-the-51-client-fsm)
 - [ND-18 — Lazy-load CLI dispatcher contract](#nd-18-lazy-load-cli-dispatcher-contract)
+- [ND-23 — PTY size negotiation and SIGWINCH forwarding for attach clients](#nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients)
+- [ND-24 — Per-keystroke input streaming for TUI agents](#nd-24-per-keystroke-input-streaming-for-tui-agents)
 
 **Deferred:**
 - [D-02 — PWA initial server discovery](#d-02-pwa-initial-server-discovery) (deferred until Phase 2)
@@ -1121,6 +1123,8 @@ What to validate before resolving: (a) whether the §5.1 FSM is a wire-correctne
 
 Proposed direction: treat §5.1 as a **wire-correctness** contract that names one canonical client UX (the IDE compose-field) without forbidding compatible variants, and add a §5.1.1 footnote to `ws-protocol.md` that documents the `relay attach` raw-mode variant: `Claimed` is a degenerate state (zero-tick), `Backoff` dismisses on the timer only, no in-state `release`. The 6H implementation already matches that variant; the doc edit just makes it explicit.
 
+**Superseded in part by [[nd-24-per-keystroke-input-streaming-for-tui-agents]] (2026-05-19).** ND-17's framing assumed line-buffered input was wire-correctness only — that the §5.1 FSM mismatch was a CLI ergonomics question, not a UX-mandatory one. The 6H validation walk with the real `claude` TUI as the agent surfaced that line buffering breaks claude's own compose-box rendering (operators type blind because zero bytes reach the agent until Enter). ND-24 re-litigates the underlying line-buffered assumption — chosen option: per-keystroke `send` with claim-held-during-typing and server-side Enter-byte detection as the release trigger. ND-17's scope narrows: the "collapsed §5.1 FSM for raw-mode TTYs" framing still applies to line-mode agents (`bash -i`, scripted non-TUI runs) but not to TUI agents under ND-24. ND-17 itself stays `open`; its final resolution should land alongside ND-24's so the §5.1.1 footnote (if it lands at all) covers both regimes coherently.
+
 This is filed as `open` so the resolution lands as a deliberate `ws-protocol.md` §5.1 / §5.1.1 edit rather than an inline implementation drift. Build-plan 6H ships against the collapsed-FSM variant provisionally; the propagation closes the doc gap.
 
 ---
@@ -1266,3 +1270,127 @@ The fix is a **test-harness change only**. The relay implementation is correct a
 **Propagated to:** `.claude/skills/vm-e2e/SKILL.md` lines 124–138 (server-boot block — three-symlink fix + comment block citing ND-22), `.claude/skills/vm-e2e/SKILL.md` failure-mode prose at line ~151 (updated to name the three-symlink set and the workspace-trust dismissal step).
 
 ---
+
+
+## ND-23: PTY size negotiation and SIGWINCH forwarding for attach clients
+
+**Status:** resolved
+**Affects:** `docs/arch/ws-protocol.md` §2 (frame catalog gains a `resize` frame), `packages/protocol/src/ws/` (new schema), `packages/server/src/server/ws/` (frame handler dispatch), `packages/server/src/attach/client.ts` (FSM and emitter), `packages/server/src/attach/tty.ts` (SIGWINCH listener), `packages/server/src/pty/supervisor.ts` (already exposes `.resize(cols, rows)` — just needs a caller), `docs/build-plan.md` 6K (new task, blocks 6I)
+**Surfaced by:** build-plan 6H manual cross-device validation walk (2026-05-18) — first time a real `claude` TUI agent (not the Phase 0 `bash -i` stand-in) was driven over a cross-LAN `relay attach`. Claude's TUI is drawn against the PTY's reported terminal dimensions, which `packages/server/src/pty/supervisor.ts:23-24` hardcodes at `cols: 120, rows: 32` regardless of any attached client's actual terminal size. The Mac terminal was at a different size, so claude's absolute cursor positioning escapes targeted rows/columns outside the visible viewport and earlier output never got cleared on redraw, producing the overlapping/garbled screen captured in the validation log. Resizing the Mac terminal to literally 120×32 reduced — but did not eliminate — the corruption (the user reported input still invisible and TUI placeholders missing, suggesting either the alt-screen handshake or the replay-during-attach is interacting badly with TUI cursor save/restore).
+
+### Question
+What is the wire contract for PTY size between a `relay attach` client and the server's PTY, and which side owns the size for a session with zero, one, or several concurrent attachers?
+
+Specifically: (a) does the WS protocol gain a `resize { cols, rows }` frame from client → server? (b) does the attach client read `process.stdout.columns / .rows` on connect and emit `resize` immediately, before the first `claim`? (c) does the attach client listen for `process.stdout.on('resize', ...)` (SIGWINCH) and emit follow-up `resize` frames? (d) when multiple clients are attached at different terminal sizes, does the server adopt the *most-recent* resize (last-writer-wins, matching `tmux` / `screen`), the *smallest common rectangle* (no-corruption guarantee but introduces blank margins for the larger client), or pin to the *first-attach* size (deterministic but penalizes a late-arriving larger window)? (e) does the initial PTY at session-spawn time still default to 120×32, or does the session model defer PTY spawn until the first attach so dimensions are known up front?
+
+### Context
+The current 6H implementation answers none of these. `pty/supervisor.ts` defaults `cols: 120, rows: 32` (lines 23–24); `session/registry.ts` (line 128) calls `supervisorFactory({ … })` with no `cols` / `rows` in the `SpawnArgs` object, so the default always wins. `attach/tty.ts` declares an unused `TtyStdoutLike` interface with optional `columns` / `rows` properties (lines 20–24) but never reads them. `attach/client.ts` has no `resize` callback, no `SIGWINCH` listener, no resize emitter — the FSM has no state or transition that involves window dimensions. `docs/arch/ws-protocol.md` §2 lists `claim`, `send`, `release`, `hello`, `claim_ack`, `busy`, `claim_released`, `replay_start`, `replay_end`, `session_ended`, `auth_expired`, and `error`; no `resize`.
+
+This is a **rendering-layer defect** that does not affect the wire-correctness validated by 6H. The 2026-05-18 walk confirmed: WS upgrade works, bearer auth works, `hello`/`replay_start`/`replay_end` bracket arrives correctly, binary PTY frames flow in both directions, `claim` → `claim_ack` → `send` round-trip works (the user reported "I can press enter and the text does submit"). The defect is purely that the server-side PTY is sized for a viewport the client doesn't have. Non-TUI agents (a `bash -i` stand-in, a streaming `python` REPL, anything that doesn't issue cursor-positioning escapes) are not affected — the Phase 0 walk passed scenario E with `bash -i` precisely because of this.
+
+The headline impact is on **claude (the production agent)** and any future Anthropic CLI that ships a TUI: every operator that pastes `relay attach <sid>` from a real terminal will see garbled output by default. This is a Phase 1 ship-blocker for scenarios E and F (concurrent multi-client makes the size-mismatch problem strictly worse) and gates the IDE extension (6I), which spawns `relay attach` inside Cursor/VS Code's terminal widget — that widget's size is rarely 120×32.
+
+### Options under consideration
+
+- **Option A — Client-emitted resize on connect + SIGWINCH (analogous to `ssh`, `tmux attach`, `docker exec -t`).** Add a `resize { cols, rows }` text frame to ws-protocol.md §2. Attach client reads `process.stdout.columns / .rows` after WS upgrade and emits `resize` before any `claim`. Attach client wires `process.stdout.on('resize', …)` to emit follow-up frames. Server WS handler dispatches `resize` to `supervisor.resize(cols, rows)`. Multi-client policy: last-writer-wins (matches `tmux` and `screen` long-standing behavior; operators understand this). Initial PTY spawn keeps the 120×32 default, but the gap between spawn and first attach is brief (the first attach is typically the spawn-triggering client). Pros: minimal protocol surface, matches mature reference systems, no breaking changes. Cons: brief flash of 120×32-shaped output during the gap; multi-client at mismatched sizes still corrupts (last-writer-wins doesn't help the loser, but this is acceptable given the reference behavior).
+
+- **Option B — Server adopts the smallest common rectangle across attachers.** Same `resize` frame, but server computes `min(cols)` and `min(rows)` across all currently-attached clients and resizes to that. Pros: no client sees output written outside its viewport. Cons: introduces blank margins on the larger client (visually unusual, departs from `tmux` convention), more complex to implement and reason about, makes "who has what size" load-bearing in the registry.
+
+- **Option C — PTY dimensions encoded at session spawn time, frozen for session lifetime.** `POST /sessions` body adds optional `cols` and `rows` fields; the spawning client passes its terminal dimensions. Subsequent attachers either match (good) or render at their own peril (corruption). No `resize` frame needed. Pros: simplest possible protocol surface, deterministic. Cons: makes cross-device reattach inherently lossy (a Mac terminal spawning a session and a phone-class device reattaching later will always see corruption); contradicts the spirit of D-G3 (reattach is meant to be transparent across device shapes).
+
+- **Option D — Defer the PTY spawn until first attach.** Session row gets created on `POST /sessions` but the `node-pty` spawn is lazy: it fires when the first WS attach lands, taking the client's `cols`/`rows` from a query-string parameter or initial `resize` frame. After that, follows Option A's last-writer-wins SIGWINCH semantics. Pros: no 120×32 flash, single source of truth on session start. Cons: changes the session lifecycle in a non-trivial way (the session row is now in a `pending-spawn` state for the gap between create and first attach), forces the REST `POST /sessions` 201 response to either omit `ptyPid` or wait for first attach to populate it (the current 6H response includes `ptyPid` synchronously per `packages/server/src/session/registry.ts`).
+
+### Current thinking
+
+Lean toward **Option A** for Phase 1: ship the simplest resize protocol that matches `ssh` / `tmux` user expectations and unblocks claude as the production agent. The 120×32 initial-spawn default is acceptable because every realistic flow goes through an attach within a second of spawn (the operator typing `relay attach` or the IDE extension wiring up its terminal widget), and any TUI agent's first-frame draw is preceded by terminal-size detection from the PTY environment that arrives via the immediate `resize` frame. The multi-client mismatch (last-writer-wins) matches what concurrent `ssh` sessions to a single `screen` already do; operators with mixed-size attachers will adapt or close the smaller window, exactly as they would today.
+
+Option D is the cleanest design but worth more than it costs at Phase 1: changing the session lifecycle in a way that touches REST response shapes risks rippling into 6F validation. Option C is too rigid — D-G3 explicitly designs for cross-device reattach across heterogeneous clients, which C would penalize. Option B is over-engineered relative to the actual UX problem.
+
+Implementation outline (Option A path):
+
+1. **Protocol** — add `resize { type: 'resize', cols: number, rows: number }` to `packages/protocol/src/ws/` (alongside the existing `claim` / `send` / `release` schemas). Constraints: `cols`, `rows` are positive integers; cap to a sensible max (e.g., 1000 each) to defend against malicious / buggy clients.
+2. **Spec** — add §2.5 (or equivalent) to `docs/arch/ws-protocol.md` documenting the frame, its direction (client → server only — the server never tells the client what size to be), and the last-writer-wins multi-client semantics.
+3. **Server WS handler** — add a `resize` case to the frame dispatch in `packages/server/src/server/ws/` that looks up the session's supervisor and calls `supervisor.resize(cols, rows)`. The supervisor already implements this method (`packages/server/src/pty/supervisor.ts:76-78`).
+4. **Attach client** — in `packages/server/src/attach/tty.ts`, on `runTty` startup, read `process.stdout.columns` and `process.stdout.rows`, emit a `resize` frame via `client.resize(cols, rows)` (new method on `AttachClient` that just sends the frame; no FSM state change). Wire `process.stdout.on('resize', …)` to re-emit. The resize emit is independent of the claim-lock FSM — it's a side-channel.
+5. **Tests** — `pty/supervisor.test.ts` already verifies `.resize()` mutation; add WS-layer tests that drive `resize` through the dispatcher; add attach-client tests that verify `resize` fires on TTY startup and SIGWINCH; add a scenario-runner step that asserts the PTY size matches the attaching client's reported size after the `replay_end` bracket.
+6. **Build-plan** — add task **6K** between 6H and 6I, blocked by 6H, blocking 6I (the IDE extension's terminal widget will hit the same defect the moment it spawns `relay attach`). 6Z's "Phase 1 done" gate stays unchanged; the new task just inserts a step in the dependency chain.
+
+### Resolution
+
+**Option A.** Add a `resize { cols, rows }` text frame to ws-protocol.md §2.2 (client→server only). The `relay attach` thin client reads `process.stdout.columns / .rows` after WS upgrade and emits `resize` before any `claim`; the same handler re-fires on `process.stdout.on('resize', …)` (SIGWINCH). The server WS handler dispatches `resize` to `supervisor.resize(cols, rows)` with no claim-state gate — resize is a side-channel, independent of the §5.1 FSM, and accepted from any attached connection. Schema caps both fields at 1000. Multi-client policy is **last-writer-wins** (matches `ssh` / `tmux attach` / `screen`); the 120×32 initial-spawn default in `pty/supervisor.ts` is preserved because every realistic flow attaches within a tick, so any TUI agent's first-frame draw is preceded by the initial `resize` from the spawning client.
+
+Why not B/C/D: Option B (smallest common rectangle) departs from `tmux` convention and introduces blank margins on the larger client. Option C (frozen-at-spawn) penalizes cross-device reattach across heterogeneous viewports, contradicting D-G3. Option D (defer the PTY spawn until first attach) changes the session lifecycle in a way that touches REST response shapes (`ptyPid` would no longer be synchronous on `POST /sessions`), which is more risk than the 120×32 flash is worth at Phase 1.
+
+**Propagated to:** `docs/arch/ws-protocol.md` §2.2 + §8 (2026-05-18), `packages/protocol/src/ws-frames.ts` (2026-05-18), `packages/server/src/server/ws/handler.ts` (2026-05-18), `packages/server/src/attach/client.ts` + `tty.ts` (2026-05-18), `.claude/skills/ws-protocol-check/SKILL.md` catalog (2026-05-18), `docs/build-plan.md` 6K (2026-05-18).
+
+---
+
+## ND-24: Per-keystroke input streaming for TUI agents
+
+**Status:** in-deliberation
+**Affects:** `docs/arch/ws-protocol.md` §2.2 (`send` frame contract), §5.1 (client FSM gains a `streaming` state), §5.2 (server FSM: `send`-without-newline no longer releases), §5.3 (new race row for "newline mid-stream while another claim queued"), §8 (summary table); `packages/protocol/src/ws-frames.ts` (`SendFrame` JSDoc reflects the multi-send contract; schema unchanged); `packages/server/src/server/ws/handler.ts` (`handleSend` stops auto-releasing; release fires only when payload bytes contain `\n` or `\r`); `packages/server/src/server/ws/handler.test.ts` (multi-send-per-claim happy path; newline-triggers-release; ND-01 timeout still fires under sustained typing); `packages/server/src/attach/tty.ts` (drop `lineBuffer`/`consumeBuffer`/`submitLine`; forward each stdin byte verbatim via a new `client.submitByte(byte)`); `packages/server/src/attach/client.ts` (FSM gains `streaming` state between `claiming` and `idle`; new `submitByte` API; `pendingByte` queueing replaces `pendingLine`); `packages/server/src/attach/client.test.ts` + `packages/server/src/attach/tty.test.ts` (test contract changes — line-buffered specs become per-byte specs); `.claude/skills/ws-protocol-check/SKILL.md` (catalog gains the newline-release rule); `docs/build-plan.md` (new task **6L** between 6K and 6I; 6I dependency list updates); [[nd-17-relay-attach-raw-mode-tty-variant-of-the-51-client-fsm]] (superseded in part — line-mode framing retained for line-mode agents only).
+
+**Surfaced by:** 2026-05-19 6H manual validation walk on macOS with `@anthropic-ai/claude-code` 2.1.x as the spawned agent. Single-device repro (laptop only, no LAN needed) using a scoped `HOME` so the operator's real `~/.relay` is untouched: `init` → `server` boot → `project add` → `POST /sessions` → `relay attach <sid>` → type into the prompt. claude's TUI compose box never showed any in-progress typing — operators type blind. The headline cause is `packages/server/src/attach/tty.ts:57-152`'s `lineBuffer`, which accumulates stdin bytes locally and only submits to the WS when it sees `\r` or `\n`. Whole-line submission on Enter does work end-to-end (verified 6H), but the typing UX is broken for every TUI agent, and claude is the production agent. This blocks scenarios E/F/H with claude as the agent and gates 6I (the IDE extension's terminal widget hits the same bug the moment it spawns `relay attach`).
+
+### Question
+
+Should `relay attach`'s raw-mode TTY send per-keystroke `send` frames (or a streaming variant), or stay line-buffered? If per-keystroke, how does claim arbitration work — does each keystroke re-claim, does the first keystroke claim and Enter (or an idle timer) release, does the §5.1 FSM gain a `streaming` state that holds the lock while bytes flow?
+
+### Context
+
+[[d-g2-multi-client-input-arbitration]] (resolved 2026-05-14) chose a per-message server-side claim-lock model with line-buffered input as the "message" granularity. Its resolution rationale explicitly named the limitation:
+
+> "Claude Code's line-buffered input maps cleanly to per-message granularity. Character-at-a-time interactive apps (vim inside the session) are not the MVP target and would not work cleanly under this lock model — accepted limitation."
+
+The MVP target moved without D-G2 being re-litigated. The 2026-05-18 Claude Code 2.1.x release ships a TUI that draws its own compose box from the bytes it receives on stdin — exactly the character-at-a-time interactive shape D-G2 named as out-of-scope. Every operator that runs `relay attach <sid>` against a real claude session sees nothing in the compose box until Enter, because line buffering in `tty.ts` swallows every keystroke.
+
+[[nd-17-relay-attach-raw-mode-tty-variant-of-the-51-client-fsm]] (open) acknowledged the §5.1 FSM mismatch for raw-mode TTYs and accepted the collapsed-Claimed-state variant provisionally. Its framing treated the question as wire-correctness only — "the server doesn't care which sub-FSM the client uses, only the order of frames on the wire." That framing missed the UX-mandatory case: for a TUI agent the line-buffered client is wire-correct but functionally broken, because the agent's own UI depends on seeing in-progress input. ND-24 supersedes ND-17 on this specific axis; ND-17's scope narrows to line-mode agents (`bash -i`, scripted runs) where its conclusion still holds.
+
+The line-buffered design is also load-bearing on the server side: `packages/server/src/server/ws/handler.ts:425` calls `state.lock.releaseAsHolder(ctx.id, 'delivered')` immediately after every PTY write, meaning a single claim grants the right to send exactly one `send` frame. The server FSM (`ws-protocol.md` §5.2 row 4) bakes this in: "`send` from `conn-X` delivered to PTY → `Unclaimed`". A per-keystroke client cannot reuse this server FSM as-is — sending byte 2 of a typing burst would error with `send_without_claim` because byte 1 already released the lock.
+
+### Options under consideration
+
+- **Option A — Per-keystroke send, claim-held-during-typing.** First keystroke triggers claim; subsequent keystrokes send as long as we hold the claim. Release on: (a) explicit user gesture (Ctrl-X — Ctrl-C is SIGINT, not release); (b) inactivity timer (reuse the existing [[nd-01-claim-lock-timeout-duration]] 30s claim-lock timeout); (c) Enter, treating Enter as line-terminator + auto-release. Cleanest mapping to existing claim-lock semantics; the §5.1 FSM gains a `Streaming` state explicit in `ws-protocol.md`. Sub-question (resolved here): which release trigger ships? See **Current thinking**.
+
+- **Option B — Stream-mode `send` frame.** Add a `stream: true` field to `send` that lets the client send partial input chunks; server applies them to the PTY without expecting a release. Avoids new FSM states but mutates an existing frame's contract. The client and server still need to agree on when a "logical input" ends so the claim can release — which puts the line-detection logic right back on the table.
+
+- **Option C — Two attach modes: `--line-buffered` vs `--stream`.** Client-side flag. Default to stream for raw-mode TTY (claude / TUI), opt out for scripted / non-TUI runs. Worse UX (operators must know which mode to pick) but no protocol churn for the simple case. The flag also doesn't compose: a single session may be attached by a TUI client and a scripted client at the same time, and the server now has to handle both shapes.
+
+- **Option D — Detect TUI by alt-screen escape.** When the PTY emits `ESC [ ? 1049 h` (enter alt screen), switch the client to per-keystroke mode automatically. Magical and brittle — the client silently switches behavior based on server output, which is hard to test and hard for an operator to reason about when it misfires.
+
+### Current thinking
+
+**Recommend Option A with server-side Enter-byte detection as the release trigger.** Per the user's 2026-05-19 clarification, the release trigger is **(c) Enter** — but implemented as server-side newline detection rather than as a client-managed release frame, because that keeps the client logic dumb (forward every stdin byte verbatim) and preserves the existing `claim → send* → claim_released` wire shape.
+
+Concretely:
+
+1. **Wire contract.** `claim → claim_ack → send* → claim_released { reason: delivered }` where `send*` is one-or-more `send` frames. Each `send` carries a single byte (or a small burst of bytes for paste) base64-encoded in the existing `data` field. No schema change — the `SendFrame` schema is unchanged; only its semantic contract widens.
+
+2. **Server FSM (§5.2) edit.** Row 4 changes its trigger: "`send` from `conn-X` containing a newline byte (`\n` or `\r`) → `Unclaimed`, broadcast `claim_released { delivered }`." A new row inserts above row 5: "`send` from `conn-X` without a newline byte → `ClaimedBy(X)` (no change)." All other rows (`busy`, `timeout`, `release`, `disconnect`, `session_ended`) are unchanged.
+
+3. **Client FSM (§5.1) edit.** A new `Streaming` state sits between `Claiming` and `Idle`. Transitions: `claim_ack` → `Streaming` (replaces the current "claim_ack → Sending" CLI-only collapse from ND-17). In `Streaming`, each stdin byte emits a `send` frame; the state does not transition. `claim_released { reason: delivered }` → `Idle` (and if `pendingByte` is queued from a continuation burst, kick a new `claim` immediately, mirroring the existing "user typed another line mid-send" path). `claim_released { reason: timeout | disconnect }` while `Streaming` → `Idle` without auto-resend (per [[nd-02-rejection-ux-for-busy-response]]).
+
+4. **TTY bridge (`attach/tty.ts`) edit.** Drop the `lineBuffer`, `consumeBuffer`, and `submitLine` machinery. Forward each non-`^D` stdin byte verbatim via a new `client.submitByte(byte)` method. `^D` still triggers `client.close()` (clean detach). `^C` is just another byte in the stream — no special-casing.
+
+5. **Why server-side newline detection and not a client-managed release frame.** Server-side detection (a) keeps the client dumb, (b) requires no new wire frame, (c) makes the line-completion semantics part of the wire contract (visible in `ws-protocol.md` §5.2's transition table) instead of hiding inside the client FSM, (d) handles pasted multi-line input correctly without coordinating between client and server. The cost is that the server has to scan each `send`'s decoded bytes for `\n` or `\r`, which is ~free for the byte volumes involved.
+
+**Why not the other options:**
+
+- **Option B** mutates `send`'s contract for no benefit over server-side newline detection — the `stream: true` field would just be redundant signal because the server can already infer line-completion from the byte content.
+- **Option C** forces operators to know which mode their agent needs and doesn't compose across multi-client attach.
+- **Option D** is magical — silent client-behavior switching based on server output is hard to test and hard for an operator to reason about when it misfires.
+
+**Known concerns the implementation task (6L) must answer:**
+
+- **Multi-line paste.** A clipboard paste containing embedded `\n` releases the claim mid-paste under server-side newline detection. Preferred answer: accept that paste releases the claim at the first `\n` and the remaining bytes claim again automatically (matches `tmux` and `screen` paste behavior). The FSM's "`pendingByte` → kick a new claim" path handles continuation. Alternative answer (worse, more client complexity): the client buffers paste until terminator and submits one `send` containing the full multi-line payload — observably equivalent because the server still releases on the first `\n`. Recommend the first.
+- **[[nd-01-claim-lock-timeout-duration]] 30s timeout under sustained typing.** ND-01 forbids re-arming the timeout on activity. A user typing continuously for 30s without an Enter would have the claim released mid-typing. Recommend keeping ND-01's rule unchanged — a 30s sustained typing burst without an Enter is pathological for claude (compose buffers don't get that long) and the existing busy/backoff path handles the retry. Flag this for human sign-off — if it surfaces a real UX problem in 6L's manual validation, ND-01 itself has to be re-opened, not patched around in ND-24.
+- **`^C` semantics under streaming.** `tty.ts` currently passes `^C` through as a single-byte "line" via `submitLine`. Under streaming, `^C` is just another byte forwarded immediately; no special-casing needed. The byte still reaches the PTY as SIGINT for the agent to interpret.
+- **Test isolation under multi-send-per-claim.** The `handler.test.ts` `send_without_claim` race specs assume one-send-per-claim; they may need new fixtures that explicitly drive multi-send-per-claim flows.
+
+### Re-evaluate if
+
+- (a) Claude Code switches back to line-mode I/O (would moot ND-24 — line buffering becomes correct again).
+- (b) A non-line-mode agent emerges that needs sub-line claim arbitration between two concurrent typists (would force a re-think of the "newline = release" trigger).
+- (c) The multi-line paste path surfaces a UX issue the FSM can't paper over (would force option re-evaluation, possibly toward Option B's explicit stream flag).
+- (d) The ND-01 30s timeout interaction surfaces as a real UX defect under sustained typing.
+

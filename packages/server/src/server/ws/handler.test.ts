@@ -18,6 +18,8 @@
  *   §5.3 race 2 — disconnect mid-send (handler ordering)                      → describe("§5.3 race 2") > it("...")
  *   §5.3 race 3 — auth expired mid-claim                                      → describe("§5.3 race 3") > it("revocation closes 4401 and releases the claim")
  *   §5.3 race 4 — PTY EPIPE on send                                           → describe("§5.3 race 4") > it("supervisor write throws → claim still releases delivered")
+ *
+ *   §2.2 resize (ND-23) — side-channel, no claim gate                          → describe("resize side-channel (ND-23)") > ...
  */
 
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
@@ -643,6 +645,79 @@ describe('GET /sessions/:id/stream — session_ended after live attach (ws-proto
     if (ended?.type !== 'session_ended') throw new Error('expected session_ended');
     expect(ended.reason).toBe('operator_kill');
     expect(ended.terminatedReason).toBe('operator_kill');
+  });
+});
+
+describe('GET /sessions/:id/stream — resize side-channel (ND-23)', () => {
+  it('resize frame forwards cols/rows to supervisor.resize()', async () => {
+    const session = await seedSession(rig);
+    const a = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'replay_end');
+
+    a.send({ type: 'resize', cols: 100, rows: 40 });
+    // Wait until the supervisor records the call. No server-side ack frame is
+    // defined — resize is fire-and-forget per ND-23.
+    const start = Date.now();
+    while (Date.now() - start < 1500) {
+      if (session.supervisor.resizes.length > 0) break;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    expect(session.supervisor.resizes).toEqual([{ cols: 100, rows: 40 }]);
+  });
+
+  it('resize is accepted regardless of claim state (side-channel, not §5.1 FSM)', async () => {
+    const session = await seedSession(rig);
+    const a = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    const b = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'A replay_end');
+    await b.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'B replay_end');
+
+    // A holds the claim; B sends resize without claiming.
+    a.send({ type: 'claim', id: 'a-claim' });
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'claim_ack'), 'A claim_ack');
+
+    b.send({ type: 'resize', cols: 80, rows: 24 });
+    const start = Date.now();
+    while (Date.now() - start < 1500) {
+      if (session.supervisor.resizes.length > 0) break;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    expect(session.supervisor.resizes).toEqual([{ cols: 80, rows: 24 }]);
+    // No error frame emitted on B (the non-holder) — resize is universal.
+    expect(b.textFrames.filter((f) => f.type === 'error')).toEqual([]);
+  });
+
+  it('resize with last-writer-wins across multiple clients', async () => {
+    const session = await seedSession(rig);
+    const a = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    const b = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'A replay_end');
+    await b.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'B replay_end');
+
+    a.send({ type: 'resize', cols: 100, rows: 40 });
+    b.send({ type: 'resize', cols: 80, rows: 24 });
+    const start = Date.now();
+    while (Date.now() - start < 1500) {
+      if (session.supervisor.resizes.length >= 2) break;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    expect(session.supervisor.resizes).toEqual([
+      { cols: 100, rows: 40 },
+      { cols: 80, rows: 24 },
+    ]);
+  });
+
+  it('invalid resize (cols <= 0) → error{malformed_message}, no supervisor mutation', async () => {
+    const session = await seedSession(rig);
+    const a = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'replay_end');
+
+    a.send({ type: 'resize', cols: 0, rows: 24 } as ClientFrame);
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'error'), 'error');
+    const err = a.textFrames.find((f) => f.type === 'error');
+    if (err?.type !== 'error') throw new Error('expected error');
+    expect(err.code).toBe('malformed_message');
+    expect(session.supervisor.resizes).toEqual([]);
   });
 });
 

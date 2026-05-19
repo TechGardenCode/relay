@@ -196,6 +196,15 @@ export class AttachClient {
     this.sendFrame({ type: 'release', id: this.inflightClaimId });
   }
 
+  /**
+   * Per ND-23: resize is a side-channel emitter — no FSM transition, no claim
+   * required. `sendFrame` no-ops when the socket isn't OPEN, which is the
+   * correct behavior for a fire-and-forget size update.
+   */
+  resize(cols: number, rows: number): void {
+    this.sendFrame({ type: 'resize', cols, rows });
+  }
+
   /** Close the socket cleanly (^D). */
   close(): void {
     this.clearBackoff();
