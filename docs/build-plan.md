@@ -296,7 +296,8 @@ Phase 1 implementation, decomposed by module per [`docs/arch/repo-layout.md`](ar
 | -- | -- | -- |
 | [D-13](open-questions.md#d-13) | resolved | The canonical contract. 26-char Crockford-Base32, ≥128 bits, hashed at rest, shown plaintext exactly once, `relay init` emits the pairing snippet + writes `~/.relay/last-pairing.txt`. Build everything against this. |
 | [D-05](open-questions.md#d-05) | deferred to Phase 3 | Per-device token rotation is out of scope. MVP tokens are indefinite until revoked. Do NOT add rotation hooks; do NOT add expiry timestamps to the on-disk shape. |
-| [D-10](open-questions.md#d-10) | resolved | Agent model credentials (`ANTHROPIC_API_KEY`) are server-level env vars, NOT stored in `~/.relay/tokens.json`. 6B owns only bearer tokens for Relay's own auth. |
+| [D-10](open-questions.md#d-10) | resolved | Agent model credentials are server-level env pass-through (D-10 mechanism); docs lead with `claude login` OAuth per ND-19, `ANTHROPIC_API_KEY` is the fallback. Either way, NOT stored in `~/.relay/tokens.json`. 6B owns only bearer tokens for Relay's own auth. |
+| [ND-19](open-questions.md#nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic_api_key-as-fallback) | resolved | Docs default for credential surface. No code change required for 6B — the env pass-through in `session/registry.ts` already inherits `$HOME` / process credentials and `~/.claude/` rides for free. |
 | [ND-NN] hashing algorithm | **open — file before coding** | See preflight #2. Propose SHA-256 + per-token salt; resolve via `decision-log` skill before `auth/hash.ts` lands. |
 | [ND-NN] `relay token list` | **open — file before coding** | See preflight #3. Build-plan canonicalizes the four-subcommand surface; PRD §7 omits `list`. File a propagation note to align §7 with the build-plan. |
 

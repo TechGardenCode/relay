@@ -19,24 +19,27 @@ Relay is **not** an editor, **not** an agent, and **not** a mobile coding tool �
 **npm (primary):**
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-…
+claude login                            # skip if already logged in on this host
 npm install -g @relay/relay
 relay init                              # one-time: token + ~/.relay/ scaffold
 relay server                            # foreground; supervise under systemd/launchd/pm2
 ```
 
-Requires Node.js 22+.
+Requires Node.js 22+. `claude login` writes OAuth state to the macOS Keychain or `~/.claude/.credentials.json` on Linux; Relay's spawned agents inherit it via process credentials and `$HOME`. For headless deployments (CI, immutable containers), `ANTHROPIC_API_KEY` is the documented fallback — see [`docs/deployment.md`](docs/deployment.md) → Headless deployments.
 
 **Docker (one-liner):**
 
 ```bash
 docker run -d --name relay \
   -p 7777:7777 \
-  -e ANTHROPIC_API_KEY \
+  -v relay_claude:/root/.claude \
   -v ~/.relay:/root/.relay \
   -v ~/code:/projects \
   ghcr.io/<org>/relay:latest
+docker exec -it relay claude login      # one-time, persists in the named volume
 ```
+
+The named volume holds the container's Claude Code OAuth state and persists across restarts. For headless deployments, see [`docs/deployment.md`](docs/deployment.md) → Headless deployments.
 
 See [`docs/deployment.md`](docs/deployment.md) for the Docker Compose stack with Caddy + Tailscale, configuration details, and backup posture.
 
@@ -49,7 +52,7 @@ This walks acceptance scenario E ([`docs/prd/08-acceptance.md`](docs/prd/08-acce
 1. **Install and initialize.**
 
    ```bash
-   export ANTHROPIC_API_KEY=sk-ant-…
+   claude login                          # skip if already logged in on this host
    npm install -g @relay/relay
    relay init
    ```

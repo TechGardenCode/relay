@@ -122,9 +122,23 @@ TOKEN=$(grep -oE '[0-9A-HJ-KMNP-TV-Z]{26}' "$LAPTOP_HOME/init.out" | tail -1)
 sed -i.bak 's/^host: 127.0.0.1$/host: 0.0.0.0/' "$LAPTOP_HOME/.relay/config.yaml"
 
 # Boot the server in the background; capture pid for shutdown.
-HOME=$LAPTOP_HOME ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+# Pick ONE credential path before launching the server (per ND-19):
+#
+#   OAuth (default) — symlink the operator's real ~/.claude into $LAPTOP_HOME so the
+#   spawned claude reads OAuth state via $HOME inheritance. On macOS the credential is
+#   in Keychain (reached via process credentials, not $HOME) so the symlink is mainly
+#   for Linux test homes; harmless on macOS.
+ln -sfn "$HOME/.claude" "$LAPTOP_HOME/.claude"
+HOME=$LAPTOP_HOME \
   node "$LAPTOP_REPO/packages/server/dist/cli/relay.js" server \
   > "$SERVER_LOG" 2>&1 &
+#
+#   Headless fallback — set ANTHROPIC_API_KEY in the parent shell and use:
+#     HOME=$LAPTOP_HOME ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+#       node "$LAPTOP_REPO/packages/server/dist/cli/relay.js" server \
+#       > "$SERVER_LOG" 2>&1 &
+#   Don't combine both — Claude Code prefers the env var and silently bills
+#   against the API key rather than any Claude.ai subscription.
 SERVER_PID=$!
 sleep 2  # let it bind
 
@@ -134,7 +148,7 @@ ssh techgardencode@10.0.60.221 -- \
   "curl -sf -H 'Authorization: Bearer $TOKEN' http://10.0.20.195:7777/tenants/self"
 ```
 
-If `ANTHROPIC_API_KEY` is missing in the laptop's env, the spawn will still work for the WS handshake but the agent process will exit immediately. For non-spawn checks (auth, hello frame, replay bracket on a synthetic session) that's fine. For full scenario E, surface the gap and ask the user to export the key in the parent shell before re-invoking.
+If neither `claude login` state at `$HOME/.claude/` (Keychain on macOS, the file on Linux) nor `ANTHROPIC_API_KEY` is reachable from the server's env, the WS handshake still succeeds but the spawned agent exits immediately. For non-spawn checks (auth, hello frame, replay bracket on a synthetic session) that's fine. For full scenario E, ensure the laptop's shell has either run `claude login` (the ND-19 default — the symlink above wires it through) or has `ANTHROPIC_API_KEY` exported, and surface the gap if neither is present.
 
 ### 3. Register a project on the server, spawn a session
 
@@ -260,7 +274,7 @@ End with a summary table identical in shape to `scenario-runner`'s, plus a **Mut
 - **Read-only against the user's real homes.** No write to `~/.relay`, `~/.claude`, or `techgardencode`'s home outside `$VM_DIR`.
 - **Cleanup runs unconditionally.** Even if the skill bails midway — a stale server process or stuck SSH connection is worse than a noisy cleanup log.
 - **Phase 0 already proved cross-LAN works.** If a check fails, the regression is the change since Phase 0, not the LAN. Don't go chasing network issues unless ping/curl fail.
-- **`ANTHROPIC_API_KEY` is the user's, not the skill's.** Read it from the parent shell's env; never write it to disk; if missing, fall back to non-spawn checks and surface the gap.
+- **Model credentials are the user's, not the skill's.** Whether that's `claude login` state at `$HOME/.claude/` (the ND-19 default — macOS Keychain or the `.credentials.json` file on Linux) or `ANTHROPIC_API_KEY` (the fallback), read from the parent shell's env / home; never copy either to disk; if neither is present, fall back to non-spawn checks and surface the gap. The OAuth path goes through a `ln -sfn $HOME/.claude $LAPTOP_HOME/.claude` so the spawned claude finds credentials via the isolated test home without copying anything.
 - **Test the contract, not the implementation.** A check that hardcodes "expects exactly N bytes of replay" is wrong — replay size is configurable per ND-03. Cite the spec, observe the wire.
 
 If the walk surfaces a contract ambiguity worth a new sub-question, file it via the `decision-log` skill before fixing it inline. The whole point of running this skill is to catch real-world drift; suppressing it would defeat the purpose.

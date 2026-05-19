@@ -18,7 +18,11 @@ export interface RegistryDeps {
   // benign command (`cat`, `printf`).
   agentCli?: string;
   // Env passed through to the spawned agent process. Defaults to the parent
-  // process env (per D-10 — ANTHROPIC_API_KEY is server-level, never per-session).
+  // process env (per D-10 — server-level pass-through is the mechanism; docs
+  // lead with `claude login` OAuth per ND-19, ANTHROPIC_API_KEY is the
+  // documented fallback). The full process.env inherits $HOME so spawned
+  // agents read the operator's OAuth state (Keychain on macOS, ~/.claude/
+  // .credentials.json on Linux) without Relay touching it.
   env?: Record<string, string>;
   // Per ND-13: 1 s in production; tests override with shorter values for
   // fake-timer assertions.

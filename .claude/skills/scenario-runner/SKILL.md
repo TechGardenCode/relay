@@ -184,7 +184,7 @@ Then a one-line **Mutation surface recap**: list every `USER:` action the walk a
 - **Decisions:** [D-09], [D-10], [D-G1].
 - **Mutation surface:** `USER:` writes a project-level persona override at `<project>/.relay/personas/<name>.yaml`. Skill spawns and kills a session.
 - **Related:** A (project registered), G (isolation guarantee).
-- **Preconditions:** A passed. At least one project registered. `ANTHROPIC_API_KEY` set in the server's process environment.
+- **Preconditions:** A passed. At least one project registered. Either `claude login` has been run on the host that launches `relay server` (the ND-19 default — Keychain on macOS, `~/.claude/.credentials.json` on Linux) or `ANTHROPIC_API_KEY` is set in that shell's environment. Without one of these, the spawned agent exits immediately and downstream marker assertions are `blocked` rather than `fail`.
 - **Phase gate:** Phase 1 ship.
 
 **Checks:**
@@ -438,10 +438,12 @@ Then a one-line **Mutation surface recap**: list every `USER:` action the walk a
    - `Cite: [06-distribution.md docker channel] [08-acceptance.md "H"]`
    - `n/a` if Docker unavailable.
 
-4. `ANTHROPIC_API_KEY` flows from Relay's process environment to the spawned agent.
-   - `USER:` start `relay server` with `ANTHROPIC_API_KEY` in its environment but not written to any YAML.
-   - `VERIFY:` `FILE: ~/.relay/config.yaml` does not contain the key. `FILE: ~/.relay/state.db` does not contain the key (sqlite dump or `strings`). A spawned session can talk to the model.
-   - `Cite: [D-10] [06-distribution.md configuration] [03-server.md §3 model credentials]`
+4. `claude login` OAuth state flows from operator's host to spawned agent without Relay touching it.
+   - `USER:` ensure `claude login` has been run on the host that launches `relay server` (macOS: confirm a `Claude Code-credentials` entry in `security dump-keychain`; Linux: confirm `FILE: ~/.claude/.credentials.json` exists). Start `relay server` from that shell with `ANTHROPIC_API_KEY` unset.
+   - `VERIFY:` `FILE: ~/.relay/config.yaml` does not contain the string "credentials". `FILE: ~/.relay/state.db` does not contain OAuth token bytes (sqlite dump | strings).
+   - `VERIFY:` a spawned session can talk to the model.
+   - `VERIFY:` spawning with `HOME=/tmp/empty` and `ANTHROPIC_API_KEY` unset makes the agent exit immediately (proves the OAuth channel is process credential / `$HOME` inheritance, not anything Relay reads). On macOS the Keychain stays reachable for processes running as the same user regardless of `$HOME`; this sub-check is Linux-specific.
+   - `Cite: [D-10] [ND-19] [03-server.md §3 model credentials] [threat-model.md §4 credentials-never-persisted]`
 
 5. Backup posture — `~/.relay/` and `~/.claude/` together cover all Relay-owned state.
    - `FILE:` enumerate everything under `~/.relay/`: `config.yaml`, `tokens.json`, `state.db`, `personas/`, `last-pairing.txt`. Cross-check against the table in [03-server.md §8].

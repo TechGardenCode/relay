@@ -12,7 +12,7 @@ Relay's posture is committed in two PRD lines: **G-7** ("Network-local trust mod
 In rough order of blast radius if compromised:
 
 - **Agent capability.** A running Relay server can spawn agent processes (Claude Code at MVP) that read and write any path the server process can reach. Compromising the bearer token is effectively "remote code execution as the user running `relay server`". This is the headline asset.
-- **Model credentials.** `ANTHROPIC_API_KEY` (and any other provider-specific variables the wrapped CLI consumes) lives in the server's process environment and is propagated unchanged into every spawned agent (D-10, `prd/03-server.md` §3). Never written to YAML or SQLite, but a compromised server process can read its own env and spend the credential.
+- **Model credentials.** Either an OAuth refresh token (the documented default per ND-19 — stored in the macOS Keychain or at `~/.claude/.credentials.json` on Linux, written by `claude login` on the host) or `ANTHROPIC_API_KEY` in the server's process environment (the documented fallback for headless deployments, per D-10). Both are propagated unchanged into every spawned agent via process credential / `$HOME` env inheritance. Never written to YAML or SQLite, but a compromised server process can read both its own env and its own home directory and spend either credential.
 - **Transcripts.** Raw PTY bytes captured per session (D-07, `prd/03-server.md` §10). Whatever the user typed or the agent emitted — pasted secrets, source diffs, prompts — is persisted under `~/.relay/`.
 - **Project source on disk.** Project working directories are registered in place (D-12, `prd/03-server.md` §3); the agent process inherits read/write to them.
 - **Token store.** `~/.relay/tokens.json` holds hashed tokens, not plaintext (D-13). Compromising the file does not yield usable tokens, but replacing it would let an attacker inject a token whose hash they know.
@@ -30,7 +30,7 @@ Out of scope: the user themselves (a single-user system cannot defend against it
 - **The server process is trusted.** It reads model credentials from its environment, owns the SQLite state file, owns `~/.relay/`, and spawns agent processes with its own OS privileges. The Relay process's privilege level is the blast radius — running it as root would be a self-inflicted wound.
 - **The bearer token is the only secret.** 26-character Crockford-Base32, ≥128 bits of entropy, server-generated, shown plaintext exactly once at issue and hashed at rest (D-13, `prd/03-server.md` §6).
 - **The wire is in the clear by default.** Bearer auth over plain HTTP/WS means a network-adjacent observer who can read packets reads the token in plaintext. TLS is the operator's responsibility, supplied by their tunnel choice (§6 below). Relay does not terminate TLS itself.
-- **One credential set per server.** All sessions on a given Relay process share the same `ANTHROPIC_API_KEY` (D-10). Operators who need credential isolation run separate Relay servers — there is no in-process isolation between "tenants" at MVP, even though the data-model seam exists for Phase 4 (`prd/03-server.md` §2).
+- **One credential set per server.** All sessions on a given Relay process share the same credentials — either the operator's OAuth state (Keychain on macOS, `~/.claude/.credentials.json` on Linux) or `ANTHROPIC_API_KEY` (D-10, ND-19). When both are present, Claude Code's resolver picks the env var, which silently bills against the API key rather than any active Claude.ai subscription. Operators who need credential isolation run separate Relay servers — there is no in-process isolation between "tenants" at MVP, even though the data-model seam exists for Phase 4 (`prd/03-server.md` §2).
 
 ## 4. Known mitigations (Phase 1)
 
@@ -41,7 +41,7 @@ Out of scope: the user themselves (a single-user system cannot defend against it
 - **WS rejects invalid tokens before bytes flow.** The bearer is validated at HTTP `Upgrade` time; missing/invalid tokens fail with close 1008 before any session output is streamed (`arch/ws-protocol.md` §close-codes; `arch/rest-conventions.md` §401).
 - **Project marker gitignored by default.** `relay project add` appends `.relay/project.json` to the project's `.gitignore` (D-G6, `prd/03-server.md` §7). The project ID does not leak into shared repos.
 - **Server restart kills orphaned sessions.** No zombie agent processes survive a restart; rows transition to `killed` with `terminated_reason = "server_restart"` and are not auto-relaunched (D-11, `prd/03-server.md` §3). Operators notice the gap rather than inherit dangling processes.
-- **Credentials never persisted by Relay.** Model credentials live only in the server's process env and the spawned agent's env (D-10). They are not written to YAML, SQLite, or any Relay-owned file, so a stolen state-DB or persona YAML does not yield the API key.
+- **Credentials never persisted by Relay.** Model credentials live only in the operator's existing storage — Claude Code's OAuth state in the macOS Keychain or at `~/.claude/.credentials.json` on Linux (the default per ND-19), or `ANTHROPIC_API_KEY` in the server's process env (the fallback per D-10). Relay never reads, copies, or writes either. The channel by which the spawned agent sees them is process credential / `$HOME` inheritance for OAuth and `process.env` inheritance for the env var. A stolen state-DB or persona YAML does not yield either credential.
 
 ## 5. Known deferrals
 
@@ -49,6 +49,7 @@ Things the PRD has explicitly decided *not* to do at MVP, with the trigger that 
 
 - **Per-device token rotation** — Phase 3 (D-05). MVP tokens are valid until revoked.
 - **Per-tenant / per-persona credential isolation** — Phase 3+ (D-10 re-evaluation trigger). MVP shares one credential set per server; operators isolate by running separate Relay processes.
+- **Credential-precedence arbitration.** If both `ANTHROPIC_API_KEY` and `claude login` OAuth state are present, Claude Code prefers the env var (upstream behavior). Relay does not detect or warn on this configuration. Operators who run `claude login` should ensure `ANTHROPIC_API_KEY` is unset in the shell that launches `relay server` if they want subscription billing rather than pay-per-token API billing. (ND-19.)
 - **RBAC.** Phase 4. REST conventions reserve `403 Forbidden` for it (`arch/rest-conventions.md` §status-codes) but Relay does not emit 403 at MVP.
 - **Audit logging.** Phase 4 (N-6). Transcripts are the only record of session activity at MVP; there is no separate auth/admin audit stream.
 - **SSO / OIDC.** Phase 4 (N-6). Bearer tokens are the entire auth surface.

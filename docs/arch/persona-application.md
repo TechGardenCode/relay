@@ -48,7 +48,7 @@ Critically, this directory is **not** the agent's working directory. The agent s
 
 ### 2.c Environment variables read by the agent at start
 
-Pass persona context through process env. Claude Code does consume some env vars (`ANTHROPIC_API_KEY`, debug toggles), but there is no documented env var that injects a system-prompt fragment, restricts skills, or filters MCP servers. The native env surface is for auth and runtime tuning, not behavior shaping.
+Pass persona context through process env. Claude Code does consume some env vars (`HOME` for Linux OAuth state lookup, `ANTHROPIC_API_KEY` for headless auth, debug toggles), but there is no documented env var that injects a system-prompt fragment, restricts skills, or filters MCP servers. The native env surface is for auth and runtime tuning, not behavior shaping.
 
 This option would require Relay to invent its own env vars and either patch the agent CLI (out of scope) or rely on a wrapper script — both of which couple Relay tightly to internals Claude Code does not guarantee. The flags exist precisely to avoid this; using env vars for persona application would re-invent the same wheel less cleanly.
 
@@ -86,7 +86,7 @@ Picked: **2.a primary, 2.b for the inputs flags can't carry literally.**
 
 ```
 cd <project canonical path>
-ANTHROPIC_API_KEY=<from Relay server env, per D-10>
+<HOME, ANTHROPIC_API_KEY if set, and other agent-CLI native vars inherited from Relay's process env per D-10/ND-19>
 claude \
   [--model <persona.model>]                                # only if persona sets model
   [--append-system-prompt <persona.systemPrompt>]          # only if persona sets systemPrompt
@@ -94,9 +94,11 @@ claude \
   [--disable-slash-commands]                               # only when persona.skills == []
 ```
 
-The agent runs under `node-pty` so the PTY-layer transcript capture (D-07) is unaffected. Working directory is the project's canonical path (D-12). Env is server env with Anthropic credentials (D-10) plus standard process inheritance — Relay does not synthesize new env vars for persona application.
+The agent runs under `node-pty` so the PTY-layer transcript capture (D-07) is unaffected. Working directory is the project's canonical path (D-12). Env is the parent process env per D-10; OAuth-via-`$HOME` is the documented default per ND-19 (Keychain on macOS, `~/.claude/.credentials.json` on Linux), and `ANTHROPIC_API_KEY` rides through when set. Relay does not synthesize new env vars for persona application.
 
 If a persona has no `systemPrompt`, no `model`, no `mcpServers` constraint, and no empty `skills:`, the spawn command is just `claude` and the agent runs with all of its native defaults. The persona is the *delta* from native; an empty persona is a no-op.
+
+*Credential surface default resolved by [ND-19](../open-questions.md#nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic_api_key-as-fallback) on 2026-05-18.*
 
 ### 4.2 Transient session dir
 

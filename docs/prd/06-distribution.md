@@ -25,9 +25,9 @@ This shape is deliberate. Splitting the server and CLI into separate packages wo
 - `~/.relay/config.yaml` for declarative configuration.
 - Environment variables override file config for container deployments.
 - All configuration twelve-factor.
-- **Agent model credentials** are supplied via Relay's own process environment (`ANTHROPIC_API_KEY` and any other provider-specific variables the wrapped agent CLI natively consumes) and passed unchanged into each spawned agent. Credentials are never persisted to YAML, the SQLite state file, or any Relay-owned config. Deployment guides should document setting these on the unit/container running `relay server`. See `03-server.md` §3.
+- **Agent model credentials** are inherited from Relay's process environment and process credentials, then passed unchanged into each spawned agent. The documented default is OAuth — operators run `claude login` once on the host that launches `relay server`, and spawned agents read the resulting state (macOS Keychain or `~/.claude/.credentials.json` on Linux) transparently. `ANTHROPIC_API_KEY` is the documented fallback for headless deployments (CI runners, immutable containers, environments without an interactive shell). Neither is ever written to YAML, the SQLite state file, or any Relay-owned config. Deployment guides should document `claude login` on the host as the primary path and the env-var fallback for headless cases. See `03-server.md` §3.
 
-*Model credentials resolved by [D-10](../open-questions.md#d-10-agent-model-credentials-handling) on 2026-05-15.*
+*Model credentials resolved by [D-10](../open-questions.md#d-10-agent-model-credentials-handling) on 2026-05-15. OAuth credential default per [ND-19](../open-questions.md#nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic_api_key-as-fallback) on 2026-05-18.*
 
 ## Persistence
 

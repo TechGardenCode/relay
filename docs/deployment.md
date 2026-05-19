@@ -13,13 +13,13 @@ The lowest-overhead deployment: one Node process on the host, state under `~/.re
 **Prerequisites**
 
 - Node.js 22 or newer (`node --version`).
-- An Anthropic API key in your shell environment.
+- A Claude Code login (`claude login`) completed on the host that will launch `relay server`. The resulting OAuth state lives in the macOS Keychain or at `~/.claude/.credentials.json` on Linux and is inherited transparently by every spawned agent. For headless deployments without an interactive shell, `ANTHROPIC_API_KEY` is the documented alternative — see [Headless deployments](#headless-deployments) below.
 - A process supervisor of your choice for the long-lived server (systemd, launchd, pm2, or just `tmux`).
 
 **Install and first run**
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-…
+claude login                            # skip if already logged in on this host
 npm install -g @relay/relay
 relay init
 ```
@@ -40,8 +40,8 @@ relay server                            # default config: ~/.relay/config.yaml
 
 The server binds `127.0.0.1:7777` by default (loopback-only — set `host: 0.0.0.0` in `~/.relay/config.yaml` when fronting via a reverse proxy or binding inside a container). Supervise it under whatever you already use:
 
-- **systemd** (Linux): a unit file with `Environment=ANTHROPIC_API_KEY=…`, `ExecStart=/usr/bin/relay server`, `Restart=on-failure`.
-- **launchd** (macOS): a `LaunchAgent` plist with `EnvironmentVariables` and `KeepAlive`.
+- **systemd** (Linux): a unit file with `User=<operator>` so the unit inherits the operator's UID and `$HOME` (which carries `~/.claude/.credentials.json` from `claude login`), plus `ExecStart=/usr/bin/relay server`, `Restart=on-failure`. For unattended headless deployments where no operator account has run `claude login`, drop `User=` and set `Environment=ANTHROPIC_API_KEY=…` instead — see [Headless deployments](#headless-deployments).
+- **launchd** (macOS): a `LaunchAgent` plist with `KeepAlive`. The agent runs as your user, so the macOS Keychain entry from `claude login` is reachable transparently. (The `EnvironmentVariables` block is only needed for the headless fallback.)
 - **pm2**: `pm2 start relay -- server --config ~/.relay/config.yaml`.
 
 **State layout**
@@ -71,7 +71,7 @@ Same Node binary, packaged inside an Alpine base image and published to GHCR. Th
 docker run -d --name relay \
   --restart unless-stopped \
   -p 7777:7777 \
-  -e ANTHROPIC_API_KEY \
+  -v relay_claude:/root/.claude \
   -v "$HOME/.relay:/root/.relay" \
   -v "$HOME/code:/projects" \
   ghcr.io/<org>/relay:latest
@@ -80,14 +80,17 @@ docker run -d --name relay \
 What the flags do:
 
 - `-p 7777:7777` — exposes the API + WebSocket port on the host. Adjust the host side to taste.
-- `-e ANTHROPIC_API_KEY` — passes the key from the shell environment unmodified into the container, where Relay reads it and forwards it into each spawned agent. The key is never written to YAML or the SQLite file.
+- `-v relay_claude:/root/.claude` — a Docker **named volume** that holds the container's Claude Code OAuth state. After the container is up, run `docker exec -it relay claude login` once; the device-flow URL prints to your terminal and the resulting credentials persist inside the named volume across restarts. This is platform-uniform (works the same on macOS and Linux Docker hosts), unlike a `$HOME/.claude` bind-mount which is broken on macOS because the operator's credentials live in the host Keychain rather than a file.
 - `-v $HOME/.relay:/root/.relay` — Relay's owned state directory. **This is the volume to back up.**
 - `-v $HOME/code:/projects` — operator convention for where source lives. Then register projects from inside the container (or via `relay project add /projects/my-app` from a host shell that's `docker exec`'d in). The `/projects/` path is convention only; you can mount source anywhere.
 
-After the container is up, run `relay init` once inside it to get the bearer token:
+For headless deployments (CI, immutable images, no interactive `claude login` step), swap the `-v relay_claude:/root/.claude` flag for `-e ANTHROPIC_API_KEY` instead — see [Headless deployments](#headless-deployments). Note that if both are present, Claude Code prefers the env var and silently bills against your API key rather than any Claude.ai subscription bound to the OAuth state.
+
+After the container is up, run two one-time setup commands:
 
 ```bash
-docker exec -it relay relay init
+docker exec -it relay claude login         # log in to Claude (skip if using ANTHROPIC_API_KEY)
+docker exec -it relay relay init           # mint the bearer token
 ```
 
 ---
@@ -104,9 +107,8 @@ services:
     image: ghcr.io/<org>/relay:latest
     container_name: relay
     restart: unless-stopped
-    environment:
-      - ANTHROPIC_API_KEY
     volumes:
+      - relay_claude:/root/.claude
       - ${HOME}/.relay:/root/.relay
       - ${HOME}/code:/projects
     expose:
@@ -146,6 +148,7 @@ services:
       - caddy_config:/config
 
 volumes:
+  relay_claude:
   tailscale_state:
   caddy_data:
   caddy_config:
@@ -167,7 +170,11 @@ Replace `<your-tailnet>` with your Tailscale tailnet name (e.g., `tail1234`). Ca
 **`.env`** (sibling, **gitignored**):
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-…
+# ANTHROPIC_API_KEY is no longer required by default — claude login inside
+# the container (via docker compose exec relay claude login) populates the
+# relay_claude named volume. Uncomment the line below only for headless
+# deployments. See "Headless deployments" below.
+# ANTHROPIC_API_KEY=sk-ant-…
 TS_AUTHKEY=tskey-auth-…
 ```
 
@@ -175,6 +182,7 @@ TS_AUTHKEY=tskey-auth-…
 
 ```bash
 docker compose up -d
+docker compose exec relay claude login     # one-time Claude auth (skip if headless)
 docker compose exec relay relay init       # one-time pairing
 ```
 
@@ -186,12 +194,26 @@ The bearer token from `relay init` plus the tailnet URL `https://relay.<your-tai
 
 Twelve-factor: declarative config in `~/.relay/config.yaml`, environment variables override at process start. Container deployments typically configure entirely via env so the image is immutable.
 
-**Agent credentials** are environment-only. Set `ANTHROPIC_API_KEY` (and any other provider variables the wrapped CLI consumes — e.g., `ANTHROPIC_BASE_URL` if you proxy) in the process that launches `relay server`. Relay reads them at agent-spawn time and passes them unchanged to each spawned `node-pty` process. They are never written to persona YAML, project metadata, or the SQLite file. All sessions on one server share one credential set; operators needing isolation run separate Relay servers.
+**Agent credentials** are inherited from the operator. The documented default is `claude login` on the host (or `docker exec -it relay claude login` inside the container for Docker deployments). Relay's spawn inherits the operator's `$HOME` and process credentials, so the spawned agent reads the OAuth state — macOS Keychain or `~/.claude/.credentials.json` on Linux — transparently. `ANTHROPIC_API_KEY` is the documented fallback for headless deployments (see below). Neither is ever written to persona YAML, project metadata, or the SQLite file. All sessions on one server share one credential set; operators needing isolation run separate Relay servers.
 
 Other notable config keys (full surface lives in `prd/03-server.md`):
 
 - `replayBufferBytes` — the on-attach replay size (default 32 KB, see `prd/03-server.md` §5.2).
 - `port` / `host` — server bind. Defaults `127.0.0.1:7777` (loopback-only). Container and reverse-proxy operators set `host: 0.0.0.0` in `~/.relay/config.yaml` so the server binds all interfaces inside its namespace.
+
+### Headless deployments
+
+For environments without an interactive shell — CI runners, immutable container images, unattended systemd units running as a service account that hasn't `claude login`-ed — use `ANTHROPIC_API_KEY` instead of OAuth.
+
+- **Local mode (systemd unit):** drop `User=<operator>` and add `Environment=ANTHROPIC_API_KEY=sk-ant-…` to the unit file.
+- **Docker run:** replace `-v relay_claude:/root/.claude` with `-e ANTHROPIC_API_KEY` on the `docker run` line.
+- **Docker Compose:** drop the `relay_claude` named volume from `services.relay.volumes`; add `environment: [ANTHROPIC_API_KEY]` back to the service; uncomment `ANTHROPIC_API_KEY=…` in `.env`.
+
+The API key is read at agent-spawn time from Relay's process environment and passed unchanged to each spawned `node-pty` process (per [D-10](open-questions.md#d-10-agent-model-credentials-handling)). It is never written to YAML, project metadata, or the SQLite file.
+
+**Precedence footgun.** If both `ANTHROPIC_API_KEY` and `claude login` OAuth state are reachable, Claude Code prefers the env var (upstream resolver behavior). An operator who runs `claude login` and *also* exports the env var will silently bill against the pay-per-token API key instead of any active Claude.ai subscription bound to the OAuth state. Pick one path per deployment. (Per [ND-19](open-questions.md#nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic_api_key-as-fallback).)
+
+*Agent credentials default surface resolved by [ND-19](open-questions.md#nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic_api_key-as-fallback) on 2026-05-18.*
 
 ---
 
