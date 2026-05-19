@@ -1,26 +1,32 @@
 // `relay attach` WS client. Implements the §5.1 client FSM from
-// docs/arch/ws-protocol.md:
+// docs/arch/ws-protocol.md, per-keystroke streaming variant (ND-24):
 //
-//   Idle ── line ready (\n) ──► Claiming
-//   Claiming ── claim_ack ──► Sending (CLI auto-sends; no second Enter — see below)
+//   Idle ── first input bytes ──► Claiming
+//   Claiming ── claim_ack ──► Streaming (flush pendingInput as one send)
 //   Claiming ── busy      ──► Backoff
-//   Sending  ── claim_released { delivered, heldBy: us } ──► Idle
-//   Backoff  ── next stdin byte ──► Idle    (then the next \n re-enters Claiming)
+//   Streaming ── more input bytes ──► Streaming (each chunk → one send)
+//   Streaming ── claim_released { delivered } ──► Idle
+//                  (if pendingInput accumulated, re-claim immediately)
+//   Streaming ── claim_released { timeout|disconnect|voluntary|session_ended } ──► Idle
+//                  (drop pendingInput; no auto-resend, per ND-02)
+//   Backoff   ── 4s elapses ──► Claiming if pendingInput; else Idle
 //
-// Per ND-17, the CLI collapses Claimed→Sending instead of waiting for a
-// second Enter: the IDE compose-field uses two Enters because the first
-// Enter is the line commit and the second is the user-driven retry on
-// BUSY. In a raw-mode TTY the user has already typed the line and pressed
-// Enter once; deferring the send to a second Enter would feel broken. The
-// §5.1 server-side FSM is unchanged — the wire still goes claim →
-// claim_ack → send → claim_released. ND-17 also covers the Backoff → Idle
-// transition firing on the 4-second timer alone (individual keystrokes
-// accumulate in tty.ts's line buffer, not in the client).
+// Per ND-24, every stdin chunk forwards via `submitInput(bytes: Buffer)` as
+// one `send` frame; the server scans the decoded payload for a newline byte
+// (`\n` / `\r`) and releases the claim when it finds one. The wire shape
+// (claim → claim_ack → send* → claim_released) is unchanged from D-G2; only
+// the multi-send semantic widens.
+//
+// Per ND-17 (narrowed), this client is the canonical raw-mode TTY surface;
+// line-mode IDE compose-field clients still use the same FSM with one
+// pendingInput buffer per draft, which collapses into a single send.
 //
 // Per ND-01 / ND-03 nothing here is hardcoded: claimLockTimeoutSeconds and
 // replayBufferBytes are read from the inbound `hello` frame and exposed via
 // `onHello`. The 4-second backoff dismissal in §5.1 is the only literal we
-// keep (per ND-02 "auto-dismisses after ~4 seconds").
+// keep (per ND-02 "auto-dismisses after ~4 seconds"); during streaming, the
+// 4 s window alone drives backoff dismissal — per-keystroke retries would be
+// abusive against the rate-limit.
 
 import WebSocket, { type RawData } from 'ws';
 import {
@@ -34,7 +40,7 @@ import {
   type SessionEndedFrame,
 } from '@relay/protocol';
 
-export type ClientState = 'idle' | 'claiming' | 'sending' | 'backoff' | 'closed';
+export type ClientState = 'idle' | 'claiming' | 'streaming' | 'backoff' | 'closed';
 
 const BACKOFF_DISMISS_MS = 4_000;
 
@@ -82,14 +88,17 @@ export interface ClientCallbacks {
 
 /**
  * One AttachClient per relay attach invocation. Drives the §5.1 client FSM
- * over a single WebSocket. Exposes `submit(line)` for the TTY bridge to call
- * when stdin produces a complete line (\n or \r\n), and `release()` for the
- * voluntary release case (user cancelled — Ctrl-C during draft).
+ * over a single WebSocket. Exposes `submitInput(bytes)` for the TTY bridge
+ * to call on each stdin chunk (per ND-24), and `release()` for the voluntary
+ * release case (user cancelled — Ctrl-C during draft).
  */
 export class AttachClient {
   private socket: WebSocket | undefined;
   private state: ClientState = 'idle';
-  private pendingLine: Buffer | undefined;
+  // Per ND-24: bytes typed while we are not yet in Streaming (Claiming or
+  // Backoff) accumulate here. Flushed as one `send` on entry to Streaming.
+  // Cleared (without sending) on terminal release reasons or send_without_claim.
+  private pendingInput: Buffer | undefined;
   private inflightClaimId: string | undefined;
   private backoffTimer: NodeJS.Timeout | undefined;
   private callbacks: ClientCallbacks;
@@ -173,26 +182,41 @@ export class AttachClient {
     });
   }
 
-  /** Stdin produced a complete line. Drives Idle → Claiming → Sending. */
-  submit(line: Buffer): void {
+  /**
+   * Per ND-24: forward a stdin chunk to the server. Drives the FSM from
+   * Idle → Claiming on first input; in Streaming, sends each chunk directly
+   * as a `send` frame; in Claiming / Backoff, accumulates into `pendingInput`
+   * to flush on next Streaming entry. Empty buffers are no-ops.
+   */
+  submitInput(bytes: Buffer): void {
     if (this.state === 'closed') return;
-    this.pendingLine = line;
-    if (this.state === 'backoff') {
-      // §5.1: typing a key dismisses the notice; the next Enter re-claims.
-      // For CLI, the line is already complete (we're in submit()); retry.
-      this.clearBackoff();
+    if (bytes.length === 0) return;
+    if (this.state === 'streaming') {
+      // Already holding the claim — fire-and-forget per-chunk send. Server
+      // decides whether this chunk's newline content releases the claim.
+      this.sendFrame({
+        type: 'send',
+        id: this.inflightClaimId,
+        data: bytes.toString('base64'),
+      });
+      return;
     }
+    // claiming / backoff / idle: accumulate the bytes.
+    this.pendingInput =
+      this.pendingInput === undefined
+        ? Buffer.from(bytes)
+        : Buffer.concat([this.pendingInput, bytes]);
     if (this.state === 'idle') {
       this.sendClaim();
     }
-    // Any other state (claiming / sending): pendingLine queued, takes effect
-    // when the in-flight claim resolves. Pasted-line-during-send is rare for
-    // a typing user; documented as last-wins.
+    // claiming: in-flight claim will trigger flushPendingToStream on claim_ack.
+    // backoff: the 4 s timer dismissal alone drives the retry — per-keystroke
+    // re-claim would defeat the rate-limit ND-02 sets.
   }
 
   /** Voluntary release (user cancelled draft). Best-effort per §2.2. */
   release(): void {
-    if (this.state !== 'claiming' && this.state !== 'sending') return;
+    if (this.state !== 'claiming' && this.state !== 'streaming') return;
     this.sendFrame({ type: 'release', id: this.inflightClaimId });
   }
 
@@ -225,16 +249,20 @@ export class AttachClient {
     this.transition('claiming');
   }
 
-  private sendBuffered(): void {
-    if (this.pendingLine === undefined) return;
-    const line = this.pendingLine;
-    this.pendingLine = undefined;
+  private flushPendingToStream(): void {
+    // Per ND-24: on claim_ack, flush whatever the user typed during Claiming
+    // (and possibly during Backoff prior) as one `send`. After this the FSM
+    // is in Streaming and subsequent submitInput calls send their own chunks
+    // directly.
+    this.transition('streaming');
+    if (this.pendingInput === undefined) return;
+    const bytes = this.pendingInput;
+    this.pendingInput = undefined;
     this.sendFrame({
       type: 'send',
       id: this.inflightClaimId,
-      data: line.toString('base64'),
+      data: bytes.toString('base64'),
     });
-    this.transition('sending');
   }
 
   private handleTextFrame(raw: string): void {
@@ -267,10 +295,10 @@ export class AttachClient {
         this.callbacks.onReplayEnd?.();
         break;
       case 'claim_ack':
-        // Idempotent re-ack while we're already claiming or sending is a
-        // no-op; only the initial transition triggers the send.
+        // Idempotent re-ack while we're already streaming is a no-op; only
+        // the initial Claiming → Streaming transition flushes pendingInput.
         if (this.state === 'claiming') {
-          this.sendBuffered();
+          this.flushPendingToStream();
         }
         break;
       case 'busy':
@@ -280,26 +308,28 @@ export class AttachClient {
         }
         break;
       case 'claim_released':
-        // For the CLI we collapsed claim ack → send; on `delivered` from our
-        // own send we return to idle. The release-by-other-device branch is
-        // purely informational.
         this.callbacks.onClaimReleased?.(frame);
-        if (this.state === 'sending' && frame.reason === 'delivered') {
+        if (this.state === 'streaming' && frame.reason === 'delivered') {
+          // Per ND-24: server detected a newline byte in one of our `send`s
+          // and released the claim. If `pendingInput` accumulated post-newline
+          // (e.g., paste continuation after the first `\n`), kick a fresh
+          // claim immediately so the remaining bytes ride the next claim.
           this.inflightClaimId = undefined;
-          // If the user typed another line while the send was in flight,
-          // pendingLine !== undefined — kick off the next claim immediately.
           this.transition('idle');
-          if (this.pendingLine !== undefined) {
+          if (this.pendingInput !== undefined) {
             this.sendClaim();
           }
         } else if (
-          this.state === 'sending' &&
-          (frame.reason === 'timeout' || frame.reason === 'disconnect')
+          this.state === 'streaming' &&
+          (frame.reason === 'timeout' ||
+            frame.reason === 'disconnect' ||
+            frame.reason === 'voluntary' ||
+            frame.reason === 'session_ended')
         ) {
-          // Per §5.1: timeout on Sending is treated as send-failed; the user
-          // retries. We surface the event and return to Idle without
-          // resending — auto-retry would violate ND-02.
+          // Per ND-02: no auto-resend. Drop any post-burst pendingInput; the
+          // user retries by typing again.
           this.inflightClaimId = undefined;
+          this.pendingInput = undefined;
           this.transition('idle');
         }
         break;
@@ -312,9 +342,12 @@ export class AttachClient {
       case 'error':
         this.callbacks.onError?.(frame);
         if (frame.code === 'send_without_claim' || frame.code === 'invalid_send') {
-          // Server dropped our send; return to idle so the next line claims
-          // fresh. The user retries by typing again.
+          // Server-side mid-stream release raced our send (or the payload was
+          // garbage). Return to idle and drop pendingInput so the next user
+          // keystroke claims fresh — auto-retry on the dropped bytes would
+          // loop indefinitely under a persistent error.
           this.inflightClaimId = undefined;
+          this.pendingInput = undefined;
           this.transition('idle');
         }
         break;
@@ -326,7 +359,13 @@ export class AttachClient {
     this.clearBackoff();
     this.backoffTimer = setTimeout(() => {
       this.backoffTimer = undefined;
-      if (this.state === 'backoff') {
+      if (this.state !== 'backoff') return;
+      // Per ND-24 §T10: if the user typed during backoff, the 4 s dismissal
+      // re-attempts the claim with the accumulated bytes; if nothing typed,
+      // we just go idle and wait for the next input.
+      if (this.pendingInput !== undefined) {
+        this.sendClaim();
+      } else {
         this.transition('idle');
       }
     }, BACKOFF_DISMISS_MS);

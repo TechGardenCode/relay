@@ -34,7 +34,7 @@ The twelve JSON `type` discriminators in force at the time this SKILL.md was wri
 | Direction       | `type`           | Purpose                                                                                                                    |
 | --------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Client → Server | `claim`          | Request the per-session input lock. (§2.2)                                                                                 |
-| Client → Server | `send`           | Deliver one line-buffered PTY input (base64). (§2.2)                                                                       |
+| Client → Server | `send`           | Deliver input bytes to the PTY (base64). Multi-send per claim; server releases on newline byte in payload. (§2.2, ND-24)   |
 | Client → Server | `release`        | Voluntarily release a held claim. (§2.2)                                                                                   |
 | Client → Server | `resize`         | PTY size update (cols, rows). Side-channel — independent of the §5.1 FSM. Last-writer-wins for multi-client. (§2.2, ND-23) |
 | Server → Client | `hello`          | Always the first frame; pins session config. (§2.3)                                                                        |
@@ -87,17 +87,27 @@ PTY-output binary writes must reach **every** attached connection regardless of 
 - **Violation:** a binary send wrapped in a claim-state predicate. Emit `claim_gated_output`.
 - **Cite:** `ws-protocol.md §2.4` (D-G2 §5.1 rule 5), plus a "see also" note pointing at `ws-protocol.md §5.2 rule 1` (D-G3 reattach immediacy) — both contracts forbid the same code shape.
 
+### Rule 5 — ND-24 newline-conditional release
+
+The server releases the per-session claim on a `send` ONLY when the decoded payload contains a newline byte (`\n` / 0x0a or `\r` / 0x0d). A `send` handler that releases unconditionally — i.e., calls `releaseAsHolder(..., 'delivered')` on every successful `send` regardless of payload content — collapses the [ND-24](../../../docs/open-questions.md#nd-24-per-keystroke-input-streaming-for-tui-agents) `Streaming` contract back into the pre-ND-24 one-send-per-claim shape. TUI agents (claude's compose box) cannot then see in-progress typing, which is a Phase 1 ship-blocker.
+
+- **Bad patterns:** the `send` handler decodes `data` and calls `releaseAsHolder(..., 'delivered')` (or any function that broadcasts `claim_released { delivered }`) with no preceding scan of the decoded buffer for `0x0a` / `0x0d`. Concretely: `handle.write(bytes); state.lock.releaseAsHolder(ctx.id, 'delivered');` with no intervening newline check.
+- **Good patterns:** the handler decodes, writes, then conditionally releases: `if (bytes.includes(0x0a) || bytes.includes(0x0d)) state.lock.releaseAsHolder(ctx.id, 'delivered');` — or any equivalent scan (`Buffer.indexOf`, `for` loop, `containsNewline(bytes)` helper) that gates the release call.
+- **Violation:** a `send`-handling code path that releases the claim without a newline check on the just-written payload. Emit `unconditional_send_release`.
+- **Cite:** `ws-protocol.md §5.2` row 4 (newline-conditional release), `ws-protocol.md §2.2` (multi-send per claim), and `ND-24`.
+
 ## Violation taxonomy
 
 Every non-clean verdict names exactly one code:
 
-| Code                  | Means                                                                                                                                                                                                                   |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `missing_handler`     | A catalog discriminator (or the binary send path) is absent from the target.                                                                                                                                            |
-| `extra_discriminator` | The target uses a `type` value not in the catalog.                                                                                                                                                                      |
-| `hardcoded_timeout`   | The auto-release window appears as a numeric literal, not a `claimLockTimeoutSeconds` config read.                                                                                                                      |
-| `claim_gated_output`  | A binary PTY-output write is inside a claim-state conditional.                                                                                                                                                          |
-| `ambiguous`           | The skill cannot decide from static patterns alone — e.g., handler dispatch is reflective / table-driven and the table is built at runtime from data the skill cannot statically inline. Reported, not silently passed. |
+| Code                         | Means                                                                                                                                                                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `missing_handler`            | A catalog discriminator (or the binary send path) is absent from the target.                                                                                                                                            |
+| `extra_discriminator`        | The target uses a `type` value not in the catalog.                                                                                                                                                                      |
+| `hardcoded_timeout`          | The auto-release window appears as a numeric literal, not a `claimLockTimeoutSeconds` config read.                                                                                                                      |
+| `claim_gated_output`         | A binary PTY-output write is inside a claim-state conditional.                                                                                                                                                          |
+| `unconditional_send_release` | A `send` handler releases the claim without checking the decoded payload for a newline byte (ND-24 violation).                                                                                                          |
+| `ambiguous`                  | The skill cannot decide from static patterns alone — e.g., handler dispatch is reflective / table-driven and the table is built at runtime from data the skill cannot statically inline. Reported, not silently passed. |
 
 `ambiguous` is a real verdict; the user reads it as "go look at this by hand," not as a pass.
 

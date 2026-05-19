@@ -1,7 +1,7 @@
 // TTY bridge unit tests. Uses PassThrough streams in place of stdin/stdout
-// so the test doesn't need a real TTY. Asserts raw-mode toggle, line
-// buffering across stdin chunks, ^D close behavior, and forwarding of binary
-// frames to stdout.
+// so the test doesn't need a real TTY. Asserts raw-mode toggle, per-keystroke
+// chunk forwarding (ND-24), ^D close behavior including mid-chunk slicing,
+// resize emission (ND-23), and forwarding of binary frames to stdout.
 
 import { PassThrough } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -111,8 +111,8 @@ describe('runTty raw-mode lifecycle', () => {
   });
 });
 
-describe('runTty stdin → line submit', () => {
-  it('buffers bytes locally until LF is seen, then submits the line as one send', async () => {
+describe('runTty stdin → per-keystroke streaming (ND-24)', () => {
+  it('forwards a single-byte stdin chunk as one submitInput → claim → send carrying the byte', async () => {
     const rig = await newRig();
     runTty({
       client: rig.client,
@@ -122,23 +122,21 @@ describe('runTty stdin → line submit', () => {
       setRawMode: () => {},
       installExitHook: () => {},
     });
-    rig.stdin.write(Buffer.from('hel'));
-    rig.stdin.write(Buffer.from('lo\n'));
+    rig.stdin.write(Buffer.from('h'));
     expect(rig.socket.sent).toHaveLength(1);
     expect(rig.socket.sent[0]).toMatchObject({ type: 'claim' });
-    // After server claim_ack, the send carries the full buffered line.
     const claim = rig.socket.sent[0] as { id: string };
     rig.socket.receiveText({
       type: 'claim_ack',
       id: claim.id,
-      expiresAt: '2026-05-18T10:00:30Z',
+      expiresAt: '2026-05-19T10:00:30Z',
     });
     expect(rig.socket.sent).toHaveLength(2);
     const send = rig.socket.sent[1] as { data: string };
-    expect(Buffer.from(send.data, 'base64').toString('utf8')).toBe('hello\n');
+    expect(Buffer.from(send.data, 'base64').toString('utf8')).toBe('h');
   });
 
-  it('treats CR (\\r) as a line terminator (raw-mode TTYs send CR on Enter)', async () => {
+  it('forwards a multi-byte chunk verbatim — no line buffering, no special handling for non-newline bytes', async () => {
     const rig = await newRig();
     runTty({
       client: rig.client,
@@ -148,14 +146,65 @@ describe('runTty stdin → line submit', () => {
       setRawMode: () => {},
       installExitHook: () => {},
     });
-    rig.stdin.write(Buffer.from('hi\r'));
+    rig.stdin.write(Buffer.from('hello'));
     expect(rig.socket.sent).toHaveLength(1);
-    expect(rig.socket.sent[0]).toMatchObject({ type: 'claim' });
+    const claim = rig.socket.sent[0] as { id: string };
+    rig.socket.receiveText({
+      type: 'claim_ack',
+      id: claim.id,
+      expiresAt: '2026-05-19T10:00:30Z',
+    });
+    expect(rig.socket.sent).toHaveLength(2);
+    const send = rig.socket.sent[1] as { data: string };
+    expect(Buffer.from(send.data, 'base64').toString('utf8')).toBe('hello');
+  });
+
+  it('chunks with embedded \\n forward verbatim — newline detection lives server-side, not in tty.ts', async () => {
+    const rig = await newRig();
+    runTty({
+      client: rig.client,
+      stdin: rig.stdin,
+      stdout: rig.stdout,
+      stderr: rig.stderr,
+      setRawMode: () => {},
+      installExitHook: () => {},
+    });
+    rig.stdin.write(Buffer.from('hi\n'));
+    const claim = rig.socket.sent[0] as { id: string };
+    rig.socket.receiveText({
+      type: 'claim_ack',
+      id: claim.id,
+      expiresAt: '2026-05-19T10:00:30Z',
+    });
+    const send = rig.socket.sent[1] as { data: string };
+    expect(Buffer.from(send.data, 'base64').toString('utf8')).toBe('hi\n');
+  });
+
+  it('^C (0x03) is forwarded as a regular byte under streaming — no special-case', async () => {
+    const rig = await newRig();
+    runTty({
+      client: rig.client,
+      stdin: rig.stdin,
+      stdout: rig.stdout,
+      stderr: rig.stderr,
+      setRawMode: () => {},
+      installExitHook: () => {},
+    });
+    rig.stdin.write(Buffer.from([0x61, 0x03, 0x62])); // 'a' ^C 'b'
+    const claim = rig.socket.sent[0] as { id: string };
+    rig.socket.receiveText({
+      type: 'claim_ack',
+      id: claim.id,
+      expiresAt: '2026-05-19T10:00:30Z',
+    });
+    const send = rig.socket.sent[1] as { data: string };
+    const decoded = Buffer.from(send.data, 'base64');
+    expect(Array.from(decoded)).toEqual([0x61, 0x03, 0x62]);
   });
 });
 
 describe('runTty ^D close handling', () => {
-  it('closes the WS cleanly (code 1000) when ^D is received', async () => {
+  it('closes the WS cleanly (code 1000) when ^D is the only byte in the chunk', async () => {
     const rig = await newRig();
     runTty({
       client: rig.client,
@@ -167,6 +216,8 @@ describe('runTty ^D close handling', () => {
     });
     rig.stdin.write(Buffer.from([0x04]));
     expect(rig.socket.closeCode).toBe(1000);
+    // No claim or send emitted — the ^D-only chunk is purely a detach.
+    expect(rig.socket.sent).toHaveLength(0);
   });
 
   it('resolves done with the WS close code', async () => {
@@ -181,6 +232,24 @@ describe('runTty ^D close handling', () => {
     });
     rig.stdin.write(Buffer.from([0x04]));
     await expect(done).resolves.toBe(1000);
+  });
+
+  it('^D mid-chunk: forwards the prefix bytes via submitInput then closes (bytes after ^D dropped)', async () => {
+    const rig = await newRig();
+    runTty({
+      client: rig.client,
+      stdin: rig.stdin,
+      stdout: rig.stdout,
+      stderr: rig.stderr,
+      setRawMode: () => {},
+      installExitHook: () => {},
+    });
+    // Per ND-24 §T4: prefix bytes forward as one submitInput, then close;
+    // bytes after the ^D are dropped because the user's intent was detach.
+    rig.stdin.write(Buffer.from([0x61, 0x62, 0x04, 0x63, 0x64])); // 'ab' ^D 'cd'
+    expect(rig.socket.sent).toHaveLength(1);
+    expect(rig.socket.sent[0]).toMatchObject({ type: 'claim' });
+    expect(rig.socket.closeCode).toBe(1000);
   });
 });
 

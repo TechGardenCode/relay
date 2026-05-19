@@ -26,10 +26,18 @@ export const SendFrameSchema = z
   .object({
     type: z.literal('send'),
     id: CorrelationIdSchema.optional(),
-    // Per ws-protocol.md §2.2: base64 encoding of the raw input bytes. The
-    // server validates decodability and emits `invalid_send` on failure
+    // Per ws-protocol.md §2.2 + ND-24: base64 encoding of the raw input bytes.
+    // The server validates decodability and emits `invalid_send` on failure
     // (§4.1). Length is unbounded at the application layer; WS-frame caps
     // apply.
+    //
+    // Multi-send per claim: a single `claim → claim_ack` grants the right to
+    // send one-or-more `send` frames. The server scans each decoded payload
+    // for a newline byte (`\n` / 0x0a or `\r` / 0x0d) — finding one releases
+    // the claim with reason `delivered`; the absence keeps it held so a TUI
+    // agent can see in-progress typing (§5.2 row 4). Empty `data` decodes to
+    // a zero-byte buffer, performs a no-op PTY write, and does not release
+    // the claim.
     data: z.string(),
   })
   .strict();

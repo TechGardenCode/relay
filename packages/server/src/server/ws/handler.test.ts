@@ -9,7 +9,8 @@
  *
  *   §2.2 + §5.2 row 1 — claim grants                                          → describe("claim arbitration") > it("first claim grants...")
  *   §5.2 row 2 — second claim busy                                            → describe("claim arbitration") > it("second concurrent claim is busy")
- *   §5.2 row 4 — send→PTY → claim_released { delivered }                      → describe("send delivery") > it("...")
+ *   §5.2 row 4 — newline-bearing send → claim_released { delivered }            → describe("send delivery") > it("...")
+ *   §5.2 row 4-no-change — non-newline send keeps claim held (ND-24)            → describe("send delivery — ND-24") > ...
  *   §5.2 row 6 — voluntary release                                            → describe("voluntary release") > it("release frame → claim_released { voluntary }")
  *   §5.2 row 9 — disconnect releases                                          → describe("§5.3 race 2") > it("disconnect of holder releases peer connections")
  *   §4.1 codes — send_without_claim / release_without_claim / unknown_type    → describe("error envelope") > ...
@@ -108,7 +109,7 @@ function trackingFactory(args: Parameters<typeof createFakeSupervisor>[0]): Fake
   return sup;
 }
 
-async function makeWsRig(): Promise<WsRig> {
+async function makeWsRig(claimLockTimeoutSeconds = 30): Promise<WsRig> {
   const homeOverride = mkdtempSync(join(tmpdir(), 'relay-ws-test-'));
   const db = openDatabase({ filename: ':memory:' });
   runMigrations(db, migrationsDirForTests());
@@ -132,7 +133,7 @@ async function makeWsRig(): Promise<WsRig> {
     config: {
       host: '127.0.0.1',
       port: 0,
-      claimLockTimeoutSeconds: 30,
+      claimLockTimeoutSeconds,
       replayBufferBytes: 32 * 1024,
     },
     homeOverride,
@@ -589,7 +590,7 @@ describe('GET /sessions/:id/stream — §5.3 race 3: auth expired mid-claim', ()
 });
 
 describe('GET /sessions/:id/stream — §5.3 race 4: PTY EPIPE on send', () => {
-  it('supervisor.write throws → claim still releases delivered (lock is gone either way)', async () => {
+  it('supervisor.write throws → claim still releases delivered when payload carries newline', async () => {
     const session = await seedSession(rig);
     const a = await connect(rig, `/sessions/${session.sessionId}/stream`);
     await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'replay_end');
@@ -603,15 +604,167 @@ describe('GET /sessions/:id/stream — §5.3 race 4: PTY EPIPE on send', () => {
       throw new Error('EPIPE: supervisor already exited');
     });
 
-    a.send({ type: 'send', data: Buffer.from('boom').toString('base64') });
-    // Per §5.3 race 4: the lock still transitions to Unclaimed with
-    // `delivered` — the lock is gone either way.
+    // Per ND-24: the release decision is driven by payload content, not
+    // PTY-write outcome. A newline-bearing payload still triggers release
+    // even when the write throws — `boom\n` carries `\n`, so the lock
+    // transitions to Unclaimed with `delivered`.
+    a.send({ type: 'send', data: Buffer.from('boom\n').toString('base64') });
     await a.waitFor(
       ({ text }) => text.some((f) => f.type === 'claim_released' && f.reason === 'delivered'),
       'delivered after EPIPE',
     );
     spy.mockRestore();
     void originalWrite;
+  });
+});
+
+describe('GET /sessions/:id/stream — send delivery — ND-24 multi-send + newline-release', () => {
+  it('non-newline sends keep the claim held; bytes still reach PTY', async () => {
+    const session = await seedSession(rig);
+    const a = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'replay_end');
+
+    a.send({ type: 'claim', id: 'a-1' });
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'claim_ack'), 'claim_ack');
+
+    // Per ND-24: a `send` without newline writes bytes but does not release.
+    a.send({ type: 'send', data: Buffer.from('h').toString('base64') });
+    a.send({ type: 'send', data: Buffer.from('e').toString('base64') });
+    a.send({ type: 'send', data: Buffer.from('l').toString('base64') });
+
+    // Wait for the supervisor to record all three writes.
+    const start = Date.now();
+    while (Date.now() - start < 1500) {
+      if (session.supervisor.writes.length >= 3) break;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    expect(session.supervisor.writes.map((w) => (Buffer.isBuffer(w) ? w.toString() : w))).toEqual([
+      'h',
+      'e',
+      'l',
+    ]);
+    // No claim_released frame emitted yet.
+    expect(a.textFrames.filter((f) => f.type === 'claim_released')).toEqual([]);
+  });
+
+  it('newline-bearing send after non-newline sends triggers exactly one release broadcast', async () => {
+    const session = await seedSession(rig);
+    const a = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    const b = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'A replay_end');
+    await b.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'B replay_end');
+
+    a.send({ type: 'claim' });
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'claim_ack'), 'claim_ack');
+
+    a.send({ type: 'send', data: Buffer.from('hi').toString('base64') });
+    a.send({ type: 'send', data: Buffer.from('\n').toString('base64') });
+
+    await b.waitFor(
+      ({ text }) => text.some((f) => f.type === 'claim_released' && f.reason === 'delivered'),
+      'B delivered',
+    );
+    expect(b.textFrames.filter((f) => f.type === 'claim_released').length).toBe(1);
+    void session;
+  });
+
+  it('CRLF: \\r releases on first scan; the \\n arrives in the next claim cycle', async () => {
+    const session = await seedSession(rig);
+    const a = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'replay_end');
+
+    a.send({ type: 'claim' });
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'claim_ack'), 'claim_ack');
+
+    a.send({ type: 'send', data: Buffer.from('a\r\n').toString('base64') });
+    await a.waitFor(
+      ({ text }) => text.some((f) => f.type === 'claim_released' && f.reason === 'delivered'),
+      'delivered',
+    );
+    // Exactly one release broadcast — both bytes are in the same send.
+    expect(a.textFrames.filter((f) => f.type === 'claim_released').length).toBe(1);
+    // Bytes reached the PTY in full.
+    expect(session.supervisor.writes.map((w) => (Buffer.isBuffer(w) ? w.toString() : w))).toEqual([
+      'a\r\n',
+    ]);
+  });
+
+  it('empty send (data: "") writes zero bytes and does not release', async () => {
+    const session = await seedSession(rig);
+    const a = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'replay_end');
+
+    a.send({ type: 'claim' });
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'claim_ack'), 'claim_ack');
+
+    a.send({ type: 'send', data: '' });
+    // Give the handler a chance to process; assert nothing happened.
+    await new Promise((r) => setTimeout(r, 50));
+    expect(a.textFrames.filter((f) => f.type === 'claim_released')).toEqual([]);
+    expect(a.textFrames.filter((f) => f.type === 'error')).toEqual([]);
+    // The handler still calls supervisor.write with the zero-byte buffer.
+    expect(session.supervisor.writes.length).toBe(1);
+    const w = session.supervisor.writes[0];
+    expect(Buffer.isBuffer(w) ? w.length : String(w).length).toBe(0);
+  });
+
+  it('busy peer sees claim_released { delivered } when holder finally sends a newline', async () => {
+    const session = await seedSession(rig);
+    const a = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    const b = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'A replay_end');
+    await b.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'B replay_end');
+
+    a.send({ type: 'claim', id: 'a-1' });
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'claim_ack'), 'A claim_ack');
+    a.send({ type: 'send', data: Buffer.from('xy').toString('base64') });
+
+    b.send({ type: 'claim', id: 'b-1' });
+    await b.waitFor(({ text }) => text.some((f) => f.type === 'busy'), 'B busy');
+
+    a.send({ type: 'send', data: Buffer.from('\n').toString('base64') });
+    await b.waitFor(
+      ({ text }) => text.some((f) => f.type === 'claim_released' && f.reason === 'delivered'),
+      'B sees delivered',
+    );
+    void session;
+  });
+
+  it('ND-01 timeout under sustained non-newline typing: claim_released { timeout } and subsequent send errors with send_without_claim', async () => {
+    // Per ND-01: the 30s window does not re-arm on activity. Non-newline
+    // sends DO NOT extend the timer — only a newline-bearing send releases
+    // before the timer fires. To keep the test fast, use a 1-second timeout
+    // rig instead of the default 30s.
+    const fastRig = await makeWsRig(1);
+    try {
+      const session = await seedSession(fastRig);
+      const a = await connect(fastRig, `/sessions/${session.sessionId}/stream`);
+      await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'replay_end');
+
+      a.send({ type: 'claim' });
+      await a.waitFor(({ text }) => text.some((f) => f.type === 'claim_ack'), 'claim_ack');
+
+      // Type continuously without ever sending a newline. The non-newline
+      // bytes reach the PTY but do not re-arm the timer.
+      a.send({ type: 'send', data: Buffer.from('x').toString('base64') });
+      a.send({ type: 'send', data: Buffer.from('y').toString('base64') });
+      // Wait past the 1s window for the auto-release.
+      await a.waitFor(
+        ({ text }) => text.some((f) => f.type === 'claim_released' && f.reason === 'timeout'),
+        'timeout',
+        2000,
+      );
+
+      // Subsequent send from the (now ex-) holder must error with
+      // send_without_claim — the server-side lock is gone.
+      a.send({ type: 'send', id: 'after-timeout', data: Buffer.from('z').toString('base64') });
+      await a.waitFor(
+        ({ text }) => text.some((f) => f.type === 'error' && f.code === 'send_without_claim'),
+        'post-timeout send_without_claim',
+      );
+    } finally {
+      await fastRig.cleanup();
+    }
   });
 });
 

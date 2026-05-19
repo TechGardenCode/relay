@@ -410,19 +410,33 @@ function handleSend(
     sendError(ctx, 'invalid_send', 'data is not valid base64', correlationId);
     return;
   }
-  // Per ws-protocol.md §5.3 race 4 (PTY EPIPE): we transition to Unclaimed
-  // regardless of PTY-write outcome — the lock is gone either way. The
-  // session/ orchestrator owns the session_ended emission via its
-  // onSessionEnd path; we don't synthesize one here.
+  // Per ws-protocol.md §5.3 race 4 (PTY EPIPE): write is best-effort; the
+  // release decision is driven by the in-band payload, not by the PTY-write
+  // outcome. The session/ orchestrator owns the session_ended emission via
+  // its onSessionEnd path; we don't synthesize one here.
   try {
     handle.write(bytes);
   } catch {
     // Best-effort: PTY-write errors after the supervisor died are
     // non-actionable from this layer.
   }
-  // Per §5.2 row 4: SEND delivered to PTY transitions to Unclaimed with
-  // reason `delivered`. The lock fires onReleased → broadcast claim_released.
-  state.lock.releaseAsHolder(ctx.id, 'delivered');
+  // Per ND-24 + §5.2 row 4: SEND releases the claim only when the decoded
+  // payload contains a newline byte. A non-newline `send` (single keystroke
+  // or paste prefix) keeps the claim held so the TUI agent sees in-progress
+  // typing; the newline-bearing `send` is what flips the lock to Unclaimed
+  // and fires `claim_released { delivered }` via the lock's onReleased hook.
+  // Empty `data` falls through here naturally — bytes.includes returns false
+  // on a zero-length buffer, so the claim stays held with no broadcast.
+  if (containsNewline(bytes)) {
+    state.lock.releaseAsHolder(ctx.id, 'delivered');
+  }
+}
+
+// Per ND-24 §5.2 row 4: `\n` (0x0a) or `\r` (0x0d) anywhere in the decoded
+// payload triggers release. CRLF releases on the `\r`; the `\n` arrives in
+// the next `send` and re-claims via the client-side `pendingInput` path.
+function containsNewline(bytes: Buffer): boolean {
+  return bytes.includes(0x0a) || bytes.includes(0x0d);
 }
 
 function handleRelease(

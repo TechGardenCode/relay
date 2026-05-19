@@ -1,12 +1,15 @@
-// Raw-mode TTY bridge for `relay attach`. Reads stdin byte-by-byte, buffers
-// into lines, submits each completed line to the AttachClient. Forwards
-// binary server frames straight to stdout. Restores TTY state on close per
-// Phase 0 surprise §3 (raw mode must be reverted or the user's shell is left
-// in a broken state if the process dies abruptly).
+// Raw-mode TTY bridge for `relay attach`. Reads stdin chunks and forwards
+// them verbatim to the AttachClient per ND-24 (per-keystroke streaming).
+// Forwards binary server frames straight to stdout. Restores TTY state on
+// close per Phase 0 surprise §3 (raw mode must be reverted or the user's
+// shell is left in a broken state if the process dies abruptly).
 //
-// Why line-buffered (rather than per-keystroke `send`): D-G2 §5.1 commits to
-// line-buffered input as the unit of input arbitration. Per-keystroke sends
-// would defeat the claim-lock model and violate the §5.1 contract.
+// Why per-keystroke (replacing the pre-ND-24 line buffering): claude's TUI
+// compose box draws its own prompt from the bytes it receives on stdin; a
+// line-buffered client makes operators type blind. ND-24 keeps the wire
+// shape (claim → send* → claim_released) and lets the server detect
+// newlines in the payload to release the claim — so the TTY bridge is dumb:
+// each stdin chunk becomes one `client.submitInput(bytes)` call.
 
 import type { Readable, Writable } from 'node:stream';
 
@@ -31,10 +34,11 @@ function readStdoutSize(stdout: TtyStdoutLike): { cols: number; rows: number } |
   return { cols, rows };
 }
 
-const CTRL_C = 0x03;
+// Per ND-24: only ^D (clean detach) is special-cased. ^C (0x03) and Enter
+// (0x0a / 0x0d) are forwarded as regular bytes — the PTY interprets ^C as
+// SIGINT for the agent, and the server detects newlines in the payload to
+// release the claim.
 const CTRL_D = 0x04;
-const LF = 0x0a;
-const CR = 0x0d;
 
 export interface RunTtyOptions {
   client: AttachClient;
@@ -54,7 +58,6 @@ export interface RunTtyResult {
 
 export function runTty(opts: RunTtyOptions): RunTtyResult {
   const { client, stdin, stdout, stderr } = opts;
-  let lineBuffer: Buffer[] = [];
 
   const enableRaw =
     opts.setRawMode ??
@@ -128,39 +131,23 @@ export function runTty(opts: RunTtyOptions): RunTtyResult {
     });
 
     stdin.on('data', (chunk: Buffer): void => {
-      for (let i = 0; i < chunk.length; i += 1) {
-        const byte = chunk[i];
-        if (byte === undefined) continue;
-        if (byte === CTRL_D) {
-          // ^D — clean detach. Per prd/03-server.md §7 the session keeps
-          // running; we close 1000 and exit.
-          client.close();
-          return;
-        }
-        if (byte === CTRL_C) {
-          // Pass ^C through to the remote PTY as a single-byte "line" so the
-          // §5.1 claim-lock contract is honored.
-          submitLine(Buffer.from([CTRL_C]));
-          continue;
-        }
-        if (byte === CR || byte === LF) {
-          submitLine(consumeBuffer(byte));
-          continue;
-        }
-        lineBuffer.push(Buffer.from([byte]));
+      // Per ND-24: forward each stdin chunk as one `submitInput` call. ^D
+      // mid-chunk slices the prefix (if any) and then closes; ^C and Enter
+      // are regular bytes (the PTY handles ^C as SIGINT; the server detects
+      // the newline in the payload to release the claim).
+      const ctrlDIndex = chunk.indexOf(CTRL_D);
+      if (ctrlDIndex === -1) {
+        if (chunk.length > 0) client.submitInput(chunk);
+        return;
       }
+      const prefix = chunk.subarray(0, ctrlDIndex);
+      if (prefix.length > 0) client.submitInput(prefix);
+      // Per prd/03-server.md §7: ^D is a clean detach; the session keeps
+      // running, the socket closes 1000, and any bytes after the ^D in the
+      // same chunk are dropped (the user's intent was to detach).
+      client.close();
     });
   });
-
-  function consumeBuffer(terminator: number): Buffer {
-    const parts = [...lineBuffer, Buffer.from([terminator])];
-    lineBuffer = [];
-    return Buffer.concat(parts);
-  }
-
-  function submitLine(line: Buffer): void {
-    client.submit(line);
-  }
 
   return { done };
 }

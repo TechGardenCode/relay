@@ -65,8 +65,6 @@ When a decision flips to `resolved`, its spec content has to land in the affecte
 - [ND-16 — CLI ↔ data-plane boundary rule](#nd-16-cli--data-plane-boundary-rule)
 - [ND-17 — `relay attach` raw-mode TTY variant of the §5.1 client FSM](#nd-17-relay-attach-raw-mode-tty-variant-of-the-51-client-fsm)
 - [ND-18 — Lazy-load CLI dispatcher contract](#nd-18-lazy-load-cli-dispatcher-contract)
-- [ND-23 — PTY size negotiation and SIGWINCH forwarding for attach clients](#nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients)
-- [ND-24 — Per-keystroke input streaming for TUI agents](#nd-24-per-keystroke-input-streaming-for-tui-agents)
 
 **Deferred:**
 - [D-02 — PWA initial server discovery](#d-02-pwa-initial-server-discovery) (deferred until Phase 2)
@@ -102,6 +100,8 @@ When a decision flips to `resolved`, its spec content has to land in the affecte
 - [ND-14 — Transcript response field naming (camelCase)](#nd-14-transcript-response-field-naming-camelcase) (resolved 2026-05-17)
 - [ND-19 — `claude login` OAuth as the documented credential default; `ANTHROPIC_API_KEY` as fallback](#nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic_api_key-as-fallback) (resolved 2026-05-18)
 - [ND-22 — `vm-e2e` test-home symlink set is platform-specific (macOS needs `Library/` for Keychain)](#nd-22-vm-e2e-test-home-symlink-set-is-platform-specific-macos-needs-library-for-keychain) (resolved 2026-05-18)
+- [ND-23 — PTY size negotiation and SIGWINCH forwarding for attach clients](#nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients) (resolved 2026-05-18)
+- [ND-24 — Per-keystroke input streaming for TUI agents](#nd-24-per-keystroke-input-streaming-for-tui-agents) (resolved 2026-05-19)
 
 ---
 
@@ -1327,7 +1327,7 @@ Why not B/C/D: Option B (smallest common rectangle) departs from `tmux` conventi
 
 ## ND-24: Per-keystroke input streaming for TUI agents
 
-**Status:** in-deliberation
+**Status:** resolved (2026-05-19)
 **Affects:** `docs/arch/ws-protocol.md` §2.2 (`send` frame contract), §5.1 (client FSM gains a `streaming` state), §5.2 (server FSM: `send`-without-newline no longer releases), §5.3 (new race row for "newline mid-stream while another claim queued"), §8 (summary table); `packages/protocol/src/ws-frames.ts` (`SendFrame` JSDoc reflects the multi-send contract; schema unchanged); `packages/server/src/server/ws/handler.ts` (`handleSend` stops auto-releasing; release fires only when payload bytes contain `\n` or `\r`); `packages/server/src/server/ws/handler.test.ts` (multi-send-per-claim happy path; newline-triggers-release; ND-01 timeout still fires under sustained typing); `packages/server/src/attach/tty.ts` (drop `lineBuffer`/`consumeBuffer`/`submitLine`; forward each stdin byte verbatim via a new `client.submitByte(byte)`); `packages/server/src/attach/client.ts` (FSM gains `streaming` state between `claiming` and `idle`; new `submitByte` API; `pendingByte` queueing replaces `pendingLine`); `packages/server/src/attach/client.test.ts` + `packages/server/src/attach/tty.test.ts` (test contract changes — line-buffered specs become per-byte specs); `.claude/skills/ws-protocol-check/SKILL.md` (catalog gains the newline-release rule); `docs/build-plan.md` (new task **6L** between 6K and 6I; 6I dependency list updates); [[nd-17-relay-attach-raw-mode-tty-variant-of-the-51-client-fsm]] (superseded in part — line-mode framing retained for line-mode agents only).
 
 **Surfaced by:** 2026-05-19 6H manual validation walk on macOS with `@anthropic-ai/claude-code` 2.1.x as the spawned agent. Single-device repro (laptop only, no LAN needed) using a scoped `HOME` so the operator's real `~/.relay` is untouched: `init` → `server` boot → `project add` → `POST /sessions` → `relay attach <sid>` → type into the prompt. claude's TUI compose box never showed any in-progress typing — operators type blind. The headline cause is `packages/server/src/attach/tty.ts:57-152`'s `lineBuffer`, which accumulates stdin bytes locally and only submits to the WS when it sees `\r` or `\n`. Whole-line submission on Enter does work end-to-end (verified 6H), but the typing UX is broken for every TUI agent, and claude is the production agent. This blocks scenarios E/F/H with claude as the agent and gates 6I (the IDE extension's terminal widget hits the same bug the moment it spawns `relay attach`).
@@ -1393,4 +1393,28 @@ Concretely:
 - (b) A non-line-mode agent emerges that needs sub-line claim arbitration between two concurrent typists (would force a re-think of the "newline = release" trigger).
 - (c) The multi-line paste path surfaces a UX issue the FSM can't paper over (would force option re-evaluation, possibly toward Option B's explicit stream flag).
 - (d) The ND-01 30s timeout interaction surfaces as a real UX defect under sustained typing.
+
+### Resolution
+
+**Option A with server-side newline-byte detection as the release trigger.** The wire shape `claim → claim_ack → send* → claim_released { reason: delivered }` is preserved; the semantic widens from "exactly one `send` per claim" to "one-or-more `send` frames per claim, the server releases the moment a `send`'s decoded payload contains `\n` (0x0a) or `\r` (0x0d)." `SendFrameSchema` is unchanged.
+
+Implementation tightenings (load-bearing for 6L):
+
+1. **Client API is batched, not strict per-byte.** The attach client exposes `submitInput(bytes: Buffer)`; the TTY bridge forwards each stdin `data` event as one `send`. Avoids amplifying a 1 KB paste into 1000 frames. Per-byte typing still produces per-byte sends because raw-mode stdin chunks are typically one byte.
+2. **Client FSM** gains a `Streaming` state between `Claiming` and `Idle`. `claim_ack` → `Streaming`; in `Streaming`, each `submitInput` emits a `send` and the state stays. `claim_released { delivered }` → `Idle` (and kicks a fresh `claim` if `pendingInput` accumulated during the prior burst). `claim_released { timeout | disconnect | voluntary | session_ended }` → `Idle`, drop `pendingInput`.
+3. **`pendingInput` is a concatenating `Buffer`** (not a single byte). Accumulates bytes received while in `Claiming` or `Backoff`. Flushes on entry to `Streaming`; drops on terminal release reasons.
+4. **Backoff queues bytes; the 4 s timer alone dismisses.** Today's line-mode client dismisses backoff on each line submit; under streaming that would re-attempt on every keystroke. While in `Backoff`, append to `pendingInput`; on timer fire, transition to `Claiming` if `pendingInput` is non-empty, else `Idle`.
+5. **`^D` mid-chunk** forwards the prefix bytes via one `submitInput` call (if non-empty) then calls `client.close()`. `^C` (0x03) has no special-case under streaming — it forwards as a regular byte and the PTY interprets it as SIGINT.
+6. **Empty `send` (`data: ''`)** decodes to a zero-byte buffer, performs a no-op PTY write, scans for newline (none), keeps the claim held. Documented in §5.2 row narrative so future readers don't think empty `send`s are forbidden.
+7. **Newline scan is byte-level** (`bytes.includes(0x0a) || bytes.includes(0x0d)`). CRLF releases on the `\r`; the subsequent `\n` arrives as the start of the next typing burst and re-claims via `pendingInput`. Matches `tmux` paste behavior.
+8. **`send`'s schema stays unbounded.** Transport-layer WS frame caps apply; no application-layer DoS surface is added beyond what 6G already accepts.
+
+Why not the other options: **B** mutates `send`'s contract for no benefit over server-side newline detection (the server already infers line-completion from byte content). **C** forces operators to know which mode their agent needs and doesn't compose across multi-client attach. **D** is magical — silent client-behavior switching based on server output is hard to test and hard for an operator to reason about when it misfires.
+
+**Known pathological cases (do not patch around in 6L; re-open the relevant decision if they bite):**
+
+- A user typing continuously for 30 s without an Enter has the claim released mid-typing under [[nd-01-claim-lock-timeout-duration]]. Keep ND-01's no-re-arming rule; pathological for claude (compose buffers don't get that long). If `vm-e2e` shows real UX pain, re-open ND-01 — don't paper over in 6L.
+- Multi-line paste releases at the first `\n`; the remainder re-claims automatically via `pendingInput`. If a user reports awkward visual stutter, evaluate Option B's `stream: true` field as a follow-up — don't work around in 6L.
+
+**Propagated to:** `docs/arch/ws-protocol.md` §2.2 + §5.1 + §5.2 + §5.3 + §8 (2026-05-19), `packages/protocol/src/ws-frames.ts` `SendFrameSchema` JSDoc (2026-05-19), `packages/server/src/server/ws/handler.ts` `handleSend` (2026-05-19), `packages/server/src/server/ws/handler.test.ts` (2026-05-19), `packages/server/src/attach/tty.ts` (2026-05-19), `packages/server/src/attach/tty.test.ts` (2026-05-19), `packages/server/src/attach/client.ts` (2026-05-19), `packages/server/src/attach/client.test.ts` (2026-05-19), `.claude/skills/ws-protocol-check/SKILL.md` catalog + newline-release rule (2026-05-19), `docs/build-plan.md` row 6L (2026-05-19), [[nd-17-relay-attach-raw-mode-tty-variant-of-the-51-client-fsm]] narrowed-by pointer (already landed with the 2026-05-18 6K commit).
 
