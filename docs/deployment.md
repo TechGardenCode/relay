@@ -19,10 +19,12 @@ The lowest-overhead deployment: one Node process on the host, state under `~/.re
 **Install and first run**
 
 ```bash
-claude login                            # skip if already logged in on this host
+claude auth login                       # skip if already logged in on this host
 npm install -g @relay/relay
 relay init
 ```
+
+On managed Linux hosts where the operator account doesn't have root, `npm install -g` fails on `/usr/lib/node_modules` (EACCES). Either run the install with `sudo` or set a user-local prefix once before installing — `mkdir -p ~/.local/npm && npm config set prefix ~/.local/npm && export PATH="$HOME/.local/npm/bin:$PATH"` (persist the PATH addition in `~/.bashrc`). The same caveat applies to `@anthropic-ai/claude-code` if it isn't already installed on the host.
 
 `relay init` performs one-time setup:
 
@@ -80,7 +82,7 @@ docker run -d --name relay \
 What the flags do:
 
 - `-p 7777:7777` — exposes the API + WebSocket port on the host. Adjust the host side to taste.
-- `-v relay_claude:/root/.claude` — a Docker **named volume** that holds the container's Claude Code OAuth state. After the container is up, run `docker exec -it relay claude login` once; the device-flow URL prints to your terminal and the resulting credentials persist inside the named volume across restarts. This is platform-uniform (works the same on macOS and Linux Docker hosts), unlike a `$HOME/.claude` bind-mount which is broken on macOS because the operator's credentials live in the host Keychain rather than a file.
+- `-v relay_claude:/root/.claude` — a Docker **named volume** that holds the container's Claude Code OAuth state. After the container is up, run `docker exec -it relay claude auth login` once; the device-flow URL prints to your terminal and the resulting credentials persist inside the named volume across restarts. This is platform-uniform (works the same on macOS and Linux Docker hosts), unlike a `$HOME/.claude` bind-mount which is broken on macOS because the operator's credentials live in the host Keychain rather than a file. Validated on macOS Docker host 2026-05-18 (Docker 29.4.1); Linux Docker host validation outstanding.
 - `-v $HOME/.relay:/root/.relay` — Relay's owned state directory. **This is the volume to back up.**
 - `-v $HOME/code:/projects` — operator convention for where source lives. Then register projects from inside the container (or via `relay project add /projects/my-app` from a host shell that's `docker exec`'d in). The `/projects/` path is convention only; you can mount source anywhere.
 
@@ -89,7 +91,7 @@ For headless deployments (CI, immutable images, no interactive `claude login` st
 After the container is up, run two one-time setup commands:
 
 ```bash
-docker exec -it relay claude login         # log in to Claude (skip if using ANTHROPIC_API_KEY)
+docker exec -it relay claude auth login    # log in to Claude (skip if using ANTHROPIC_API_KEY)
 docker exec -it relay relay init           # mint the bearer token
 ```
 
@@ -170,10 +172,10 @@ Replace `<your-tailnet>` with your Tailscale tailnet name (e.g., `tail1234`). Ca
 **`.env`** (sibling, **gitignored**):
 
 ```bash
-# ANTHROPIC_API_KEY is no longer required by default — claude login inside
-# the container (via docker compose exec relay claude login) populates the
-# relay_claude named volume. Uncomment the line below only for headless
-# deployments. See "Headless deployments" below.
+# ANTHROPIC_API_KEY is no longer required by default — `claude auth login`
+# inside the container (via `docker compose exec relay claude auth login`)
+# populates the relay_claude named volume. Uncomment the line below only
+# for headless deployments. See "Headless deployments" below.
 # ANTHROPIC_API_KEY=sk-ant-…
 TS_AUTHKEY=tskey-auth-…
 ```
@@ -182,7 +184,7 @@ TS_AUTHKEY=tskey-auth-…
 
 ```bash
 docker compose up -d
-docker compose exec relay claude login     # one-time Claude auth (skip if headless)
+docker compose exec relay claude auth login   # one-time Claude auth (skip if headless)
 docker compose exec relay relay init       # one-time pairing
 ```
 
@@ -194,7 +196,7 @@ The bearer token from `relay init` plus the tailnet URL `https://relay.<your-tai
 
 Twelve-factor: declarative config in `~/.relay/config.yaml`, environment variables override at process start. Container deployments typically configure entirely via env so the image is immutable.
 
-**Agent credentials** are inherited from the operator. The documented default is `claude login` on the host (or `docker exec -it relay claude login` inside the container for Docker deployments). Relay's spawn inherits the operator's `$HOME` and process credentials, so the spawned agent reads the OAuth state — macOS Keychain or `~/.claude/.credentials.json` on Linux — transparently. `ANTHROPIC_API_KEY` is the documented fallback for headless deployments (see below). Neither is ever written to persona YAML, project metadata, or the SQLite file. All sessions on one server share one credential set; operators needing isolation run separate Relay servers.
+**Agent credentials** are inherited from the operator. The documented default is `claude auth login` on the host (or `docker exec -it relay claude auth login` inside the container for Docker deployments). Relay's spawn inherits the operator's `$HOME` and process credentials, so the spawned agent reads the OAuth state — macOS Keychain or `~/.claude/.credentials.json` on Linux — transparently. `ANTHROPIC_API_KEY` is the documented fallback for headless deployments (see below). Neither is ever written to persona YAML, project metadata, or the SQLite file. All sessions on one server share one credential set; operators needing isolation run separate Relay servers.
 
 Other notable config keys (full surface lives in `prd/03-server.md`):
 

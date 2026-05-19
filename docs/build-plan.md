@@ -413,6 +413,7 @@ packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json f
 **Output:** root `Dockerfile`, `docker-compose.example.yml`, npm publish workflow, release workflow attaching the `.vsix`.
 **Done when:** scenario H — `npm install -g` on Node 22+ produces a working `relay`; the Docker image runs scenarios A–E from a clean container; the `.vsix` installs into VS Code from a GitHub Release.
 **Reads:** [`docs/prd/06-distribution.md`](prd/06-distribution.md).
+**Pre-6J ND-19 validation (2026-05-18):** Docker named-volume OAuth path (`-v relay_claude:/root/.claude` + `docker exec -it relay claude auth login`) validated on a macOS Docker host (Docker 29.4.1) with a stand-in `node:22-alpine` + `@anthropic-ai/claude-code` image; credentials persisted across `docker stop`/`docker start` and `claude -p` round-tripped without `ANTHROPIC_API_KEY`. Linux Docker host validation still outstanding (no Linux host reachable from this session). VM headless `claude auth login` device-flow over SSH validated on Ubuntu 24.04 (`techgardencode@10.0.60.221`, Node v22.22.2); ND-19's "deploying Relay on a headless Linux host" claim now empirically grounded. See [ND-19](open-questions.md#nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic_api_key-as-fallback) for the full validation log.
 
 ---
 

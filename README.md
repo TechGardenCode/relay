@@ -19,7 +19,7 @@ Relay is **not** an editor, **not** an agent, and **not** a mobile coding tool â
 **npm (primary):**
 
 ```bash
-claude login                            # skip if already logged in on this host
+claude auth login                       # skip if already logged in on this host
 npm install -g @relay/relay
 relay init                              # one-time: token + ~/.relay/ scaffold
 relay server                            # foreground; supervise under systemd/launchd/pm2
@@ -36,7 +36,7 @@ docker run -d --name relay \
   -v ~/.relay:/root/.relay \
   -v ~/code:/projects \
   ghcr.io/<org>/relay:latest
-docker exec -it relay claude login      # one-time, persists in the named volume
+docker exec -it relay claude auth login # one-time, persists in the named volume
 ```
 
 The named volume holds the container's Claude Code OAuth state and persists across restarts. For headless deployments, see [`docs/deployment.md`](docs/deployment.md) â†’ Headless deployments.
@@ -52,7 +52,7 @@ This walks acceptance scenario E ([`docs/prd/08-acceptance.md`](docs/prd/08-acce
 1. **Install and initialize.**
 
    ```bash
-   claude login                          # skip if already logged in on this host
+   claude auth login                     # skip if already logged in on this host
    npm install -g @relay/relay
    relay init
    ```

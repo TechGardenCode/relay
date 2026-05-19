@@ -124,11 +124,22 @@ sed -i.bak 's/^host: 127.0.0.1$/host: 0.0.0.0/' "$LAPTOP_HOME/.relay/config.yaml
 # Boot the server in the background; capture pid for shutdown.
 # Pick ONE credential path before launching the server (per ND-19):
 #
-#   OAuth (default) — symlink the operator's real ~/.claude into $LAPTOP_HOME so the
-#   spawned claude reads OAuth state via $HOME inheritance. On macOS the credential is
-#   in Keychain (reached via process credentials, not $HOME) so the symlink is mainly
-#   for Linux test homes; harmless on macOS.
+#   OAuth (default) — three symlinks reach the operator's real Claude Code state
+#   (per ND-22, surfaced 2026-05-18 when the single-`.claude` form left the spawned
+#   claude stuck in the first-run TUI):
+#     - `.claude/`     — Claude Code state dir (projects, sessions, backups, settings).
+#     - `.claude.json` — top-level config file the claude binary requires; without
+#                        it the agent re-enters the first-run TUI under the test home
+#                        and never reaches the prompt.
+#     - `Library/`     — macOS only. `claude login` writes OAuth state to the user's
+#                        login Keychain (`~/Library/Keychains/login.keychain-db`); the
+#                        Security framework's default-keychain lookup needs $HOME/Library
+#                        to be reachable even though Keychain access itself is bound
+#                        to process credentials. On Linux this symlink is omitted —
+#                        OAuth state lives at `.claude/.credentials.json` instead.
 ln -sfn "$HOME/.claude" "$LAPTOP_HOME/.claude"
+[ -f "$HOME/.claude.json" ] && ln -sfn "$HOME/.claude.json" "$LAPTOP_HOME/.claude.json"
+[ "$(uname)" = "Darwin" ] && [ -d "$HOME/Library" ] && ln -sfn "$HOME/Library" "$LAPTOP_HOME/Library"
 HOME=$LAPTOP_HOME \
   node "$LAPTOP_REPO/packages/server/dist/cli/relay.js" server \
   > "$SERVER_LOG" 2>&1 &
@@ -148,7 +159,9 @@ ssh techgardencode@10.0.60.221 -- \
   "curl -sf -H 'Authorization: Bearer $TOKEN' http://10.0.20.195:7777/tenants/self"
 ```
 
-If neither `claude login` state at `$HOME/.claude/` (Keychain on macOS, the file on Linux) nor `ANTHROPIC_API_KEY` is reachable from the server's env, the WS handshake still succeeds but the spawned agent exits immediately. For non-spawn checks (auth, hello frame, replay bracket on a synthetic session) that's fine. For full scenario E, ensure the laptop's shell has either run `claude login` (the ND-19 default — the symlink above wires it through) or has `ANTHROPIC_API_KEY` exported, and surface the gap if neither is present.
+If neither `claude login` state at `$HOME/.claude/` (Keychain on macOS, the file on Linux) nor `ANTHROPIC_API_KEY` is reachable from the server's env, the WS handshake still succeeds but the spawned agent exits immediately. For non-spawn checks (auth, hello frame, replay bracket on a synthetic session) that's fine. For full scenario E, ensure the laptop's shell has either run `claude login` (the ND-19 default — the three symlinks above wire it through; on macOS, `Library/` must be one of them per ND-22) or has `ANTHROPIC_API_KEY` exported, and surface the gap if neither is present.
+
+The spawned `claude` will also show a one-time workspace-trust prompt for the unfamiliar `/tmp/relay-e2e-…-project` path. Scenario E drivers that exercise check 4 (VM input → agent reply) must send a `\r` early in the attach session to dismiss it before the test prompt; check 1 / 2 / 3 (REST visibility, hello frame, replay bracket) do not require dismissal.
 
 ### 3. Register a project on the server, spawn a session
 
@@ -274,7 +287,7 @@ End with a summary table identical in shape to `scenario-runner`'s, plus a **Mut
 - **Read-only against the user's real homes.** No write to `~/.relay`, `~/.claude`, or `techgardencode`'s home outside `$VM_DIR`.
 - **Cleanup runs unconditionally.** Even if the skill bails midway — a stale server process or stuck SSH connection is worse than a noisy cleanup log.
 - **Phase 0 already proved cross-LAN works.** If a check fails, the regression is the change since Phase 0, not the LAN. Don't go chasing network issues unless ping/curl fail.
-- **Model credentials are the user's, not the skill's.** Whether that's `claude login` state at `$HOME/.claude/` (the ND-19 default — macOS Keychain or the `.credentials.json` file on Linux) or `ANTHROPIC_API_KEY` (the fallback), read from the parent shell's env / home; never copy either to disk; if neither is present, fall back to non-spawn checks and surface the gap. The OAuth path goes through a `ln -sfn $HOME/.claude $LAPTOP_HOME/.claude` so the spawned claude finds credentials via the isolated test home without copying anything.
+- **Model credentials are the user's, not the skill's.** Whether that's `claude auth login` state at `$HOME/.claude/` (the ND-19 default — macOS Keychain or the `.credentials.json` file on Linux) or `ANTHROPIC_API_KEY` (the fallback), read from the parent shell's env / home; never copy either to disk; if neither is present, fall back to non-spawn checks and surface the gap. The OAuth path symlinks `.claude/`, `.claude.json`, and (on macOS) `Library/` from the operator's real `$HOME` into `$LAPTOP_HOME` so the spawned claude finds credentials and config via the isolated test home without copying anything — see ND-22 in `docs/open-questions.md` for why all three are needed.
 - **Test the contract, not the implementation.** A check that hardcodes "expects exactly N bytes of replay" is wrong — replay size is configurable per ND-03. Cite the spec, observe the wire.
 
 If the walk surfaces a contract ambiguity worth a new sub-question, file it via the `decision-log` skill before fixing it inline. The whole point of running this skill is to catch real-world drift; suppressing it would defeat the purpose.
