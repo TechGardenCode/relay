@@ -30,7 +30,7 @@ Read these before walking any scenario; the scenario walks cite specific section
 - [`docs/prd/06-distribution.md`](../../../docs/prd/06-distribution.md) — packaging and distribution for scenario H.
 - [`docs/prd/09-persona-schema.md`](../../../docs/prd/09-persona-schema.md) — persona YAML schema for scenario B.
 - [`docs/arch/rest-conventions.md`](../../../docs/arch/rest-conventions.md) — error envelope, status-code matrix, and the pending snake_case → camelCase migration in the `03-server.md` §2 transcript example. Scenarios D and E that touch transcript-shape checks must tolerate the snake_case form until the propagation lands.
-- [`docs/open-questions.md`](../../../docs/open-questions.md) — anchor for `D-NN` / `ND-NN` citations in the per-check lines.
+- [`../../../docs/decisions/index.md`](../../../docs/decisions/index.md) — anchor for `D-NN` / `ND-NN` citations in the per-check lines.
 
 ## Phase-gate map
 
@@ -460,10 +460,10 @@ Then a one-line **Mutation surface recap**: list every `USER:` action the walk a
 ## Conventions worth restating
 
 - **Read-only boundary.** The skill verifies; the user mutates. Every mutating action is a `USER:` step the human runs, immediately followed by a `VERIFY:` step the skill checks. Spawning + killing a session is the one transient exception, and the skill cleans up its own spawns before exiting.
-- **Citation discipline.** Every check carries a `Cite:` line referencing the contract it tests — either a `D-NN`/`ND-NN` from [open-questions.md](../../../docs/open-questions.md), a numbered subdoc section, or both. A check without a citation is a check the future reader can't trace.
+- **Citation discipline.** Every check carries a `Cite:` line referencing the contract it tests — either a `D-NN`/`ND-NN` from [`docs/decisions/`](../../../docs/decisions/index.md), a numbered subdoc section, or both. A check without a citation is a check the future reader can't trace.
 - **Tolerate the pending camelCase migration.** [`rest-conventions.md` §6](../../../docs/arch/rest-conventions.md) supersedes the snake_case transcript example in [`03-server.md` §2](../../../docs/prd/03-server.md) but the propagation hasn't landed in the PRD snippet yet. Scenario D check 4 and any other transcript-shape check should `pass` on either form during the migration window, with a note.
 - **Phase 0 graceful degradation.** When walking D or E during Phase 0, the spike-only checks pass and the Phase-1-only sub-checks (replay buffer size precisely 32 KB; full claim arbitration; transcript pagination shape) emit `blocked (because: not in Phase 0 scope)` rather than `fail`.
 - **Claude CLI first-run TUI.** Any scenario that spawns a session under a fresh `$HOME` will land at Claude Code's first-run TUI (theme selector → login method → OAuth → "Press Enter to continue…"). Arbitrary text input is **ignored** until the four menus are dismissed with `\r`. Symptom: `claim → claim_ack → send → claim_released { delivered }` round-trips succeed but `totalBytes` does not grow and no agent response arrives. The walk surfaces a `blocked (because: claude TUI in first-run mode — dismiss with \r ×4 before sending text)` on any check that asserts agent semantic response. Either drive `\r` through the FSM first or prepopulate `~/.claude/.credentials.json` from the operator's real home. The vm-e2e skill documents the screen sequence verbatim.
 - **Stop on capability preflight failure.** Don't pretend to walk a scenario whose binary or server isn't reachable. One consolidated `blocked` verdict with a clear `because:` reason is more useful than eight cargo-cult `blocked` verdicts.
 - **CI-mode is out of scope.** This skill is the interactive primitive a future end-to-end CI runner could be built on. The "check Phase 1 acceptance" trigger surfaces a scenario picker, not a non-stop walk of all eight.
-- **Decision-log integration.** If the walk surfaces a contract ambiguity worth a new sub-question (e.g., a behavior the PRD doesn't pin down), file it in `docs/open-questions.md` via the `decision-log` skill — don't paper over it inline.
+- **Decision-log integration.** If the walk surfaces a contract ambiguity worth a new sub-question (e.g., a behavior the PRD doesn't pin down), file it in `../../../docs/decisions/index.md` via the `decision-log` skill — don't paper over it inline.

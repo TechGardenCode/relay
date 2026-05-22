@@ -3,7 +3,7 @@
 **Status:** v0.1
 **Scope:** DDL for the entities the PRD names — tenants, projects, sessions — plus the cascade rules, indexes, transcript storage decision, and migration tooling convention. Closes build-plan task 2C; unblocks the `store/` module implementation, build-plan task 3F (the `sqlite-migration` skill), and the `store/CLAUDE.md` write-up under build-plan task 5D.
 
-**Out of scope:** ORM choice and connection-pool configuration (these are tooling decisions outside the schema itself — [`repo-layout.md`](./repo-layout.md) §8 already picks `better-sqlite3` and no ORM); runtime SQLite tuning (journal mode, WAL, page size — implementation phase); the wire format that wraps query results ([`arch/ws-protocol.md`](./ws-protocol.md) and the REST shape doc — build-plan task 2E); the persona YAML schema itself ([`prd/09-persona-schema.md`](../prd/09-persona-schema.md), resolved by [D-09](../open-questions.md#d-09-persona-yaml-schema)).
+**Out of scope:** ORM choice and connection-pool configuration (these are tooling decisions outside the schema itself — [`repo-layout.md`](./repo-layout.md) §8 already picks `better-sqlite3` and no ORM); runtime SQLite tuning (journal mode, WAL, page size — implementation phase); the wire format that wraps query results ([`arch/ws-protocol.md`](./ws-protocol.md) and the REST shape doc — build-plan task 2E); the persona YAML schema itself ([`prd/09-persona-schema.md`](../prd/09-persona-schema.md), resolved by [D-09](../decisions/D-09-persona-yaml-schema.md)).
 
 ---
 
@@ -16,20 +16,20 @@ The database file is at `~/.relay/state.db`. It holds **entity identity and life
 | Table | Holds | Source |
 |---|---|---|
 | `tenants` | Tenant identity (single row at MVP) | [`prd/01-conceptual-model.md`](../prd/01-conceptual-model.md) |
-| `projects` | Per-project identity, slug, canonical working-dir path | [D-12](../open-questions.md#d-12-project-record-storage-and-relay-project-add-semantics) rule 5, [`prd/03-server.md`](../prd/03-server.md) §3 |
-| `sessions` | Per-session identity, status, agent-session-id, transcript-byte counter | [`prd/01-conceptual-model.md`](../prd/01-conceptual-model.md), [D-11](../open-questions.md#d-11-server-restart-and-session-orphaning) |
+| `projects` | Per-project identity, slug, canonical working-dir path | [D-12](../decisions/D-12-project-record-storage-and-relay-project-add-semantics.md) rule 5, [`prd/03-server.md`](../prd/03-server.md) §3 |
+| `sessions` | Per-session identity, status, agent-session-id, transcript-byte counter | [`prd/01-conceptual-model.md`](../prd/01-conceptual-model.md), [D-11](../decisions/D-11-server-restart-and-session-orphaning.md) |
 | `schema_versions` | Applied migrations | This doc, §6 |
 
 ### NOT in SQLite
 
 | State | Lives at | Why | Source |
 |---|---|---|---|
-| Bearer tokens (hashed) | `~/.relay/tokens.json` | Auth module is self-contained; operator can `cat` the file to audit. `store/` does not own auth state. | [D-13](../open-questions.md#d-13-first-run-pairing-ux) rule 5; [`prd/03-server.md`](../prd/03-server.md) §6 + §8 ownership table; [`repo-layout.md`](./repo-layout.md) §3 (`store/` "does not own ... bearer-token storage") |
-| Personas | `~/.relay/personas/*.yaml` (tenant), `<project>/.relay/personas/*.yaml` (project override) | Personas are source-of-truth on disk; override is by file presence, not a DB join. | [D-09](../open-questions.md#d-09-persona-yaml-schema) rules 1 + 4 |
-| Transcripts | `~/.relay/transcripts/<session-id>.bin` | Append-only PTY byte streams, megabyte-scale; sidecar files match the workload. See §2. | [D-07](../open-questions.md#d-07-transcript-stream-capture-layer), [ND-04](../open-questions.md#nd-04-transcript-pagination-api-shape), [`repo-layout.md`](./repo-layout.md) §3 `transcript/` |
+| Bearer tokens (hashed) | `~/.relay/tokens.json` | Auth module is self-contained; operator can `cat` the file to audit. `store/` does not own auth state. | [D-13](../decisions/D-13-first-run-pairing-ux.md) rule 5; [`prd/03-server.md`](../prd/03-server.md) §6 + §8 ownership table; [`repo-layout.md`](./repo-layout.md) §3 (`store/` "does not own ... bearer-token storage") |
+| Personas | `~/.relay/personas/*.yaml` (tenant), `<project>/.relay/personas/*.yaml` (project override) | Personas are source-of-truth on disk; override is by file presence, not a DB join. | [D-09](../decisions/D-09-persona-yaml-schema.md) rules 1 + 4 |
+| Transcripts | `~/.relay/transcripts/<session-id>.bin` | Append-only PTY byte streams, megabyte-scale; sidecar files match the workload. See §2. | [D-07](../decisions/D-07-transcript-stream-capture-layer.md), [ND-04](../decisions/ND-04-transcript-pagination-api-shape.md), [`repo-layout.md`](./repo-layout.md) §3 `transcript/` |
 | MCP configs, spawn audit | `~/.relay/sessions/<sessionId>/{mcp.json,spawn.json}` | Transient per-session artifacts read by the agent at spawn; nothing else queries them. | [`arch/persona-application.md`](./persona-application.md) §2.b, §4.2 |
 | Server config | `~/.relay/config.yaml` | Operator-edited; outside the entity graph. | [`prd/03-server.md`](../prd/03-server.md) §3 |
-| Project marker files | `<project>/.relay/project.json` | Lives in the working tree (gitignored); pairs the working dir to a project ID. | [D-12](../open-questions.md#d-12-project-record-storage-and-relay-project-add-semantics) rule 6, [ND-07](../open-questions.md#nd-07-marker-file-schema) |
+| Project marker files | `<project>/.relay/project.json` | Lives in the working tree (gitignored); pairs the working dir to a project ID. | [D-12](../decisions/D-12-project-record-storage-and-relay-project-add-semantics.md) rule 6, [ND-07](../decisions/ND-07-marker-file-schema.md) |
 
 The principle is the same one [`prd/03-server.md`](../prd/03-server.md) §8 calls "native configuration preservation," applied internally: each module owns its own state file under `~/.relay/`, and `store/` is one module among several. Centralizing tokens, personas, or transcripts in SQLite would either bloat the relational core with large or operator-readable state, or force cross-module reaches that the [`repo-layout.md`](./repo-layout.md) §3 module-ownership table explicitly forbids.
 
@@ -39,15 +39,15 @@ Phase 4 (RBAC + audit logging — see [`prd/07-phasing.md`](../prd/07-phasing.md
 
 ## 2. Transcript storage: sidecar files, not BLOBs
 
-Transcripts are stored as **append-only binary files at `~/.relay/transcripts/<session-id>.bin`**, one file per session. The `sessions` row carries a `total_bytes` counter that the pagination API (`GET /sessions/:id/transcript?before=<offset>&limit=<n>`, [ND-04](../open-questions.md#nd-04-transcript-pagination-api-shape)) uses as the upper bound; no `transcript_spans` or BLOB column exists.
+Transcripts are stored as **append-only binary files at `~/.relay/transcripts/<session-id>.bin`**, one file per session. The `sessions` row carries a `total_bytes` counter that the pagination API (`GET /sessions/:id/transcript?before=<offset>&limit=<n>`, [ND-04](../decisions/ND-04-transcript-pagination-api-shape.md)) uses as the upper bound; no `transcript_spans` or BLOB column exists.
 
 Three reasons:
 
-1. **Append-only writes match a flat-file primitive.** PTY-layer capture ([D-07](../open-questions.md#d-07-transcript-stream-capture-layer)) gives Relay a raw byte stream that grows for the session's lifetime. A multi-hour session can produce hundreds of megabytes. A single `O_APPEND` write is one syscall and one filesystem-page flush; the equivalent against a SQLite BLOB column means reading the existing blob, concatenating, and rewriting — quadratic in the worst case, and `better-sqlite3` does not expose incremental BLOB I/O cleanly. A flat file is the right shape for the access pattern.
-2. **Byte offsets are the natural addressable unit.** [ND-04](../open-questions.md#nd-04-transcript-pagination-api-shape) rule 1 commits to byte-range pagination with stable offsets for the session's lifetime ([ND-04](../open-questions.md#nd-04-transcript-pagination-api-shape) rule 6). A `pread(fd, buf, len, offset)` against the sidecar file maps to the API one-to-one; a `transcript_spans` indirection would buy nothing because there is nothing to index *into* the stream beyond what `total_bytes` already conveys.
+1. **Append-only writes match a flat-file primitive.** PTY-layer capture ([D-07](../decisions/D-07-transcript-stream-capture-layer.md)) gives Relay a raw byte stream that grows for the session's lifetime. A multi-hour session can produce hundreds of megabytes. A single `O_APPEND` write is one syscall and one filesystem-page flush; the equivalent against a SQLite BLOB column means reading the existing blob, concatenating, and rewriting — quadratic in the worst case, and `better-sqlite3` does not expose incremental BLOB I/O cleanly. A flat file is the right shape for the access pattern.
+2. **Byte offsets are the natural addressable unit.** [ND-04](../decisions/ND-04-transcript-pagination-api-shape.md) rule 1 commits to byte-range pagination with stable offsets for the session's lifetime ([ND-04](../decisions/ND-04-transcript-pagination-api-shape.md) rule 6). A `pread(fd, buf, len, offset)` against the sidecar file maps to the API one-to-one; a `transcript_spans` indirection would buy nothing because there is nothing to index *into* the stream beyond what `total_bytes` already conveys.
 3. **Backup posture is unchanged.** [`prd/06-distribution.md`](../prd/06-distribution.md) already names `~/.relay/` as the backup unit. Sidecar files keep transcripts inside that boundary without bloating `state.db`; a `tar czf` of `~/.relay/` captures the schema, the personas, the tokens, and the transcripts in one pass.
 
-The ring buffer used for on-attach replay ([`prd/03-server.md`](../prd/03-server.md) §5.2, [ND-03](../open-questions.md#nd-03-ring-buffer-size-for-attach-replay)) is an **in-memory** structure held by the session-coordinator module ([`repo-layout.md`](./repo-layout.md) §3 `session/`), not a DB or file artifact. The sidecar file is the source of truth; the ring buffer is a recent-bytes cache.
+The ring buffer used for on-attach replay ([`prd/03-server.md`](../prd/03-server.md) §5.2, [ND-03](../decisions/ND-03-ring-buffer-size-for-attach-replay.md)) is an **in-memory** structure held by the session-coordinator module ([`repo-layout.md`](./repo-layout.md) §3 `session/`), not a DB or file artifact. The sidecar file is the source of truth; the ring buffer is a recent-bytes cache.
 
 ---
 
@@ -84,7 +84,7 @@ CREATE TABLE projects (
 ) STRICT;
 ```
 
-Column shape is verbatim from [D-12](../open-questions.md#d-12-project-record-storage-and-relay-project-add-semantics) rule 5 and [`prd/03-server.md`](../prd/03-server.md) §3. The two UNIQUE constraints are the database-level enforcement of [D-12](../open-questions.md#d-12-project-record-storage-and-relay-project-add-semantics) rule 2 ("Re-registering the same canonical path is an error (`409 Conflict`); registering a different path that resolves to the same canonical form is also an error") and rule 3 (slug uniqueness per tenant). Persona overrides, skill lists, and MCP entries are deliberately absent — they live on disk per [D-09](../open-questions.md#d-09-persona-yaml-schema).
+Column shape is verbatim from [D-12](../decisions/D-12-project-record-storage-and-relay-project-add-semantics.md) rule 5 and [`prd/03-server.md`](../prd/03-server.md) §3. The two UNIQUE constraints are the database-level enforcement of [D-12](../decisions/D-12-project-record-storage-and-relay-project-add-semantics.md) rule 2 ("Re-registering the same canonical path is an error (`409 Conflict`); registering a different path that resolves to the same canonical form is also an error") and rule 3 (slug uniqueness per tenant). Persona overrides, skill lists, and MCP entries are deliberately absent — they live on disk per [D-09](../decisions/D-09-persona-yaml-schema.md).
 
 ### 3.3 `sessions`
 
@@ -109,10 +109,10 @@ CREATE TABLE sessions (
 ) STRICT;
 ```
 
-Column shape comes from [`prd/01-conceptual-model.md`](../prd/01-conceptual-model.md) lines 18-22 plus [D-11](../open-questions.md#d-11-server-restart-and-session-orphaning) (the `terminated_reason` column and its lifecycle). Two notes:
+Column shape comes from [`prd/01-conceptual-model.md`](../prd/01-conceptual-model.md) lines 18-22 plus [D-11](../decisions/D-11-server-restart-and-session-orphaning.md) (the `terminated_reason` column and its lifecycle). Two notes:
 
-- **`persona_name` is a TEXT snapshot, not a foreign key.** Personas are YAML files on disk ([D-09](../open-questions.md#d-09-persona-yaml-schema)); a session captures the name at spawn time so the row remains coherent if the operator later deletes or renames the persona file. The on-disk YAML can be re-loaded for inspection, but a missing file is not a referential-integrity violation — it's a historical observation.
-- **`terminated_reason` is a free-form TEXT, not an enum table.** Documented values: `server_restart` ([D-11](../open-questions.md#d-11-server-restart-and-session-orphaning) rule 1), `operator_kill` ([`prd/03-server.md`](../prd/03-server.md) §7 `relay session kill`), `agent_exit` (PTY child exited on its own; the `exitCode` rides on the `session_ended` WS frame per [`arch/ws-protocol.md`](./ws-protocol.md) §2.3 but is not persisted to the row at MVP). New reasons are added by writing the string; no schema change.
+- **`persona_name` is a TEXT snapshot, not a foreign key.** Personas are YAML files on disk ([D-09](../decisions/D-09-persona-yaml-schema.md)); a session captures the name at spawn time so the row remains coherent if the operator later deletes or renames the persona file. The on-disk YAML can be re-loaded for inspection, but a missing file is not a referential-integrity violation — it's a historical observation.
+- **`terminated_reason` is a free-form TEXT, not an enum table.** Documented values: `server_restart` ([D-11](../decisions/D-11-server-restart-and-session-orphaning.md) rule 1), `operator_kill` ([`prd/03-server.md`](../prd/03-server.md) §7 `relay session kill`), `agent_exit` (PTY child exited on its own; the `exitCode` rides on the `session_ended` WS frame per [`arch/ws-protocol.md`](./ws-protocol.md) §2.3 but is not persisted to the row at MVP). New reasons are added by writing the string; no schema change.
 
 The compound CHECK constraint ensures `terminated_reason` is NULL while a session is live and is *available* (not mandatory — agent crash paths may set it later) once terminal. It enforces the invariant cheaply at insert/update time.
 
@@ -145,7 +145,7 @@ CREATE INDEX sessions_created_at     ON sessions (created_at DESC);
 ```
 
 - **`sessions_project_status`** — supports `GET /sessions?project=<id>&status=<s>`, the default UI query when the user opens a project. Composite because `project_id` is the always-present filter and `status` is the secondary filter.
-- **`sessions_status`** — supports the boot-time sweep that [D-11](../open-questions.md#d-11-server-restart-and-session-orphaning) rule 1 requires: `UPDATE sessions SET status = 'killed', terminated_reason = 'server_restart' WHERE status = 'running'`. Single-column because the sweep is global, not per-project.
+- **`sessions_status`** — supports the boot-time sweep that [D-11](../decisions/D-11-server-restart-and-session-orphaning.md) rule 1 requires: `UPDATE sessions SET status = 'killed', terminated_reason = 'server_restart' WHERE status = 'running'`. Single-column because the sweep is global, not per-project.
 - **`sessions_created_at`** — supports `relay session list` ordering and any future "recent sessions" view ([`prd/03-server.md`](../prd/03-server.md) §7).
 
 No indexes are added on `projects` beyond the UNIQUE constraints; the table is small (≤ a few dozen rows in practice) and the existing composites cover lookups by slug and by canonical path.
@@ -157,7 +157,7 @@ No indexes are added on `projects` beyond the UNIQUE constraints; the table is s
 `PRAGMA foreign_keys = ON` is set per-connection by the `store/` module on open; SQLite enforces foreign keys only when this pragma is active. Three rules govern the entity graph:
 
 - **`projects.tenant_id` → `tenants.id` ON DELETE RESTRICT.** No tenant-deletion path exists at MVP — there is one tenant, hidden from the UI. RESTRICT makes any attempted tenant delete a programming error rather than a silent cascade through the entire database.
-- **`sessions.project_id` → `projects.id` ON DELETE CASCADE.** [D-12](../open-questions.md#d-12-project-record-storage-and-relay-project-add-semantics) rule 7 and [`prd/03-server.md`](../prd/03-server.md) §7 are explicit: `relay project remove` deletes the project row "and any session rows scoped to it." The same `prd/03-server.md` line is also explicit about what is *not* deleted — "the working directory or the on-disk marker file" — which is a filesystem concern, not a database one. The CASCADE handles only the SQLite half; the on-disk transcript files at `~/.relay/transcripts/<id>.bin` are reaped by the `transcript/` module on session row delete (a separate-from-DB cleanup pass on `sessions` row CASCADE, implementation detail of `store/` × `transcript/` integration — not specified here).
+- **`sessions.project_id` → `projects.id` ON DELETE CASCADE.** [D-12](../decisions/D-12-project-record-storage-and-relay-project-add-semantics.md) rule 7 and [`prd/03-server.md`](../prd/03-server.md) §7 are explicit: `relay project remove` deletes the project row "and any session rows scoped to it." The same `prd/03-server.md` line is also explicit about what is *not* deleted — "the working directory or the on-disk marker file" — which is a filesystem concern, not a database one. The CASCADE handles only the SQLite half; the on-disk transcript files at `~/.relay/transcripts/<id>.bin` are reaped by the `transcript/` module on session row delete (a separate-from-DB cleanup pass on `sessions` row CASCADE, implementation detail of `store/` × `transcript/` integration — not specified here).
 - **`sessions.persona_name`** is a string, not an FK. Persona file deletion does not orphan a session row; the row keeps the historical name. The persona file may be missing when the row is read; that's accepted.
 
 ---
@@ -250,7 +250,7 @@ The schema is consumed in a specific order at `relay server` boot. Calling it ou
 
 1. Open `~/.relay/state.db` via `better-sqlite3`. Enable `foreign_keys` and `journal_mode = WAL` pragmas.
 2. Run the migration runner (§6.2). After this returns successfully, the schema is at the latest version on disk.
-3. Run the orphan sweep that [D-11](../open-questions.md#d-11-server-restart-and-session-orphaning) requires:
+3. Run the orphan sweep that [D-11](../decisions/D-11-server-restart-and-session-orphaning.md) requires:
 
    ```sql
    UPDATE sessions
@@ -260,7 +260,7 @@ The schema is consumed in a specific order at `relay server` boot. Calling it ou
      WHERE status = 'running';
    ```
 
-   The PTYs those rows referenced are already dead — the server is starting fresh. This sweep is the database-level half of [D-11](../open-questions.md#d-11-server-restart-and-session-orphaning) rule 1; the session-coordinator module ([`repo-layout.md`](./repo-layout.md) §3 `session/`) does not need to re-do it.
+   The PTYs those rows referenced are already dead — the server is starting fresh. This sweep is the database-level half of [D-11](../decisions/D-11-server-restart-and-session-orphaning.md) rule 1; the session-coordinator module ([`repo-layout.md`](./repo-layout.md) §3 `session/`) does not need to re-do it.
 4. Ensure the singleton tenant row exists (idempotent `INSERT OR IGNORE INTO tenants ...`). The tenant ID is read once into process memory and used as the `tenant_id` foreign key on every `projects` insert until Phase 4 multi-tenant arrives.
 5. Hand control to the REST + WS layers.
 
@@ -270,4 +270,4 @@ The boot sequence is the only place outside migration files where the schema is 
 
 ## 8. Open follow-ons
 
-None expected. The schema is small and the PRD already constrained most decisions; this doc closes the remaining gaps. If new entities surface during implementation — for example, an audit-log table when Phase 4 lands, or a `tokens` table if [D-13](../open-questions.md#d-13-first-run-pairing-ux) rule 5 is revisited — they are added via a new migration file plus an amendment to this doc, not by writing a new arch doc.
+None expected. The schema is small and the PRD already constrained most decisions; this doc closes the remaining gaps. If new entities surface during implementation — for example, an audit-log table when Phase 4 lands, or a `tokens` table if [D-13](../decisions/D-13-first-run-pairing-ux.md) rule 5 is revisited — they are added via a new migration file plus an amendment to this doc, not by writing a new arch doc.

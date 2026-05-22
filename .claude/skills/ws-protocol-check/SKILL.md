@@ -24,7 +24,7 @@ If invoked without a target file or diff, prompt the user for one. Don't guess w
 ## Inputs the skill reads first
 
 - [`docs/arch/ws-protocol.md`](../../../docs/arch/ws-protocol.md) — the catalog of record. The skill cites §2.2, §2.3, §2.4, and §7 by number; read the whole document at least once to keep the inlined catalog (below) honest.
-- [`docs/open-questions.md`](../../../docs/open-questions.md) — anchor source for the [D-G2](../../../docs/open-questions.md#d-g2-multi-client-input-arbitration), [D-G3](../../../docs/open-questions.md#d-g3-reattach-semantics), and [ND-01](../../../docs/open-questions.md#nd-01-claim-lock-timeout-duration) citation lines emitted in the report.
+- [`../../../docs/decisions/index.md`](../../../docs/decisions/index.md) — anchor source for the [D-G2](../../../docs/decisions/D-G2-multi-client-input-arbitration.md), [D-G3](../../../docs/decisions/D-G3-reattach-semantics.md), and [ND-01](../../../docs/decisions/ND-01-claim-lock-timeout-duration.md) citation lines emitted in the report.
 - The target file(s) or diff text the user provides.
 
 ## The catalog (frozen reference)
@@ -71,7 +71,7 @@ Every string literal in the target that is used as a `type` discriminator must a
 
 ### Rule 3 — ND-01 configurability
 
-The 30-second auto-release window must come from configuration (`claimLockTimeoutSeconds` in `~/.relay/config.yaml`), never a hardcoded literal in the handler. [ND-01](../../../docs/open-questions.md#nd-01-claim-lock-timeout-duration) and `ws-protocol.md` §7 are explicit: the value is operator-tunable.
+The 30-second auto-release window must come from configuration (`claimLockTimeoutSeconds` in `~/.relay/config.yaml`), never a hardcoded literal in the handler. [ND-01](../../../docs/decisions/ND-01-claim-lock-timeout-duration.md) and `ws-protocol.md` §7 are explicit: the value is operator-tunable.
 
 - **Bad patterns:** numeric literals `30`, `30000`, `30_000`, `1000 * 30`, `30 * 1000` appearing in proximity (same statement, same expression, same function body) to identifiers containing `claim`, `timeout`, `release`, `expires`, or `lock`.
 - **Good patterns:** references to `claimLockTimeoutSeconds` (camelCase per the spec) — as a config object property, a function parameter, a destructured value, or a constant initialized from config parsing.
@@ -80,7 +80,7 @@ The 30-second auto-release window must come from configuration (`claimLockTimeou
 
 ### Rule 4 — D-G2 universal output
 
-PTY-output binary writes must reach **every** attached connection regardless of claim state. The contract is `ws-protocol.md` §2.4 quoting [D-G2](../../../docs/open-questions.md#d-g2-multi-client-input-arbitration) §5.1 rule 5 verbatim: _"PTY output is universal per D-G2 §5.1 rule 5: every attached client receives the full stream regardless of claim state."_ The reattach immediacy contract in [D-G3](../../../docs/open-questions.md#d-g3-reattach-semantics) §5.2 rule 1 has the same effect — a claim-gated output path also breaks D-G3 — so the report cites both.
+PTY-output binary writes must reach **every** attached connection regardless of claim state. The contract is `ws-protocol.md` §2.4 quoting [D-G2](../../../docs/decisions/D-G2-multi-client-input-arbitration.md) §5.1 rule 5 verbatim: _"PTY output is universal per D-G2 §5.1 rule 5: every attached client receives the full stream regardless of claim state."_ The reattach immediacy contract in [D-G3](../../../docs/decisions/D-G3-reattach-semantics.md) §5.2 rule 1 has the same effect — a claim-gated output path also breaks D-G3 — so the report cites both.
 
 - **Bad patterns:** a binary-write call site (`ws.send(buffer)`, `socket.send(bytes, { binary: true })`, `conn.write(ptyChunk)`, etc.) inside a conditional that tests claim state. Concretely: `if (conn.id === activeClaim.heldBy) { ws.send(ptyBytes) }`, `if (this.lock.isHeldBy(conn)) { conn.send(bytes) }`, `if (!claim || claim.holder === conn) { … send … }`.
 - **Good patterns:** an unconditional fan-out over the attached-connection set — `for (const conn of session.connections) conn.send(ptyBytes)`, `this.connections.forEach(c => c.send(buf))` — with no claim-state predicate guarding the body.
@@ -89,7 +89,7 @@ PTY-output binary writes must reach **every** attached connection regardless of 
 
 ### Rule 5 — ND-24 newline-conditional release
 
-The server releases the per-session claim on a `send` ONLY when the decoded payload contains a newline byte (`\n` / 0x0a or `\r` / 0x0d). A `send` handler that releases unconditionally — i.e., calls `releaseAsHolder(..., 'delivered')` on every successful `send` regardless of payload content — collapses the [ND-24](../../../docs/open-questions.md#nd-24-per-keystroke-input-streaming-for-tui-agents) `Streaming` contract back into the pre-ND-24 one-send-per-claim shape. TUI agents (claude's compose box) cannot then see in-progress typing, which is a Phase 1 ship-blocker.
+The server releases the per-session claim on a `send` ONLY when the decoded payload contains a newline byte (`\n` / 0x0a or `\r` / 0x0d). A `send` handler that releases unconditionally — i.e., calls `releaseAsHolder(..., 'delivered')` on every successful `send` regardless of payload content — collapses the [ND-24](../../../docs/decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md) `Streaming` contract back into the pre-ND-24 one-send-per-claim shape. TUI agents (claude's compose box) cannot then see in-progress typing, which is a Phase 1 ship-blocker.
 
 - **Bad patterns:** the `send` handler decodes `data` and calls `releaseAsHolder(..., 'delivered')` (or any function that broadcasts `claim_released { delivered }`) with no preceding scan of the decoded buffer for `0x0a` / `0x0d`. Concretely: `handle.write(bytes); state.lock.releaseAsHolder(ctx.id, 'delivered');` with no intervening newline check.
 - **Good patterns:** the handler decodes, writes, then conditionally releases: `if (bytes.includes(0x0a) || bytes.includes(0x0d)) state.lock.releaseAsHolder(ctx.id, 'delivered');` — or any equivalent scan (`Buffer.indexOf`, `for` loop, `containsNewline(bytes)` helper) that gates the release call.
@@ -148,9 +148,9 @@ When the input is a file path or a raw paste of source code, audit the whole fil
 
 ## Conventions worth restating
 
-- **Read-only.** The skill never edits the target, never edits `ws-protocol.md`, and never edits `open-questions.md`. The only mutation surface is the report it returns.
+- **Read-only.** The skill never edits the target, never edits `ws-protocol.md`, and never edits `../../../docs/decisions/index.md`. The only mutation surface is the report it returns.
 - **Static heuristics, not a proof.** The skill flags smells; the implementer judges. `ambiguous` is the right verdict whenever discriminator dispatch, timeout reads, or binary-write predicates can't be resolved from the source text alone — don't downgrade to `pass`.
 - **Catalog frozen in this SKILL.md.** If `ws-protocol.md` §2 grows or renames a frame type, this SKILL.md must be updated in the same change. Reviewers of a §2 edit should look for the paired SKILL.md edit; the inlined catalog table is the single point of drift detection between spec and skill.
 - **Defer field shapes to `@relay/protocol`.** The Zod schemas in [`packages/protocol/`](../../../packages/protocol/) are the runtime check on JSON envelope shape (required fields, enum values, types). This skill checks discriminator names and presence, not field shapes — call that out if asked to validate a payload shape.
 - **REST is out of scope.** REST endpoints, their error envelopes, and the [`rest-conventions.md`](../../../docs/arch/rest-conventions.md) error-shape contract are the surface of other skills and other reviews. This skill only audits WebSocket code under `packages/server/src/server/ws/`.
-- **One frozen-catalog version per SKILL.md revision.** If the audit surfaces a real-world implementation pattern that the heuristics keep getting wrong (e.g., the WS handler legitimately gates a binary send on something that _looks_ like claim state but isn't), file an [ND-NN](../../../docs/open-questions.md) via the [`decision-log`](../decision-log/SKILL.md) skill rather than relaxing the rule silently here.
+- **One frozen-catalog version per SKILL.md revision.** If the audit surfaces a real-world implementation pattern that the heuristics keep getting wrong (e.g., the WS handler legitimately gates a binary send on something that _looks_ like claim state but isn't), file an [ND-NN](../../../docs/decisions/index.md) via the [`decision-log`](../decision-log/SKILL.md) skill rather than relaxing the rule silently here.

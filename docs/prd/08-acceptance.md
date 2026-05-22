@@ -22,7 +22,7 @@ The eight scenarios below cover both headline pains (cross-device continuity, mu
 - The server can be stopped and restarted; project list, persona definitions, and tokens persist
 - After a server restart, any sessions that were `running` at shutdown appear in `relay session list --status killed` with their project, persona, `agent_session_id`, and transcript metadata intact, annotated with `terminated_reason = "server_restart"`. No auto-relaunch occurs.
 
-*Server-restart session handling resolved by [D-11](../open-questions.md#d-11-server-restart-and-session-orphaning) on 2026-05-15. Project registration semantics resolved by [D-12](../open-questions.md#d-12-project-record-storage-and-relay-project-add-semantics) on 2026-05-15.*
+*Server-restart session handling resolved by [D-11](../decisions/D-11-server-restart-and-session-orphaning.md) on 2026-05-15. Project registration semantics resolved by [D-12](../decisions/D-12-project-record-storage-and-relay-project-add-semantics.md) on 2026-05-15.*
 
 ### B — Persona × project composition is real
 
@@ -49,7 +49,7 @@ The eight scenarios below cover both headline pains (cross-device continuity, mu
 - Client 2's attach experience matches `03-server.md` §5.2: live PTY output begins streaming immediately, with a short replay of recent bytes for context; deeper history is pulled on demand via the transcript endpoint
 - No PWA dependency; the multi-client *capability* is what's being tested
 
-*Reattach contract for scenarios D and E resolved by [D-G3](../open-questions.md#d-g3-reattach-semantics) on 2026-05-14.*
+*Reattach contract for scenarios D and E resolved by [D-G3](../decisions/D-G3-reattach-semantics.md) on 2026-05-14.*
 
 ### F — Concurrent multi-client attach
 
@@ -58,7 +58,7 @@ The eight scenarios below cover both headline pains (cross-device continuity, mu
 - The held claim auto-releases when the message is delivered to the PTY or when the claiming client disconnects mid-message; the previously-rejected client can then claim and send
 - Either client can be the "winner" on any given message — there is no persistent control holder; contention is per-message per the contract in `03-server.md` §5.1
 
-*Resolved by [D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) on 2026-05-14.*
+*Resolved by [D-G2](../decisions/D-G2-multi-client-input-arbitration.md) on 2026-05-14.*
 
 ### G — Multiple concurrent sessions across personas/projects (headline pain B)
 
@@ -78,7 +78,7 @@ The eight scenarios below cover both headline pains (cross-device continuity, mu
 The following capabilities are not part of the Phase 1 acceptance bar. They are listed here so a tester does not flag their absence as a regression.
 
 - **Structured logging and observability.** Phase 1 emits whatever Node's default logger produces; there is no metrics endpoint, no tracing instrumentation, and no log-aggregation guidance beyond "run it under your service manager and collect stdout." Observability landing is a Phase 3 hardening concern.
-- **Token rotation.** Per-device tokens are valid indefinitely until revoked; automatic rotation is deferred per [D-05](../open-questions.md#d-05-per-device-token-rotation).
+- **Token rotation.** Per-device tokens are valid indefinitely until revoked; automatic rotation is deferred per [D-05](../decisions/D-05-per-device-token-rotation.md).
 - **Multi-tenant client UX.** The tenant routes exist on the API surface but no Phase 1 client surfaces them; see `03-server.md` §2.
 - **PWA.** Mobile is Phase 2.
 - **`idle` session status.** The status column carries `idle` as a reserved value but no MVP transition uses it; it is documented for a future agent-driven indicator (see `01-conceptual-model.md`).
@@ -89,4 +89,4 @@ Phase 2 (mobile PWA) extends scenario E with a phone as Client 2 — but does no
 
 ## Blockers
 
-None outstanding from `../open-questions.md`. The reattach contract underpinning scenarios D and E lives in `03-server.md` §5.2 (D-G3, propagated 2026-05-14); the input-arbitration contract underpinning scenario F lives in `03-server.md` §5.1 (D-G2, propagated 2026-05-14). Remaining ND-NN sub-questions and P0/P1 doc gaps were resolved on 2026-05-15 — see the open-questions Index for the propagation record.
+None outstanding from `../decisions/index.md`. The reattach contract underpinning scenarios D and E lives in `03-server.md` §5.2 (D-G3, propagated 2026-05-14); the input-arbitration contract underpinning scenario F lives in `03-server.md` §5.1 (D-G2, propagated 2026-05-14). Remaining ND-NN sub-questions and P0/P1 doc gaps were resolved on 2026-05-15 — see [`decisions/index.md`](../decisions/index.md) for the propagation record.

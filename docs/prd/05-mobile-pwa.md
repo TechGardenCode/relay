@@ -16,7 +16,7 @@
 
 The mobile client is one instance of the generic client contract. Its core behaviors — render the session's output stream, accept user input, surface session-level controls — are determined by the server's client contract (input arbitration, reattach semantics, transcript access), not by mobile-specific PRD prescription. Concretely, the Phase 2 design doc will cover sessions list, live session view, compose, file viewer, and diff approval; the rendering substrate (terminal vs. chat-style) and gesture/interaction model are UX choices that belong in that doc, not here.
 
-This deferral is deliberate. Locking mobile UX into the PRD before the client contract is fully resolved (see `../open-questions.md` decisions D-G2 and D-G3) would be premature.
+This deferral is deliberate. Locking mobile UX into the PRD before the client contract is fully resolved (see `../decisions/index.md` decisions D-G2 and D-G3) would be premature.
 
 ## 3. Constraint
 
@@ -26,7 +26,7 @@ No client-side state of consequence. The PWA is a view onto the server. The serv
 
 When the user submits a message and the server rejects the `CLAIM` with `BUSY` (per `03-server.md` §5.1), the PWA surfaces a one-shot, dismissible inline indicator above the compose field — not a global toast that obscures the live session output: "Another device is interacting with this session." The indicator auto-dismisses after ~4 seconds or on the next keystroke. The local input draft is preserved unchanged; the user retries by tapping Send again. The PWA does not auto-retry. This is the same contract the IDE extension follows (`04-ide-extension.md` §4); only the visual primitive differs.
 
-*BUSY UX resolved by [ND-02](../open-questions.md#nd-02-rejection-ux-for-busy-response) on 2026-05-15.*
+*BUSY UX resolved by [ND-02](../decisions/ND-02-rejection-ux-for-busy-response.md) on 2026-05-15.*
 
 ## 4. Reference: separate Phase 2 design doc
 

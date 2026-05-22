@@ -43,7 +43,7 @@
 
 - `GET /sessions/:id/stream` — bidirectional. Client receives PTY output; client sends PTY input. Multiple concurrent connections per session permitted; behavioral contract for concurrent input is in §5.
 
-*Resolved by [D-04](../open-questions.md#d-04-transcript-export-endpoint) on 2026-05-14. Pagination shape resolved by [ND-04](../open-questions.md#nd-04-transcript-pagination-api-shape) on 2026-05-15. Field-naming aligned to camelCase per [ND-14](../open-questions.md#nd-14-transcript-response-field-naming-camelcase) on 2026-05-17.*
+*Resolved by [D-04](../decisions/D-04-transcript-export-endpoint.md) on 2026-05-14. Pagination shape resolved by [ND-04](../decisions/ND-04-transcript-pagination-api-shape.md) on 2026-05-15. Field-naming aligned to camelCase per [ND-14](../decisions/ND-14-transcript-response-field-naming-camelcase.md) on 2026-05-17.*
 
 ## 3. State
 
@@ -54,7 +54,7 @@
 - **Model credentials.** Relay's spawn inherits the operator's full `process.env` (including `$HOME`) and process credentials, so the agent reaches whichever credential surface Claude Code has been configured against. The documented default is **`claude login` OAuth on the host that launches `relay server`** — credentials live in the macOS Keychain (`Claude Code-credentials` generic password) or at `~/.claude/.credentials.json` on Linux. The documented fallback is `ANTHROPIC_API_KEY` set in Relay's process environment; this is the canonical path for headless deployments without an interactive shell. When both are present Claude Code's resolver prefers the env var, which silently bills against the API key instead of any active Claude.ai subscription — operators who want subscription billing must unset `ANTHROPIC_API_KEY`. Credentials are never written to persona YAML, project metadata, or SQLite; all sessions on a given Relay server share the same credential set. Operators who need credential isolation run separate Relay servers.
 - **Project-level skills source.** Relay does not maintain its own skill registry. Skill names referenced from persona YAML resolve against `~/.claude/skills/` (tenant) and `<project>/.claude/skills/` (project), which are Claude Code's native paths — see §8.
 
-*Persona schema resolved by [D-09](../open-questions.md#d-09-persona-yaml-schema) on 2026-05-15. Model credentials resolved by [D-10](../open-questions.md#d-10-agent-model-credentials-handling) on 2026-05-15; OAuth credential default per [ND-19](../open-questions.md#nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic_api_key-as-fallback) on 2026-05-18. Server-restart session handling resolved by [D-11](../open-questions.md#d-11-server-restart-and-session-orphaning) on 2026-05-15. Project record storage resolved by [D-12](../open-questions.md#d-12-project-record-storage-and-relay-project-add-semantics) on 2026-05-15.*
+*Persona schema resolved by [D-09](../decisions/D-09-persona-yaml-schema.md) on 2026-05-15. Model credentials resolved by [D-10](../decisions/D-10-agent-model-credentials-handling.md) on 2026-05-15; OAuth credential default per [ND-19](../decisions/ND-19-claude-login-oauth-as-the-documented-credential-default-anthropic-api-key-as-fallback.md) on 2026-05-18. Server-restart session handling resolved by [D-11](../decisions/D-11-server-restart-and-session-orphaning.md) on 2026-05-15. Project record storage resolved by [D-12](../decisions/D-12-project-record-storage-and-relay-project-add-semantics.md) on 2026-05-15.*
 
 ## 4. Persona application semantics (G1)
 
@@ -66,7 +66,7 @@ When a session is spawned with persona X, Relay must uphold three guarantees:
 
 The PRD specifies the *guarantees*, not the mechanism. The implementation may use whatever agent-CLI primitive best satisfies all three (e.g., command-line flags, environment variables, transient on-disk state Relay owns under `~/.relay/`). The mechanism choice belongs to the implementation phase.
 
-*Resolved by [D-G1](../open-questions.md#d-g1-persona-application-semantics) on 2026-05-14.*
+*Resolved by [D-G1](../decisions/D-G1-persona-application-semantics.md) on 2026-05-14.*
 
 ## 5. Multi-client behavioral contracts
 
@@ -84,7 +84,7 @@ When multiple clients are attached to a session, the server arbitrates input thr
 
 The lock model maps cleanly to Claude Code's line-buffered input, where each Enter-terminated message is the natural unit. Character-at-a-time interactive programs running inside the session (e.g., `vim` invoked from the agent shell) are not the MVP target and would not work cleanly under this contract — accepted limitation.
 
-*Resolved by [D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) on 2026-05-14. Timeout duration resolved by [ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration) on 2026-05-15; BUSY UX resolved by [ND-02](../open-questions.md#nd-02-rejection-ux-for-busy-response) on 2026-05-15.*
+*Resolved by [D-G2](../decisions/D-G2-multi-client-input-arbitration.md) on 2026-05-14. Timeout duration resolved by [ND-01](../decisions/ND-01-claim-lock-timeout-duration.md) on 2026-05-15; BUSY UX resolved by [ND-02](../decisions/ND-02-rejection-ux-for-busy-response.md) on 2026-05-15.*
 
 ### 5.2 Reattach semantics
 
@@ -98,7 +98,7 @@ When a client attaches to a session — whether on initial join or after a disco
 
 The reattach contract is what makes the cross-device value prop work: closing a laptop and opening a phone produces current state immediately, with enough recent output to feel oriented and the option to pull more.
 
-*Resolved by [D-G3](../open-questions.md#d-g3-reattach-semantics) on 2026-05-14. Ring buffer size resolved by [ND-03](../open-questions.md#nd-03-ring-buffer-size-for-attach-replay) on 2026-05-15.*
+*Resolved by [D-G3](../decisions/D-G3-reattach-semantics.md) on 2026-05-14. Ring buffer size resolved by [ND-03](../decisions/ND-03-ring-buffer-size-for-attach-replay.md) on 2026-05-15.*
 
 ## 6. Auth
 
@@ -107,7 +107,7 @@ The reattach contract is what makes the cross-device value prop work: closing a 
 - **Long-lived and reusable.** Tokens are valid indefinitely until revoked. `relay token revoke <id>` ends the token immediately; in-flight WebSockets using it close on next message boundary. Long-term rotation is deferred to Phase 3 ([[d-05-per-device-token-rotation]]).
 - **Mobile pairing.** The Phase 2 mobile PWA uses the same `relay://pair?…` URL embedded in a QR code. Phase 1 ships only the desktop flow.
 
-*Pairing UX resolved by [D-13](../open-questions.md#d-13-first-run-pairing-ux) on 2026-05-15. Token hashing algorithm resolved by [ND-09](../open-questions.md#nd-09-bearer-token-hashing-algorithm) on 2026-05-17.*
+*Pairing UX resolved by [D-13](../decisions/D-13-first-run-pairing-ux.md) on 2026-05-15. Token hashing algorithm resolved by [ND-09](../decisions/ND-09-bearer-token-hashing-algorithm.md) on 2026-05-17.*
 
 ## 7. CLI
 
@@ -153,7 +153,7 @@ Changes to a persona's MCP server list while a session is running are a no-op fo
 
 This is a deliberate boundary, not a limitation. Mutating MCP wiring on a live agent process risks half-configured tool calls and out-of-band failures that are hard to diagnose. A clean stop/restart cycle matches how the underlying agent CLIs treat tool configuration and keeps the session's tool surface predictable.
 
-*Resolved by [D-03](../open-questions.md#d-03-mcp-set-changes-mid-session) on 2026-05-14.*
+*Resolved by [D-03](../decisions/D-03-mcp-set-changes-mid-session.md) on 2026-05-14.*
 
 ## 10. Transcript capture layer
 
@@ -161,4 +161,4 @@ Relay captures the transcript at the **PTY layer**: the raw byte stream emitted 
 
 Relay does **not** parse the agent's structured output channels (e.g., Claude Code's `--output-format json`) for transcript capture. Those structured channels are reserved for Phase 3 features that need per-message semantics (annotations, tool-call analysis, structured search). Coupling the transcript pipeline to one CLI's protocol shape would foreclose support for other agent CLIs (Codex, Gemini CLI, future agents) that emit to a PTY but may not expose an equivalent structured stream.
 
-*Resolved by [D-07](../open-questions.md#d-07-transcript-stream-capture-layer) on 2026-05-14.*
+*Resolved by [D-07](../decisions/D-07-transcript-stream-capture-layer.md) on 2026-05-14.*

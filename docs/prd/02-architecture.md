@@ -56,7 +56,7 @@ When the user invokes "Start session" from any client, the server spawns the age
 
 The behavioral contracts that make multi-client attach safe and predictable are defined in `03-server.md`. Input arbitration is a **per-message claim lock** (`CLAIM → SEND → RELEASE` over WebSocket, with `BUSY` on contention) rather than a long-lived "control holder" token: the server stays stateless between messages, and the model assumes a single user spanning their own devices instead of adversarial collaborators. Reattach semantics prioritize the live stream: every attaching client begins receiving current PTY output immediately, with a short replay of recent bytes for context; deeper history is pulled on demand from the paginated transcript endpoint, so server-side behavior does not branch by client surface.
 
-*Input arbitration resolved by [D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) on 2026-05-14. Reattach semantics resolved by [D-G3](../open-questions.md#d-g3-reattach-semantics) on 2026-05-14.*
+*Input arbitration resolved by [D-G2](../decisions/D-G2-multi-client-input-arbitration.md) on 2026-05-14. Reattach semantics resolved by [D-G3](../decisions/D-G3-reattach-semantics.md) on 2026-05-14.*
 
 ## Two deployment shapes, same binary
 

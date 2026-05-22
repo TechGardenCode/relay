@@ -11,7 +11,7 @@ Relay ships as a **single binary with subcommands**, not as separate `relay-serv
 
 This shape is deliberate. Splitting the server and CLI into separate packages would double the distribution surface (two npm modules, two Docker tags, two Helm charts, two version-pinning matrices) for no functional benefit, since operators always need both anyway. The single binary also keeps container images simple — one binary copy, one entrypoint.
 
-*Resolved by [D-08](../open-questions.md#d-08-single-binary-vs-separate-packages) on 2026-05-14.*
+*Resolved by [D-08](../decisions/D-08-single-binary-vs-separate-packages.md) on 2026-05-14.*
 
 ## Distribution channels
 
@@ -27,7 +27,7 @@ This shape is deliberate. Splitting the server and CLI into separate packages wo
 - All configuration twelve-factor.
 - **Agent model credentials** are inherited from Relay's process environment and process credentials, then passed unchanged into each spawned agent. The documented default is OAuth — operators run `claude login` once on the host that launches `relay server`, and spawned agents read the resulting state (macOS Keychain or `~/.claude/.credentials.json` on Linux) transparently. `ANTHROPIC_API_KEY` is the documented fallback for headless deployments (CI runners, immutable containers, environments without an interactive shell). Neither is ever written to YAML, the SQLite state file, or any Relay-owned config. Deployment guides should document `claude login` on the host as the primary path and the env-var fallback for headless cases. See `03-server.md` §3.
 
-*Model credentials resolved by [D-10](../open-questions.md#d-10-agent-model-credentials-handling) on 2026-05-15. OAuth credential default per [ND-19](../open-questions.md#nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic_api_key-as-fallback) on 2026-05-18.*
+*Model credentials resolved by [D-10](../decisions/D-10-agent-model-credentials-handling.md) on 2026-05-15. OAuth credential default per [ND-19](../decisions/ND-19-claude-login-oauth-as-the-documented-credential-default-anthropic-api-key-as-fallback.md) on 2026-05-18.*
 
 ## Persistence
 
@@ -35,7 +35,7 @@ This shape is deliberate. Splitting the server and CLI into separate packages wo
 - Project working directories are registered **in place** — Relay stores the canonical path of whatever the operator passed to `relay project add` and does not move or copy the directory. The `/projects/` (container) and `~/projects/` (local mode) paths are operator *conventions* for where source is commonly mounted or checked out, not Relay-owned roots. Operators are free to register projects from any path; the convention exists to make the deployment guide concrete.
 - The `~/.relay/` and `~/.claude/` directories together represent all Relay-owned state worth backing up. Project working directories are backed up by whatever git or filesystem tooling the operator already uses.
 
-*Project storage and `relay project add` semantics resolved by [D-12](../open-questions.md#d-12-project-record-storage-and-relay-project-add-semantics) on 2026-05-15.*
+*Project storage and `relay project add` semantics resolved by [D-12](../decisions/D-12-project-record-storage-and-relay-project-add-semantics.md) on 2026-05-15.*
 
 ## Process supervision
 

@@ -25,7 +25,7 @@ relay/
 │   ├── prd.md                   ← entry point
 │   ├── prd/                     subdocs 00..09
 │   ├── arch/                    this doc + sibling arch decisions
-│   ├── open-questions.md        decision log
+│   ├── decisions/               decision log (one file per D-NN / ND-NN)
 │   └── build-plan.md            in-flight task tracker
 │
 ├── packages/
@@ -226,7 +226,7 @@ System-prompt content is deferred to a follow-on task; this doc commits to exist
 
 Three tiers, each at the right altitude for an agent working at that level:
 
-- **Root `CLAUDE.md`.** Entry point. Points at `docs/prd.md`, `docs/open-questions.md`, `docs/build-plan.md`. Lists pnpm script commands. Sets the D-NN citation convention for code comments (per build-plan 4A).
+- **Root `CLAUDE.md`.** Entry point. Points at `docs/prd.md`, `../decisions/index.md`, `docs/build-plan.md`. Lists pnpm script commands. Sets the D-NN citation convention for code comments (per build-plan 4A).
 - **Per-package `CLAUDE.md`** at `packages/server/CLAUDE.md` and `packages/extension/CLAUDE.md`. Package-local conventions; the module map (for server); packaging notes (for extension).
 - **Per-module `CLAUDE.md`** in load-bearing modules: `packages/server/src/{persona,transcript,pty,store}/CLAUDE.md`. 20–50 lines each, naming must-know constraints. Examples:
   - `transcript/CLAUDE.md` — "writes are append-only; never seek; offsets are byte counts from session start, never logical messages."

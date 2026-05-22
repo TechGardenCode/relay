@@ -98,7 +98,7 @@ The agent runs under `node-pty` so the PTY-layer transcript capture (D-07) is un
 
 If a persona has no `systemPrompt`, no `model`, no `mcpServers` constraint, and no empty `skills:`, the spawn command is just `claude` and the agent runs with all of its native defaults. The persona is the *delta* from native; an empty persona is a no-op.
 
-*Credential surface default resolved by [ND-19](../open-questions.md#nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic_api_key-as-fallback) on 2026-05-18.*
+*Credential surface default resolved by [ND-19](../decisions/ND-19-claude-login-oauth-as-the-documented-credential-default-anthropic-api-key-as-fallback.md) on 2026-05-18.*
 
 ### 4.2 Transient session dir
 
@@ -112,7 +112,7 @@ If a persona has no `systemPrompt`, no `model`, no `mcpServers` constraint, and 
 
 `spawn.json` is operational metadata, not a runtime input — Relay reads it for debugging and for the `relay session inspect` flow (which doesn't exist yet). Including it here documents that the transient dir is the natural place for per-session audit material, not just MCP config.
 
-The formal shape is defined as `SpawnRecordSchema` in [`packages/protocol/src/spawn-record.ts`](../../packages/protocol/src/spawn-record.ts); 6E validates writes against it and the future `relay session inspect` reader validates reads against it. The `0o600` mode on `spawn.json` (and `0o700` on the parent dir) is the host-user-private threat-model boundary. *Resolved by [ND-12](../open-questions.md#nd-12-spawn-json-schema-location) on 2026-05-17.*
+The formal shape is defined as `SpawnRecordSchema` in [`packages/protocol/src/spawn-record.ts`](../../packages/protocol/src/spawn-record.ts); 6E validates writes against it and the future `relay session inspect` reader validates reads against it. The `0o600` mode on `spawn.json` (and `0o700` on the parent dir) is the host-user-private threat-model boundary. *Resolved by [ND-12](../decisions/ND-12-spawn-json-schema-location.md) on 2026-05-17.*
 
 ### 4.3 `agentSessionId` capture
 
@@ -126,7 +126,7 @@ The dual filter is necessary because Claude Code creates three kinds of entries 
 
 Polling cadence (250 ms) and timeout (30 s) are hardcoded constants in `packages/server/src/session/agent-session-id.ts`; they are not exposed in `~/.relay/config.yaml` or the persona schema.
 
-*Resolved by [ND-11](../open-questions.md#nd-11-agentsessionid-capture-mechanism) on 2026-05-17.*
+*Resolved by [ND-11](../decisions/ND-11-agentsessionid-capture-mechanism.md) on 2026-05-17.*
 
 ### 4.4 Why this and not flags-only
 
@@ -245,7 +245,7 @@ The project working directory is touched zero times by this flow. Everything Rel
 
 **ND-08 (proposed): Skill subset enforcement mechanism.** Claude Code's current CLI flags do not let Relay say "this session may use these N named skills and no others." The persona schema's `skills:` non-empty-list semantics need an enforcement story before the Phase 1 acceptance for personas with curated skill subsets is meaningful. Options to evaluate at decision time include (a) treat as advisory at MVP and document the gap, (b) curate a transient skill directory and propose a `--skills-dir` flag upstream to Claude Code, or (c) some plugin-dir composition that achieves the same scoping today.
 
-This entry should be filed in `docs/open-questions.md` as an ND-* sub-question under D-G1 / D-09 when the decision-log skill next runs.
+This entry should be filed in `../decisions/index.md` as an ND-* sub-question under D-G1 / D-09 when the decision-log skill next runs.
 
 ---
 
@@ -260,4 +260,4 @@ These belong eventually in `packages/server/src/persona/CLAUDE.md` (build-plan 5
 
 ---
 
-*Resolves the implementation question raised by [D-G1](../open-questions.md#d-g1-persona-application-semantics) and ties to [D-03](../open-questions.md#d-03-mcp-set-changes-mid-session), [D-09](../open-questions.md#d-09-persona-yaml-schema), [D-10](../open-questions.md#d-10-agent-model-credentials-handling), [D-11](../open-questions.md#d-11-server-restart-and-session-orphaning), [D-12](../open-questions.md#d-12-project-record-storage-and-relay-project-add-semantics).*
+*Resolves the implementation question raised by [D-G1](../decisions/D-G1-persona-application-semantics.md) and ties to [D-03](../decisions/D-03-mcp-set-changes-mid-session.md), [D-09](../decisions/D-09-persona-yaml-schema.md), [D-10](../decisions/D-10-agent-model-credentials-handling.md), [D-11](../decisions/D-11-server-restart-and-session-orphaning.md), [D-12](../decisions/D-12-project-record-storage-and-relay-project-add-semantics.md).*

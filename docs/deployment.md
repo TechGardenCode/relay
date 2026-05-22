@@ -211,11 +211,11 @@ For environments without an interactive shell — CI runners, immutable containe
 - **Docker run:** replace `-v relay_claude:/root/.claude` with `-e ANTHROPIC_API_KEY` on the `docker run` line.
 - **Docker Compose:** drop the `relay_claude` named volume from `services.relay.volumes`; add `environment: [ANTHROPIC_API_KEY]` back to the service; uncomment `ANTHROPIC_API_KEY=…` in `.env`.
 
-The API key is read at agent-spawn time from Relay's process environment and passed unchanged to each spawned `node-pty` process (per [D-10](open-questions.md#d-10-agent-model-credentials-handling)). It is never written to YAML, project metadata, or the SQLite file.
+The API key is read at agent-spawn time from Relay's process environment and passed unchanged to each spawned `node-pty` process (per [D-10](decisions/D-10-agent-model-credentials-handling.md)). It is never written to YAML, project metadata, or the SQLite file.
 
-**Precedence footgun.** If both `ANTHROPIC_API_KEY` and `claude login` OAuth state are reachable, Claude Code prefers the env var (upstream resolver behavior). An operator who runs `claude login` and *also* exports the env var will silently bill against the pay-per-token API key instead of any active Claude.ai subscription bound to the OAuth state. Pick one path per deployment. (Per [ND-19](open-questions.md#nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic_api_key-as-fallback).)
+**Precedence footgun.** If both `ANTHROPIC_API_KEY` and `claude login` OAuth state are reachable, Claude Code prefers the env var (upstream resolver behavior). An operator who runs `claude login` and *also* exports the env var will silently bill against the pay-per-token API key instead of any active Claude.ai subscription bound to the OAuth state. Pick one path per deployment. (Per [ND-19](decisions/ND-19-claude-login-oauth-as-the-documented-credential-default-anthropic-api-key-as-fallback.md).)
 
-*Agent credentials default surface resolved by [ND-19](open-questions.md#nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic_api_key-as-fallback) on 2026-05-18.*
+*Agent credentials default surface resolved by [ND-19](decisions/ND-19-claude-login-oauth-as-the-documented-credential-default-anthropic-api-key-as-fallback.md) on 2026-05-18.*
 
 ---
 

@@ -26,7 +26,7 @@ Read these at the start of every invocation:
 
 - [`docs/build-plan.md`](../../../docs/build-plan.md) — Sequencing table (top of file) for the target row's `Goal` / `Output` / `Done when` / `Reads` / `Feeders`, and for upstream `Status` confirmation. The body sections below the table carry the per-task stub.
 - [`docs/phase-0-report.md`](../../../docs/phase-0-report.md) — "What surprised the spike" section. Each surprise is assigned to a 6x task ID; the skill pulls every surprise that names the target task.
-- [`docs/open-questions.md`](../../../docs/open-questions.md) — anchor for the `D-NN` / `ND-NN` one-liner cheatsheet. Prefer the `prd-link` skill for quotation; fall back to direct read.
+- [`../../../docs/decisions/index.md`](../../../docs/decisions/index.md) — anchor for the `D-NN` / `ND-NN` one-liner cheatsheet. Prefer the `prd-link` skill for quotation; fall back to direct read.
 - [`docs/arch/repo-layout.md`](../../../docs/arch/repo-layout.md) — §3 (module ownership) and §4 (inter-module flow) when the target is a Track 6 row, to validate the dependency chain and identify the module's place in the boot sequence.
 - The target task's `Reads:` line — every PRD subdoc and arch doc named there. Open each before drafting.
 - The per-module `CLAUDE.md` if the target touches a load-bearing module (`packages/server/src/{store, persona, pty, transcript}/CLAUDE.md`).
@@ -87,7 +87,7 @@ If no surprises name the target, the kickoff's `Phase 0 surprises that apply` se
 
 For every `D-NN` and `ND-NN` cited in the target row's `Reads:` line, the named PRD subdocs, the named arch docs, AND the per-module `CLAUDE.md` (if read in Step 3):
 
-- Pull a one-line summary from [`docs/open-questions.md`](../../../docs/open-questions.md). Prefer invoking the [`prd-link` skill](../prd-link/SKILL.md) for the lookup; fall back to direct read if `prd-link` is unavailable.
+- Pull a one-line summary from [`../../../docs/decisions/index.md`](../../../docs/decisions/index.md). Prefer invoking the [`prd-link` skill](../prd-link/SKILL.md) for the lookup; fall back to direct read if `prd-link` is unavailable.
 - Note `Status` (resolved / open / deferred). Open decisions get a one-line note on the implication.
 
 Skip decisions cited only as background ("see also D-G1"); include only decisions the implementation must honor.
@@ -173,7 +173,7 @@ packages/server/src/{module}/{file1}.test.ts # co-located per repo-layout.md §8
 ## Conventions worth restating
 
 - **The skill produces text, not actions.** Output is the kickoff prompt and nothing else. The user (or the agent who runs the kickoff) installs deps, scaffolds dirs, and writes code.
-- **Citation discipline carries over.** Every `D-NN` / `ND-NN` in the cheatsheet links to its row in [`open-questions.md`](../../../docs/open-questions.md). Every arch doc reference resolves cleanly. The kickoff inherits the [`prd-link` skill](../prd-link/SKILL.md)'s contract — broken links are the skill author's bug, not the kickoff consumer's problem.
+- **Citation discipline carries over.** Every `D-NN` / `ND-NN` in the cheatsheet links to its row in [`../../../docs/decisions/index.md`](../../../docs/decisions/index.md). Every arch doc reference resolves cleanly. The kickoff inherits the [`prd-link` skill](../prd-link/SKILL.md)'s contract — broken links are the skill author's bug, not the kickoff consumer's problem.
 - **Preflight is opportunistic, not exhaustive.** The skill probes the obvious blockers (missing deps, empty dirs, absent fixtures). It does not run the migration runner, validate Zod schemas, or invoke the Vitest suite. A clean preflight is a green light to _start_, not a guarantee the task will land first try.
 - **Out-of-scope explicitly.** The skill does not: write code; mutate [`docs/build-plan.md`](../../../docs/build-plan.md); run tests; install dependencies; invoke `relay-architect` / `relay-test-author` / `relay-spec-reviewer`; or judge whether an upstream `done` artifact is _actually_ correct (that's `relay-spec-reviewer`'s job on diffs).
 - **The kickoff is a snapshot.** Re-run the skill if the user pauses work for more than a day — arch docs may have moved, decisions may have resolved, dependencies may have shifted. A stale kickoff is worse than a fresh one.

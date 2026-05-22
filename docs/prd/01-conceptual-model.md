@@ -35,6 +35,6 @@ Tenant (single at MVP; data model supports many)
 
 **Server-restart contract.** A server restart kills every running agent process. On boot, the server scans SQLite for `status = running` rows and transitions each to `killed` with a `terminated_reason = "server_restart"` annotation. No auto-relaunch — the session record is preserved as historical context, not as a re-animatable thing.
 
-*Session status semantics resolved by [D-11](../open-questions.md#d-11-server-restart-and-session-orphaning) on 2026-05-15.*
+*Session status semantics resolved by [D-11](../decisions/D-11-server-restart-and-session-orphaning.md) on 2026-05-15.*
 
-*Resolved by [D-06](../open-questions.md#d-06-persona-inheritance) on 2026-05-14. Persona file schema resolved by [D-09](../open-questions.md#d-09-persona-yaml-schema) on 2026-05-15. Project identity (worktrees, multi-root) resolved by [ND-06](../open-questions.md#nd-06-worktree-project-identity) and [ND-05](../open-questions.md#nd-05-multi-root-workspace-marker-file-precedence) on 2026-05-15.*
+*Resolved by [D-06](../decisions/D-06-persona-inheritance.md) on 2026-05-14. Persona file schema resolved by [D-09](../decisions/D-09-persona-yaml-schema.md) on 2026-05-15. Project identity (worktrees, multi-root) resolved by [ND-06](../decisions/ND-06-worktree-project-identity.md) and [ND-05](../decisions/ND-05-multi-root-workspace-marker-file-precedence.md) on 2026-05-15.*

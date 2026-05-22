@@ -82,4 +82,4 @@ Phase 1 ships seven default personas as tenant-level YAML in `~/.relay/personas/
 
 Each ships with a `systemPrompt` and a sensible `skills` / `mcpServers` posture; the concrete content is owned by the persona authoring guide (Phase 1 deliverable per `07-phasing.md`). Users edit them in place or override per-project.
 
-*Resolved by [D-09](../open-questions.md#d-09-persona-yaml-schema) on 2026-05-15.*
+*Resolved by [D-09](../decisions/D-09-persona-yaml-schema.md) on 2026-05-15.*

@@ -5,7 +5,7 @@ You are working in the Relay monorepo. Start here before doing anything else.
 ## Entry points
 
 - **`docs/prd.md`** — the spec entry point. Subdocs `prd/00-overview.md … prd/09-persona-schema.md` are the implementation contract; treat them as authoritative for what Relay does and does not do.
-- **`docs/open-questions.md`** — the decision log. Resolved entries are tagged `D-NN`; sub-questions surfaced during resolution are tagged `ND-NN`. Pending entries are open design questions, not implementation backlog.
+- **`docs/decisions/`** — the decision log, one file per decision. [`docs/decisions/index.md`](docs/decisions/index.md) is the entry point; the per-decision body lives at `D-NN-<slug>.md` (or `ND-NN-<slug>.md`). Resolved entries are tagged `D-NN`; sub-questions surfaced during resolution are tagged `ND-NN`. Pending entries are open design questions, not implementation backlog. Use the [`prd-link`](.claude/skills/prd-link/SKILL.md) skill to resolve a citation by ID without opening the full log; use the [`decision-log`](.claude/skills/decision-log/SKILL.md) skill to file or propagate. The template + 5-step propagation protocol live in [`docs/decisions/protocol.md`](docs/decisions/protocol.md).
 - **`docs/build-plan.md`** — the in-flight task tracker. Sequencing table at the top lists every task with Status and a link to its output artifact. Replace a task's kickoff prompt with a 1–2 line completion pointer when its artifact lands.
 - **`docs/arch/`** — sibling architecture docs that resolve specific PRD punts. Each one closes a build-plan `2x` task; treat the named arch doc as authoritative for its area.
 
@@ -46,7 +46,7 @@ Any code comment that names a non-obvious behavior must cite the `D-NN` or `ND-N
 
 The citation lets a future reader (you, next session) trace **why** the behavior exists rather than re-deriving it from first principles. If the behavior isn't tied to a decision, prefer no comment over a citation-free one — the code should speak for itself.
 
-When you introduce behavior that warrants a new decision, file it in `docs/open-questions.md` (use the `decision-log` skill at `.claude/skills/decision-log/SKILL.md`) before writing the citation in code.
+When you introduce behavior that warrants a new decision, file it under `docs/decisions/` (use the `decision-log` skill at `.claude/skills/decision-log/SKILL.md`) before writing the citation in code.
 
 ## Repo shape
 

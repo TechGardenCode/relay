@@ -5,7 +5,7 @@ description: Validate a persona YAML file against the D-09 schema in docs/prd/09
 
 # Relay persona-yaml-check skill
 
-The persona YAML schema in [`docs/prd/09-persona-schema.md`](../../../docs/prd/09-persona-schema.md) (resolved by [D-09](../../../docs/open-questions.md#d-09-persona-yaml-schema)) is the contract that `relay init` writes against, that the runtime `persona` module (build-plan 6C) loads against, and that the authoring guide for the seven shipped defaults (build-plan 1A) edits against. Drift between any of those producers and the on-disk YAML is what this skill detects. Given one or more persona YAML files, it runs five rules in a fixed order and emits a per-rule pass/fail report with a one-line citation back to the section of `09-persona-schema.md` that defines each rule.
+The persona YAML schema in [`docs/prd/09-persona-schema.md`](../../../docs/prd/09-persona-schema.md) (resolved by [D-09](../../../docs/decisions/D-09-persona-yaml-schema.md)) is the contract that `relay init` writes against, that the runtime `persona` module (build-plan 6C) loads against, and that the authoring guide for the seven shipped defaults (build-plan 1A) edits against. Drift between any of those producers and the on-disk YAML is what this skill detects. Given one or more persona YAML files, it runs five rules in a fixed order and emits a per-rule pass/fail report with a one-line citation back to the section of `09-persona-schema.md` that defines each rule.
 
 The skill is **read-only**: it parses and inspects the target YAML and quotes spec text; it never edits the target file, the spec, or any other source. Field-by-field runtime validation against every persona load is the job of the Zod schemas in [`@relay/protocol`](../../../packages/protocol/) (build-plan task 4C); this skill is the human-side mirror — useful during authoring, during PR review, and as a gate before checking in a hand-edited persona.
 
@@ -24,7 +24,7 @@ If invoked without a target file, directory, or paste, prompt the user for one. 
 ## Inputs the skill reads first
 
 - [`docs/prd/09-persona-schema.md`](../../../docs/prd/09-persona-schema.md) — the schema of record. The skill cites §1 (file location and filename ↔ name), §2 (field table and required/optional descriptions), and §4 (validation bullets) by number. §3 (composition) and §5 (default-set membership) are out of scope and never cited.
-- [`docs/open-questions.md` §D-09](../../../docs/open-questions.md#d-09-persona-yaml-schema) — anchor source for the `D-09` citation token.
+- [`../../../docs/decisions/index.md` §D-09](../../../docs/decisions/D-09-persona-yaml-schema.md) — anchor source for the `D-09` citation token.
 - The target persona YAML file(s) the user provides.
 
 ## Supported schema versions (frozen in this SKILL.md revision)
@@ -165,7 +165,7 @@ Mirror the boundary discipline of the sibling skills — say no, clearly, to fou
 
 ## Conventions worth restating
 
-- **Read-only.** The skill never edits the target YAML, never edits `09-persona-schema.md`, and never edits `open-questions.md`. The only mutation surface is the report it returns.
+- **Read-only.** The skill never edits the target YAML, never edits `09-persona-schema.md`, and never edits `../../../docs/decisions/index.md`. The only mutation surface is the report it returns.
 - **Static checks, not a proof.** Rules 1–5 are deterministic against a parsed YAML mapping; if a file uses anchors, aliases, or `!!tags` that change the static shape in ways the skill can't resolve, emit `ambiguous` for the affected rule rather than guessing.
 - **Schema version frozen in this SKILL.md.** Rule 2 says "an integer the skill understands"; the integer is `1`. When `09-persona-schema.md` ships a v2, the SKILL.md is updated in the same change. Reviewers of a §2 edit should look for the paired SKILL.md edit.
 - **Defer field shapes to `@relay/protocol`.** The Zod schemas in [`packages/protocol/`](../../../packages/protocol/) are the runtime check on every persona load (build-plan 4C). This skill checks the same five things the spec lists in §4; deeper shape questions (e.g., enum membership for `model`) belong to the schemas, not here.

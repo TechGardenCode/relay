@@ -14,8 +14,8 @@ Phase 0 passes when:
 - Server spawns `claude` under `node-pty`
 - Two clients can attach to the same PTY via WebSocket — including from **two different machines** on the same network, not just two terminals on one box
 - Both clients see live output simultaneously
-- Either client can send input (the input-arbitration model that ships in Phase 1 is tracked as D-G2 in `../open-questions.md`; Phase 0 only needs to demonstrate that bi-directional input is mechanically possible, not the final collaboration semantics)
-- Disconnect and reattach works without losing state, with a documented decision on what the reattaching client sees (tracked as D-G3 in `../open-questions.md`)
+- Either client can send input (the input-arbitration model that ships in Phase 1 is tracked as D-G2 in `../decisions/index.md`; Phase 0 only needs to demonstrate that bi-directional input is mechanically possible, not the final collaboration semantics)
+- Disconnect and reattach works without losing state, with a documented decision on what the reattaching client sees (tracked as D-G3 in `../decisions/index.md`)
 - Server restart preserves session metadata but kills the agent process (acceptable)
 
 If this works in a weekend, the architecture is sound and Phase 1 begins.

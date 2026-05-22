@@ -34,8 +34,8 @@ This document is an index. Each subdoc below is independently loadable and reads
 
 ## Open decisions
 
-Every unresolved product decision affecting this PRD lives in **[`open-questions.md`](open-questions.md)** at the top level (not under `prd/`). That document is a first-class peer of this index. It is expected to grow as new gaps surface during PRD iteration and implementation; subdocs reference entries there by ID rather than re-litigating decisions in multiple places.
+Every unresolved product decision affecting this PRD lives in **[`decisions/index.md`](decisions/index.md)** at the top level (not under `prd/`). That document is a first-class peer of this index. It is expected to grow as new gaps surface during PRD iteration and implementation; subdocs reference entries there by ID rather than re-litigating decisions in multiple places.
 
-**No decisions are currently load-bearing for Phase 1 implementation.** All Phase 1–relevant D-NN and ND-NN entries are resolved with spec content propagated into the subdocs; remaining open-questions entries are explicitly deferred to later phases (`D-02` to Phase 2, `D-05` to Phase 3, `D-14` to pre-launch naming review) with `MVP behavior` documented on each.
+**No decisions are currently load-bearing for Phase 1 implementation.** All Phase 1–relevant D-NN and ND-NN entries are resolved with spec content propagated into the subdocs; remaining decision-log entries are explicitly deferred to later phases (`D-02` to Phase 2, `D-05` to Phase 3, `D-14` to pre-launch naming review) with `MVP behavior` documented on each.
 
-See `open-questions.md` for the current Index and propagation status.
+See `decisions/index.md` for the current Index and propagation status.

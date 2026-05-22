@@ -35,7 +35,7 @@ If the resolved range yields no diff, or the input is ambiguous, **refuse** — 
 Before emitting any verdict, Read these. Do not skip steps — per-module `CLAUDE.md` files do not auto-load for sub-agents at plan time.
 
 1. **Resolve the diff.** Run `git diff <range>` (and `git diff --stat <range>` for the file list) via `Bash`. Enumerate the touched files and the modified hunks per file (record `path:Lstart-Lend` ranges in `+++` post-image line numbers — those are what verdicts cite).
-2. **`docs/open-questions.md`** — the decision log. Load the Index of resolved `D-NN` / `ND-NN` entries. Identify which are load-bearing for the touched files (see "What 'drift' means here" below). Name them explicitly in the report.
+2. **`../../docs/decisions/index.md`** — the decision log. Load the Index of resolved `D-NN` / `ND-NN` entries. Identify which are load-bearing for the touched files (see "What 'drift' means here" below). Name them explicitly in the report.
 3. **`docs/prd.md`** — the PRD index. Then load the named subdoc(s) (`docs/prd/00-overview.md` … `docs/prd/09-persona-schema.md`) for the surface(s) the diff touches.
 4. **The relevant arch doc** for the surface the diff touches (mapping mirrors the "Load-bearing arch reading" table in root `CLAUDE.md`):
 
@@ -95,7 +95,7 @@ Refuse — emit the diagnostic verbatim and stop — when any of these hold:
 - **Empty diff.** "Refusing: `git diff <range>` produced no changes. Pass a non-empty diff range or branch. Default is `main...HEAD`."
 - **Malformed range.** "Refusing: `git diff <range>` exited non-zero. Verify the refs exist (`git rev-parse <ref>`) before invoking this agent."
 - **Not in a git repo.** "Refusing: `git rev-parse --is-inside-work-tree` returned false. This agent requires a git working tree."
-- **Ambiguous citation.** A touched file's `CLAUDE.md` cites a `D-NN` / `ND-NN` that does not resolve in `docs/open-questions.md`. "Refusing: `<module>/CLAUDE.md` cites `<ID>` but no such entry resolves in `docs/open-questions.md`. Update the citation (or the decision log) before invoking this agent."
+- **Ambiguous citation.** A touched file's `CLAUDE.md` cites a `D-NN` / `ND-NN` that does not resolve in `../../docs/decisions/index.md`. "Refusing: `<module>/CLAUDE.md` cites `<ID>` but no such entry resolves in `../../docs/decisions/index.md`. Update the citation (or the decision log) before invoking this agent."
 
 In every refusal, emit **nothing else**. No partial report, no speculative verdicts.
 

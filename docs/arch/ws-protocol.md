@@ -3,7 +3,7 @@
 **Status:** v0.1
 **Scope:** Wire format for the `GET /sessions/:id/stream` WebSocket endpoint specified in [`prd/03-server.md`](../prd/03-server.md) §2 and §5 — frame-type discipline, control-message JSON shapes, initial replay framing, error envelope, both-sides state machines, message ordering on attach, and keepalive posture. Closes build-plan task 2B; unblocks the `ws-protocol-check` skill ([`repo-layout.md`](./repo-layout.md) §9.1) and the WebSocket handler in `packages/server/src/server/ws/`.
 
-**Out of scope:** REST surface ([`prd/03-server.md`](../prd/03-server.md) §2); TLS and token issuance ([`prd/03-server.md`](../prd/03-server.md) §6 — only the upgrade-time bearer check is in scope here); ring-buffer internals ([`prd/03-server.md`](../prd/03-server.md) §5.2 and [ND-03](../open-questions.md#nd-03-ring-buffer-size-for-attach-replay) already commit to mechanics and size); transcript pagination ([ND-04](../open-questions.md#nd-04-transcript-pagination-api-shape)); client renderer behavior ([`prd/04-ide-extension.md`](../prd/04-ide-extension.md), [`prd/05-mobile-pwa.md`](../prd/05-mobile-pwa.md)).
+**Out of scope:** REST surface ([`prd/03-server.md`](../prd/03-server.md) §2); TLS and token issuance ([`prd/03-server.md`](../prd/03-server.md) §6 — only the upgrade-time bearer check is in scope here); ring-buffer internals ([`prd/03-server.md`](../prd/03-server.md) §5.2 and [ND-03](../decisions/ND-03-ring-buffer-size-for-attach-replay.md) already commit to mechanics and size); transcript pagination ([ND-04](../decisions/ND-04-transcript-pagination-api-shape.md)); client renderer behavior ([`prd/04-ide-extension.md`](../prd/04-ide-extension.md), [`prd/05-mobile-pwa.md`](../prd/05-mobile-pwa.md)).
 
 ---
 
@@ -40,7 +40,7 @@ Unknown fields are ignored; unknown `type` values are answered with an `error` f
 
 ### 2.2 Client → Server
 
-**`claim`** — request the per-session input lock ([D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) §5.1 rule 1).
+**`claim`** — request the per-session input lock ([D-G2](../decisions/D-G2-multi-client-input-arbitration.md) §5.1 rule 1).
 
 ```json
 { "type": "claim", "id": "c-7f3a" }
@@ -58,7 +58,7 @@ Unknown fields are ignored; unknown `type` values are answered with an `error` f
 
 - `data` (string, required) — base64 encoding of the raw input bytes. May be a single keystroke, a paste burst, or any in-between chunk; the server places no application-layer size cap (server-level limits — WebSocket frame size, configurable — apply). An empty `data` decodes to a zero-byte buffer, performs a no-op PTY write, and does not release the claim (no newline byte present).
 
-**Multi-send per claim.** Per [ND-24](../open-questions.md#nd-24-per-keystroke-input-streaming-for-tui-agents), a single `claim → claim_ack` grants the right to send **one-or-more** `send` frames. The server releases the claim the moment a `send`'s decoded payload contains a newline byte (`\n` / 0x0a or `\r` / 0x0d); a `send` without a newline writes its bytes to the PTY and leaves the claim held. This lets a TUI agent (claude's compose box) see in-progress typing while still treating Enter as the natural unit of conversational arbitration. The §5.2 server FSM row 4 carries the trigger; §5.1 carries the client-side `Streaming` state. A pasted multi-line payload releases at the first newline; the remaining bytes are queued client-side and re-claim automatically (matches `tmux` paste behavior).
+**Multi-send per claim.** Per [ND-24](../decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md), a single `claim → claim_ack` grants the right to send **one-or-more** `send` frames. The server releases the claim the moment a `send`'s decoded payload contains a newline byte (`\n` / 0x0a or `\r` / 0x0d); a `send` without a newline writes its bytes to the PTY and leaves the claim held. This lets a TUI agent (claude's compose box) see in-progress typing while still treating Enter as the natural unit of conversational arbitration. The §5.2 server FSM row 4 carries the trigger; §5.1 carries the client-side `Streaming` state. A pasted multi-line payload releases at the first newline; the remaining bytes are queued client-side and re-claim automatically (matches `tmux` paste behavior).
 
 Input could in principle be sent as a separate binary frame to avoid base64's ≈33% overhead, but the per-byte volumes are small (a 1 KB paste is unusual; a typing burst is bytes per second) and the single-frame design avoids a per-connection "awaiting binary" state machine on the server. Output stays binary precisely because it does not have those properties. The asymmetry is intentional and may be revisited if real-world input volumes ever change the picture.
 
@@ -68,9 +68,9 @@ Input could in principle be sent as a separate binary frame to avoid base64's �
 { "type": "release", "id": "c-7f3a" }
 ```
 
-[D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) §5.1 rule 4 specifies three automatic release paths (PTY delivery, WS close, 30-second timeout per [ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration)); none requires a client-initiated release. `release` exists only for "user opens compose, the other device is queued, user changes their mind without pressing Enter" — the client frees the lock immediately instead of letting the other device wait out the 30-second window. A `release` from a connection that does not hold the active claim is a no-op (the server replies `error { code: "release_without_claim", fatal: false }`).
+[D-G2](../decisions/D-G2-multi-client-input-arbitration.md) §5.1 rule 4 specifies three automatic release paths (PTY delivery, WS close, 30-second timeout per [ND-01](../decisions/ND-01-claim-lock-timeout-duration.md)); none requires a client-initiated release. `release` exists only for "user opens compose, the other device is queued, user changes their mind without pressing Enter" — the client frees the lock immediately instead of letting the other device wait out the 30-second window. A `release` from a connection that does not hold the active claim is a no-op (the server replies `error { code: "release_without_claim", fatal: false }`).
 
-**`resize`** — communicate the client's current terminal dimensions to the server's PTY ([ND-23](../open-questions.md#nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients)). Client → server only — the server never tells the client what size to be.
+**`resize`** — communicate the client's current terminal dimensions to the server's PTY ([ND-23](../decisions/ND-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients.md)). Client → server only — the server never tells the client what size to be.
 
 ```json
 { "type": "resize", "cols": 100, "rows": 40 }
@@ -100,11 +100,11 @@ Input could in principle be sent as a separate binary frame to avoid base64's �
 - `sessionId` (string, ULID, required) — confirms which session this socket is bound to.
 - `agentSessionId` (string, optional) — Claude Code's native session id; present when the agent has surfaced one. Useful for the IDE extension to correlate with `~/.claude/projects/`.
 - `status` (string enum, required) — `running` or `killed`. If `killed`, the server emits a `session_ended` frame immediately after `hello` and closes (see §4).
-- `replayBufferBytes` (int, required) — the value in force for this session (default 32768, configurable per [ND-03](../open-questions.md#nd-03-ring-buffer-size-for-attach-replay)).
-- `claimLockTimeoutSeconds` (int, required) — the value in force for this session (default 30, configurable per [ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration)).
+- `replayBufferBytes` (int, required) — the value in force for this session (default 32768, configurable per [ND-03](../decisions/ND-03-ring-buffer-size-for-attach-replay.md)).
+- `claimLockTimeoutSeconds` (int, required) — the value in force for this session (default 30, configurable per [ND-01](../decisions/ND-01-claim-lock-timeout-duration.md)).
 - `serverTime` (string, ISO-8601, required) — for client clock-skew display only; never used for protocol correctness.
 
-**`claim_ack`** — claim granted ([D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) §5.1 rule 1).
+**`claim_ack`** — claim granted ([D-G2](../decisions/D-G2-multi-client-input-arbitration.md) §5.1 rule 1).
 
 ```json
 {
@@ -117,9 +117,9 @@ Input could in principle be sent as a separate binary frame to avoid base64's �
 - `id` — echo of the client correlation id from the `claim` request.
 - `expiresAt` (string, ISO-8601, required) — server's computed auto-release deadline (`now + claimLockTimeoutSeconds`). The client may render a countdown using this value.
 
-A duplicate `claim` from the same connection that already holds the lock is idempotent: the server replies with another `claim_ack` carrying the **original** `expiresAt`. This prevents lock extension by ping ([ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration) "no re-arming on activity").
+A duplicate `claim` from the same connection that already holds the lock is idempotent: the server replies with another `claim_ack` carrying the **original** `expiresAt`. This prevents lock extension by ping ([ND-01](../decisions/ND-01-claim-lock-timeout-duration.md) "no re-arming on activity").
 
-**`busy`** — claim rejected because another connection holds the lock ([D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) §5.1 rule 2).
+**`busy`** — claim rejected because another connection holds the lock ([D-G2](../decisions/D-G2-multi-client-input-arbitration.md) §5.1 rule 2).
 
 ```json
 {
@@ -130,7 +130,7 @@ A duplicate `claim` from the same connection that already holds the lock is idem
 ```
 
 - `id` — echo of the rejected claim's correlation id.
-- `since` (string, ISO-8601, optional) — when the active claim was granted. Informational only; the client MUST NOT use this to auto-retry. [ND-02](../open-questions.md#nd-02-rejection-ux-for-busy-response) is explicit that retry is user-driven (single Enter), not automatic.
+- `since` (string, ISO-8601, optional) — when the active claim was granted. Informational only; the client MUST NOT use this to auto-retry. [ND-02](../decisions/ND-02-rejection-ux-for-busy-response.md) is explicit that retry is user-driven (single Enter), not automatic.
 
 **`claim_released`** — broadcast to **all** attached connections (including the prior holder) whenever the lock transitions back to unclaimed. Lets each client update its UI ("the other device finished — you can now type") regardless of who held the lock.
 
@@ -189,11 +189,11 @@ PTY output bytes travel as WebSocket **binary** frames with no application-layer
 - Live output: each chunk of PTY bytes the server reads is forwarded as one binary frame. The server is permitted to coalesce or split; clients treat the binary stream as opaque bytes and feed them to their terminal renderer in arrival order.
 - Replay output: identical framing to live output. The only signal distinguishing replay bytes from live bytes is the `replay_start` / `replay_end` brackets (§3).
 
-Binary frames are unversioned (raw bytes — there is no schema). PTY output is universal per [D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) §5.1 rule 5: every attached client receives the full stream regardless of claim state.
+Binary frames are unversioned (raw bytes — there is no schema). PTY output is universal per [D-G2](../decisions/D-G2-multi-client-input-arbitration.md) §5.1 rule 5: every attached client receives the full stream regardless of claim state.
 
 ## 3. Initial replay framing
 
-When a client attaches — whether on initial join or after a disconnect — the server immediately sends the per-session in-memory ring buffer (default 32 KB per [ND-03](../open-questions.md#nd-03-ring-buffer-size-for-attach-replay)) followed by live PTY bytes. The wire order is bracketed:
+When a client attaches — whether on initial join or after a disconnect — the server immediately sends the per-session in-memory ring buffer (default 32 KB per [ND-03](../decisions/ND-03-ring-buffer-size-for-attach-replay.md)) followed by live PTY bytes. The wire order is bracketed:
 
 ```
 → hello                                    (text)
@@ -215,7 +215,7 @@ None of these are protocol-mandatory; each is a UX choice the client surface own
 
 **Snapshot semantics.** The server takes the ring-buffer snapshot at attach time and drains the snapshot in order before any live bytes are sent on that connection. Bytes the agent emits *during* the replay flush are queued behind the snapshot on this connection and sent as live bytes after `replay_end`. This preserves the bracketing invariant: every byte before `replay_end` is older than every byte after it on this connection. Other already-attached connections see the new bytes as live in real time; nothing about replay framing slows down the live stream for them.
 
-**Non-blocking.** The replay snapshot is an in-memory read, not a disk fetch. There is no "load history first" phase that blocks live bytes from arriving on the wire, which is the property [D-G3](../open-questions.md#d-g3-reattach-semantics) §5.2 rule 1 calls out. The first binary frame (or `replay_end` if the buffer is empty) is on the wire within the same event-loop tick as the upgrade response.
+**Non-blocking.** The replay snapshot is an in-memory read, not a disk fetch. There is no "load history first" phase that blocks live bytes from arriving on the wire, which is the property [D-G3](../decisions/D-G3-reattach-semantics.md) §5.2 rule 1 calls out. The first binary frame (or `replay_end` if the buffer is empty) is on the wire within the same event-loop tick as the upgrade response.
 
 ## 4. Errors and close codes
 
@@ -269,7 +269,7 @@ The two-frame sequence for `auth_expired` (text frame, then close 4401) is delib
 The FSM below names the two canonical client surfaces:
 
 - **IDE compose-field UX** (PWA / VS Code extension): user assembles a draft, presses Enter to claim, Enter again to send. Maps to the `Idle → Claiming → Claimed → Sending → Idle` path.
-- **Raw-mode TTY UX** (`relay attach` thin client) per [ND-24](../open-questions.md#nd-24-per-keystroke-input-streaming-for-tui-agents): the first keystroke triggers `claim`, subsequent keystrokes stream while the claim is held, and Enter (server-detected newline) releases. Maps to `Idle → Claiming → Streaming → Idle`. The same wire is in use; the `Streaming` state is the per-keystroke variant of `Claimed + Sending`.
+- **Raw-mode TTY UX** (`relay attach` thin client) per [ND-24](../decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md): the first keystroke triggers `claim`, subsequent keystrokes stream while the claim is held, and Enter (server-detected newline) releases. Maps to `Idle → Claiming → Streaming → Idle`. The same wire is in use; the `Streaming` state is the per-keystroke variant of `Claimed + Sending`.
 
 ```
             input ready (keystroke or Enter)
@@ -293,16 +293,16 @@ The FSM below names the two canonical client surfaces:
 |---|---|---|---|
 | `Idle` | Input ready (IDE: Enter on a non-empty draft; raw-mode TTY: first keystroke) | `Claiming` | Send `claim` frame; buffer the pending input bytes |
 | `Claiming` | `claim_ack` received for our `id` | `Streaming` | Flush `pendingInput` as one `send`; start client-side timer to `expiresAt` |
-| `Claiming` | `busy` received for our `id` | `Backoff` | Show one-shot notice ([ND-02](../open-questions.md#nd-02-rejection-ux-for-busy-response)); keep buffering input bytes into `pendingInput` |
+| `Claiming` | `busy` received for our `id` | `Backoff` | Show one-shot notice ([ND-02](../decisions/ND-02-rejection-ux-for-busy-response.md)); keep buffering input bytes into `pendingInput` |
 | `Streaming` | More input bytes arrive | `Streaming` (no transition) | Emit one `send { data: base64(bytes) }` per stdin/data chunk; server holds or releases based on newline content |
 | `Streaming` | `claim_released { reason: "delivered", heldBy: us }` | `Idle` | If `pendingInput` accumulated after the newline-burst (e.g., post-`\n` paste bytes), immediately `sendClaim()` and re-enter `Claiming`; otherwise wait for next input |
-| `Streaming` | `claim_released { reason: "timeout" \| "disconnect" \| "voluntary" \| "session_ended", heldBy: us }` | `Idle` | Drop `pendingInput`; no auto-resend (per [ND-02](../open-questions.md#nd-02-rejection-ux-for-busy-response)); user retries by typing again |
+| `Streaming` | `claim_released { reason: "timeout" \| "disconnect" \| "voluntary" \| "session_ended", heldBy: us }` | `Idle` | Drop `pendingInput`; no auto-resend (per [ND-02](../decisions/ND-02-rejection-ux-for-busy-response.md)); user retries by typing again |
 | `Streaming` | Server `error { code: "send_without_claim" }` | `Idle` | Server-side release raced the client's send; drop `pendingInput` to avoid loop |
 | `Backoff` | 4 seconds elapse | `Claiming` if `pendingInput` non-empty, else `Idle` | Dismiss notice; if the user typed during backoff, re-attempt the claim; otherwise wait |
 | `Backoff` | Server side eventually releases (e.g., other holder's `claim_released` broadcast arrives) | `Backoff` (no transition) | Informational; the 4 s timer still drives the dismissal — operators do not auto-retry on every peer release |
 | Any | Socket close | `Idle` (then `closed`) | Reconnect logic is out of scope here |
 
-The `Backoff → Claiming-if-queued` transition implements [ND-02](../open-questions.md#nd-02-rejection-ux-for-busy-response) for streaming: the notice still auto-dismisses after 4 seconds, the buffered input is preserved unchanged, and the client never auto-retries on per-keystroke cadence — the 4 s window is the rate-limit. For line-mode IDE clients, `pendingInput` only ever holds a complete draft, so the same transition cleanly resumes a single deliberate retry. [[nd-17-relay-attach-raw-mode-tty-variant-of-the-51-client-fsm]] (open, narrowed) still applies to non-TUI line-mode agents (`bash -i`, scripted runs) where `pendingInput` is always a full line; ND-24 supersedes ND-17 for TUI agents.
+The `Backoff → Claiming-if-queued` transition implements [ND-02](../decisions/ND-02-rejection-ux-for-busy-response.md) for streaming: the notice still auto-dismisses after 4 seconds, the buffered input is preserved unchanged, and the client never auto-retries on per-keystroke cadence — the 4 s window is the rate-limit. For line-mode IDE clients, `pendingInput` only ever holds a complete draft, so the same transition cleanly resumes a single deliberate retry. [[nd-17-relay-attach-raw-mode-tty-variant-of-the-51-client-fsm]] (open, narrowed) still applies to non-TUI line-mode agents (`bash -i`, scripted runs) where `pendingInput` is always a full line; ND-24 supersedes ND-17 for TUI agents.
 
 ### 5.2 Server per-session lock state
 
@@ -330,8 +330,8 @@ The `Backoff → Claiming-if-queued` transition implements [ND-02](../open-quest
 | `Unclaimed` | `claim` from `conn-X` | `ClaimedBy(X, now + 30s)` | Reply `claim_ack` to X; no broadcast |
 | `ClaimedBy(X)` | `claim` from `conn-Y` (Y ≠ X) | `ClaimedBy(X)` (no change) | Reply `busy` to Y |
 | `ClaimedBy(X)` | `claim` from `conn-X` (duplicate) | `ClaimedBy(X)` (no change) | Reply `claim_ack` again with original `expiresAt` (idempotent) |
-| `ClaimedBy(X)` | `send` from `conn-X` whose decoded `data` contains `\n` (0x0a) or `\r` (0x0d) | `Unclaimed` | Write bytes to PTY first; then broadcast `claim_released { reason: "delivered", heldBy: X }` to all connections ([ND-24](../open-questions.md#nd-24-per-keystroke-input-streaming-for-tui-agents)) |
-| `ClaimedBy(X)` | `send` from `conn-X` whose decoded `data` contains no newline byte (incl. empty `data`) | `ClaimedBy(X)` (no change) | Write bytes to PTY; claim stays held — TUI agents see in-progress typing ([ND-24](../open-questions.md#nd-24-per-keystroke-input-streaming-for-tui-agents)) |
+| `ClaimedBy(X)` | `send` from `conn-X` whose decoded `data` contains `\n` (0x0a) or `\r` (0x0d) | `Unclaimed` | Write bytes to PTY first; then broadcast `claim_released { reason: "delivered", heldBy: X }` to all connections ([ND-24](../decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md)) |
+| `ClaimedBy(X)` | `send` from `conn-X` whose decoded `data` contains no newline byte (incl. empty `data`) | `ClaimedBy(X)` (no change) | Write bytes to PTY; claim stays held — TUI agents see in-progress typing ([ND-24](../decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md)) |
 | `ClaimedBy(X)` | `send` from `conn-Y` (Y ≠ X) | `ClaimedBy(X)` (no change) | Reply `error { code: "send_without_claim" }` to Y |
 | `ClaimedBy(X)` | `release` from `conn-X` | `Unclaimed` | Broadcast `claim_released { reason: "voluntary", heldBy: X }` |
 | `ClaimedBy(X)` | `release` from `conn-Y` (Y ≠ X) | `ClaimedBy(X)` (no change) | Reply `error { code: "release_without_claim" }` to Y |
@@ -339,7 +339,7 @@ The `Backoff → Claiming-if-queued` transition implements [ND-02](../open-quest
 | `ClaimedBy(X)` | `conn-X` WebSocket closes (any cause) | `Unclaimed` | Broadcast `claim_released { reason: "disconnect", heldBy: X }` |
 | Any | Session killed / agent exits | (terminal) | Broadcast `session_ended` to all connections; close all sockets |
 
-Note that the timeout is a single fixed window from grant time ([ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration) "no re-arming on activity") and the only activity that clears the timer is a `send` whose decoded payload contains a newline byte that reaches the PTY — non-newline `send`s do not extend the timer, and duplicate `claim`s do not extend it either. A user typing continuously for 30 s without an Enter has the claim released mid-typing; ND-24 explicitly accepts this as pathological-but-not-patched-around.
+Note that the timeout is a single fixed window from grant time ([ND-01](../decisions/ND-01-claim-lock-timeout-duration.md) "no re-arming on activity") and the only activity that clears the timer is a `send` whose decoded payload contains a newline byte that reaches the PTY — non-newline `send`s do not extend the timer, and duplicate `claim`s do not extend it either. A user typing continuously for 30 s without an Enter has the claim released mid-typing; ND-24 explicitly accepts this as pathological-but-not-patched-around.
 
 ### 5.3 Tricky races
 
@@ -351,7 +351,7 @@ Note that the timeout is a single fixed window from grant time ([ND-01](../open-
 
 **PTY EPIPE on `send`.** If the PTY write returns EPIPE because the agent has already exited, the server's newline-conditional release runs unchanged on the in-band `send` payload: a newline-bearing `send` triggers `claim_released { delivered }`; a non-newline `send` leaves the claim held. Either way the `onSessionEnd` path (which the supervisor fires shortly after the EPIPE surfaces) emits `session_ended { reason: "agent_exit" }` and force-releases the claim via `releaseAll('session_ended')`. The two events may interleave with other connections' claim attempts; that is fine — `Unclaimed` is the correct intermediate state, and a successful new `claim` followed by `session_ended` is consistent with what actually happened (the agent died first, then the new client tried).
 
-**Newline arrives mid-stream while another connection has a queued `claim`.** Under [ND-24](../open-questions.md#nd-24-per-keystroke-input-streaming-for-tui-agents)'s multi-send semantics, conn-X may be in `Streaming` (multiple non-newline `send`s already delivered) when conn-Y issues `claim` and receives `busy`. The instant conn-X's next `send` contains a newline byte, the server (a) writes the bytes, (b) transitions `ClaimedBy(X) → Unclaimed`, (c) broadcasts `claim_released { delivered, heldBy: X }` to all attached connections including Y. Y's client-side `Backoff → Idle` (with `pendingInput`) → `Claiming` happens on Y's own 4 s timer, not on the broadcast — per [ND-02](../open-questions.md#nd-02-rejection-ux-for-busy-response) clients do not auto-retry on peer releases. The wire ordering is well-defined; there is no "queued claim auto-grants on release" race because no queue exists server-side.
+**Newline arrives mid-stream while another connection has a queued `claim`.** Under [ND-24](../decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md)'s multi-send semantics, conn-X may be in `Streaming` (multiple non-newline `send`s already delivered) when conn-Y issues `claim` and receives `busy`. The instant conn-X's next `send` contains a newline byte, the server (a) writes the bytes, (b) transitions `ClaimedBy(X) → Unclaimed`, (c) broadcasts `claim_released { delivered, heldBy: X }` to all attached connections including Y. Y's client-side `Backoff → Idle` (with `pendingInput`) → `Claiming` happens on Y's own 4 s timer, not on the broadcast — per [ND-02](../decisions/ND-02-rejection-ux-for-busy-response.md) clients do not auto-retry on peer releases. The wire ordering is well-defined; there is no "queued claim auto-grants on release" race because no queue exists server-side.
 
 ## 6. Reattach inline message ordering
 
@@ -371,12 +371,12 @@ The reason `hello` exists rather than a separate REST roundtrip for session meta
 
 **WebSocket native ping/pong is the only liveness mechanism.** The server sends a WS ping every 30 seconds; if a pong does not arrive within 30 seconds of the most recent ping, the server closes the socket with 1011 and treats it as a normal disconnect (any held claim releases with `reason: "disconnect"`).
 
-**No application-layer keepalive is recognized during a claim.** [ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration) is explicit that the 30-second window does not re-arm on activity; the only thing that clears the timer is a `send` that reaches the PTY. In particular:
+**No application-layer keepalive is recognized during a claim.** [ND-01](../decisions/ND-01-claim-lock-timeout-duration.md) is explicit that the 30-second window does not re-arm on activity; the only thing that clears the timer is a `send` that reaches the PTY. In particular:
 
 - A duplicate `claim` is idempotent and returns the **original** `expiresAt` — clients cannot extend a claim by reclaiming.
 - WS pings and pongs are pure liveness signals; the server does not treat them as application activity for claim purposes.
 
-The combination matters because a TCP connection that has been silently dropped (Wi-Fi off, NAT entry expired) may not surface to the server as a WS close until the OS-level TCP keepalive fires, which can be minutes. Without WS-level ping/pong, a claim held by a vanished laptop would block the other device until that OS keepalive timeout. The 30-second claim timeout ([ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration)) is the safety net for this case; WS ping/pong is what releases the claim faster on the typical disconnect path.
+The combination matters because a TCP connection that has been silently dropped (Wi-Fi off, NAT entry expired) may not surface to the server as a WS close until the OS-level TCP keepalive fires, which can be minutes. Without WS-level ping/pong, a claim held by a vanished laptop would block the other device until that OS keepalive timeout. The 30-second claim timeout ([ND-01](../decisions/ND-01-claim-lock-timeout-duration.md)) is the safety net for this case; WS ping/pong is what releases the claim faster on the typical disconnect path.
 
 Clients SHOULD respond to pings automatically — every standard WS library does this without application intervention. Clients MAY send their own pings; the server replies with pong but does not treat client-side pings as application activity.
 
@@ -385,14 +385,14 @@ Clients SHOULD respond to pings automatically — every standard WS library does
 | # | Decision | Choice | Anchor |
 |---|---|---|---|
 | 1 | Output framing | Binary WS frames for PTY bytes; text/JSON for control | §1 — avoids ≈33% base64 overhead and encode/decode CPU on the hottest path |
-| 2 | Send-path framing | Single JSON frame with base64-encoded `data`; multi-send per claim; server releases on newline byte in payload | §2.2 + §5.2 — [ND-24](../open-questions.md#nd-24-per-keystroke-input-streaming-for-tui-agents) lets TUI agents see in-progress typing while preserving Enter as the natural arbitration unit |
+| 2 | Send-path framing | Single JSON frame with base64-encoded `data`; multi-send per claim; server releases on newline byte in payload | §2.2 + §5.2 — [ND-24](../decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md) lets TUI agents see in-progress typing while preserving Enter as the natural arbitration unit |
 | 3 | Replay framing | Bracketed `replay_start` / `replay_end` | §3 — preserves UX hooks at the replay/live boundary at near-zero protocol cost |
-| 4 | Client `release` | Optional and best-effort; server releases on PTY delivery / disconnect / timeout | §2.2 — [D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) lifecycle is server-driven |
+| 4 | Client `release` | Optional and best-effort; server releases on PTY delivery / disconnect / timeout | §2.2 — [D-G2](../decisions/D-G2-multi-client-input-arbitration.md) lifecycle is server-driven |
 | 5 | Server `hello` frame | Required, always first | §6 — pins server config (`replayBufferBytes`, `claimLockTimeoutSeconds`) without a separate REST roundtrip |
 | 6 | Error model | In-band `error` frame with `fatal` flag, plus WS close codes for transport-level termination | §4 — distinguishes protocol error from connection death |
-| 7 | Keepalive | WS native ping/pong only; no application-layer claim extension | §7 — [ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration) forbids re-arming |
-| 8 | PTY size negotiation | Client → server `resize { cols, rows }` side-channel, last-writer-wins for multi-client | §2.2 — [ND-23](../open-questions.md#nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients) matches `ssh`/`tmux attach` semantics |
-| 9 | Per-keystroke input for TUI agents | `Streaming` client state holds the claim while bytes flow; server releases on first newline byte; client re-claims automatically if `pendingInput` continues post-newline | §5.1 + §5.2 — [ND-24](../open-questions.md#nd-24-per-keystroke-input-streaming-for-tui-agents) unblocks claude's TUI compose box without changing the wire shape |
+| 7 | Keepalive | WS native ping/pong only; no application-layer claim extension | §7 — [ND-01](../decisions/ND-01-claim-lock-timeout-duration.md) forbids re-arming |
+| 8 | PTY size negotiation | Client → server `resize { cols, rows }` side-channel, last-writer-wins for multi-client | §2.2 — [ND-23](../decisions/ND-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients.md) matches `ssh`/`tmux attach` semantics |
+| 9 | Per-keystroke input for TUI agents | `Streaming` client state holds the claim while bytes flow; server releases on first newline byte; client re-claims automatically if `pendingInput` continues post-newline | §5.1 + §5.2 — [ND-24](../decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md) unblocks claude's TUI compose box without changing the wire shape |
 
 **Versioning deferred.** v1 messages carry no `v` field. Relay's deployment model (self-hosted server, IDE extension and PWA shipped by the same project) means client/server upgrade cadence is effectively coupled and the "v1 client in the wild meets v3 server" scenario that justifies versioning ceremony does not arise. If a v2 ever becomes necessary, the migration rule is "absence of `v` ≡ v1" — a one-line server change. The `unknown_type` error code (§4.1) already provides graceful degradation for additive minor changes (new optional message types) independent of any versioning scheme.
 
@@ -405,4 +405,4 @@ Clients SHOULD respond to pings automatically — every standard WS library does
 
 ---
 
-*Resolves the wire-format question raised by [D-G2](../open-questions.md#d-g2-multi-client-input-arbitration) and [D-G3](../open-questions.md#d-g3-reattach-semantics); pins down on-the-wire shape for [ND-01](../open-questions.md#nd-01-claim-lock-timeout-duration), [ND-02](../open-questions.md#nd-02-rejection-ux-for-busy-response), [ND-03](../open-questions.md#nd-03-ring-buffer-size-for-attach-replay), [ND-23](../open-questions.md#nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients), and [ND-24](../open-questions.md#nd-24-per-keystroke-input-streaming-for-tui-agents).*
+*Resolves the wire-format question raised by [D-G2](../decisions/D-G2-multi-client-input-arbitration.md) and [D-G3](../decisions/D-G3-reattach-semantics.md); pins down on-the-wire shape for [ND-01](../decisions/ND-01-claim-lock-timeout-duration.md), [ND-02](../decisions/ND-02-rejection-ux-for-busy-response.md), [ND-03](../decisions/ND-03-ring-buffer-size-for-attach-replay.md), [ND-23](../decisions/ND-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients.md), and [ND-24](../decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md).*
