@@ -103,6 +103,7 @@ Track 7:   7B/7C/7D/7E independent (parallel); 7F sequences after all four resol
 | 7D | ND-34 session + attach polish deep-dive | 7F | pending → [`docs/decisions/ND-34-session-and-attach-polish-deep-dive.md`](decisions/ND-34-session-and-attach-polish-deep-dive.md) |
 | 7E | ND-35 diagnostics + error UX deep-dive | 7F | pending → [`docs/decisions/ND-35-diagnostics-and-error-ux-deep-dive.md`](decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) |
 | 7F | Rollout-readiness re-walk (scenarios A–H + per-surface ND verification) | wider rollout | pending (needs 7B, 7C, 7D, 7E) |
+| 8A | Track 8 PWA monitoring spike (`packages/spike-pwa/`, server static-serve, [ND-36](decisions/ND-36-subprotocol-sourced-bearer-token-for-browser-ws-auth.md)) | — | in progress |
 
 ---
 
@@ -516,6 +517,27 @@ Surfaced by the 6I IDE-extension e2e walk (2026-05-22). The functional contract 
 **Done when:** Re-run [`scenario-runner`](../.claude/skills/scenario-runner/SKILL.md) scenarios A–H against a fresh install with all Track 7 deep-dive changes applied; all checks `pass`. Additionally, walk the 6I e2e flow (install → pair → start session → cross-device attach → BUSY arbitration → detach → reattach) end-to-end from a non-author perspective and confirm no documented friction beyond what the ND resolutions explicitly defer. Output: an entry in [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md) (or sibling rollout-readiness file) with the verdict + per-ND status.
 **Sequences after:** 7B, 7C, 7D, 7E all resolved.
 **Gates:** wider rollout (beyond operator/dogfood loop).
+
+---
+
+## Track 8 — PWA monitoring spike (exploratory, deliberately disposable)
+
+A throwaway-or-graduate spike that validates "monitor + prompt Relay from a phone over Tailscale" using a plain Angular web app served by the Relay server at `/app/*`. Sequenced alongside Phase 1 finishing work — does not block 6I, 6J, or 6Z, and runs in parallel with Track 7's 7B–7E deep-dives. The architecture audit at [`docs/arch/client-agnosticism.md`](arch/client-agnosticism.md) already concluded the WS surface is client-neutral; Track 8 validates that conclusion against a real browser client.
+
+**Disposability contract.** When Phase 2 begins, `packages/spike-pwa/` is either deleted in favor of a clean `packages/pwa/` build, or its Angular code is moved into `packages/pwa/` with PWA polish (manifest, service worker, push notifications) layered on. Neither path is bet on by Track 8.
+
+### 8A. PWA monitoring spike
+
+**Goal:** From a phone over Tailscale, list running sessions, view live terminal output of any session started from the laptop, and prompt the agent (with BUSY UX per PRD §3a).
+**Done when:** the eight-step manual acceptance walk in the design plan passes on a real phone over real Tailscale, and the 10 new server-side tests in `packages/server/src/server/{rest/plugins/auth.test.ts,static/index.test.ts}` are green.
+**Reads:** [`docs/arch/client-agnosticism.md`](arch/client-agnosticism.md), [`docs/prd/05-mobile-pwa.md`](prd/05-mobile-pwa.md) §3a, [`docs/arch/ws-protocol.md`](arch/ws-protocol.md), [`docs/decisions/ND-36-subprotocol-sourced-bearer-token-for-browser-ws-auth.md`](decisions/ND-36-subprotocol-sourced-bearer-token-for-browser-ws-auth.md), [`docs/decisions/D-13-first-run-pairing-ux.md`](decisions/D-13-first-run-pairing-ux.md), [`docs/decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md`](decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md), [`docs/decisions/ND-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients.md`](decisions/ND-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients.md).
+**Output (in progress):** `packages/spike-pwa/` (new Angular workspace, Angular 17+ standalone components, xterm.js), `packages/server/src/server/static/` (new module — `@fastify/static` + SPA fallback), additive edits to `packages/server/src/server/{index.ts,rest/plugins/auth.ts,ws/handler.ts}`, [ND-36](decisions/ND-36-subprotocol-sourced-bearer-token-for-browser-ws-auth.md), `packages/spike-pwa/README.md` (kill-the-spike procedure).
+
+**Kill-the-spike procedure** (4 mechanical steps; restated in `packages/spike-pwa/README.md`):
+1. `rm -rf packages/spike-pwa/`
+2. `git revert <feat(server,spike):...>` commits — the three server edits + the `@fastify/static` dep add.
+3. `pnpm install` — regenerate lockfile without spike deps.
+4. Mark 8A as `abandoned` in this table and `ND-36` as `deferred` in the decision index.
 
 ---
 
