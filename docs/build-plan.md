@@ -44,9 +44,22 @@ Work fans out from a single decision (repo layout). Everything after the scaffol
                                  6J distribution
                                        ▼
                             6Z Phase 1 done gate
+                                       ▼
+              ── Track 7: UX rollout polish (Phase 1.5, blocks rollout) ──
+                                       ▼
+                            7A posture bootstrap (done)
+                  ┌────────┬───────────┴──────────┬────────┐
+                  ▼        ▼                      ▼        ▼
+              7B ND-32   7C ND-33             7D ND-34   7E ND-35
+                  └────────┴──────────┬──────────┴────────┘
+                                      ▼
+                          7F rollout-readiness walk
+                                      ▼
+                                wider rollout
 
 Feeders:   3F → 6A · 3E → 6C · 3D → 6G · 5D-stubs → 5A/5B/5C · 5A → 6A onward · 5B → 6D · 5D-expand folded into 6A/6C/6D
 Track 1:   1A pairs with 6C · 1B pairs with 6B · 1C landed early · 3C optional (done)
+Track 7:   7B/7C/7D/7E independent (parallel); 7F sequences after all four resolve. Gates wider rollout, not Phase 1 acceptance (6Z).
 ```
 
 | ID | Task | Blocks | Status |
@@ -83,7 +96,13 @@ Track 1:   1A pairs with 6C · 1B pairs with 6B · 1C landed early · 3C optiona
 | 6L | Per-keystroke input streaming for TUI agents ([ND-24](decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md)) | 6I, scenarios E/F/H with claude TUI | **done** → [`packages/server/src/server/ws/handler.ts`](../packages/server/src/server/ws/handler.ts) (newline-conditional release) · [`packages/server/src/attach/tty.ts`](../packages/server/src/attach/tty.ts) · [`packages/server/src/attach/client.ts`](../packages/server/src/attach/client.ts) (Streaming state) · [`packages/protocol/src/ws-frames.ts`](../packages/protocol/src/ws-frames.ts) · [`docs/arch/ws-protocol.md`](arch/ws-protocol.md) §2.2 + §5.1 + §5.2 + §5.3 + §8 |
 | 6I | IDE extension wire-up (`packages/extension/`) | scenarios C/D/E | **done** → [`packages/extension/`](../packages/extension/) (esbuild bundle in [`dist/index.cjs`](../packages/extension/dist/index.cjs); `pnpm -F relay-extension vsix` packages `relay-extension-0.0.0.vsix`). Two NDs filed pre-code by the architect: [ND-30](decisions/ND-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers.md) (BUSY UX gap — extension ships without status-bar busyNotice; relay attach's existing stderr line is the only BUSY signal in the pane) and [ND-31](decisions/ND-31-secretstorage-key-namespace-for-multi-server-ide-pairing.md) (single-server keys at MVP; markers with mismatched serverUrl refuse-to-bind). |
 | 6J | Distribution: npm tarball, Docker image, Compose | scenario H | pending (needs 6H, 6I) |
-| 6Z | Phase 1 done gate — `scenario-runner` walks A–H + 1A/1B/1C land | — | pending |
+| 6Z | Phase 1 done gate — `scenario-runner` walks A–H + 1A/1B/1C land | — | pending → [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md) (2026-05-22: gate=blocked on H.1 + H.3; unblocks when 6J ships) |
+| 7A | UX rollout posture: arch doc + D-15 + ND-32..35 | 7B, 7C, 7D, 7E | **done** → [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) · [`docs/decisions/D-15-ux-rollout-posture.md`](decisions/D-15-ux-rollout-posture.md) · ND-32/33/34/35 filed open |
+| 7B | ND-32 install + onboarding deep-dive | 7F | pending → [`docs/decisions/ND-32-install-and-onboarding-deep-dive.md`](decisions/ND-32-install-and-onboarding-deep-dive.md) |
+| 7C | ND-33 IDE GUI overhaul deep-dive | 7F | pending → [`docs/decisions/ND-33-ide-gui-overhaul-deep-dive.md`](decisions/ND-33-ide-gui-overhaul-deep-dive.md) |
+| 7D | ND-34 session + attach polish deep-dive | 7F | pending → [`docs/decisions/ND-34-session-and-attach-polish-deep-dive.md`](decisions/ND-34-session-and-attach-polish-deep-dive.md) |
+| 7E | ND-35 diagnostics + error UX deep-dive | 7F | pending → [`docs/decisions/ND-35-diagnostics-and-error-ux-deep-dive.md`](decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) |
+| 7F | Rollout-readiness re-walk (scenarios A–H + per-surface ND verification) | wider rollout | pending (needs 7B, 7C, 7D, 7E) |
 
 ---
 
@@ -435,9 +454,68 @@ packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json f
 
 ### 6Z. Phase 1 done gate
 
+**Status:** pending — first walk landed 2026-05-22, see [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md). Gate verdict: `blocked` (36 pass, 1 n/a, 2 blocked, 0 fail). The two blocked checks are H.1 (`npm install -g @relay/relay` 404s) and H.3 (no Dockerfile in tree) — both unblocked when **6J (Distribution)** ships. The other six scenarios (A, B, C, D, E, F, G) are settled. Re-walk H.1 + H.3 after 6J ships to flip the gate.
+
 **Goal:** Phase 1 ships.
 **Done when:** `.claude/skills/scenario-runner/SKILL.md` walks scenarios A–H and reports `pass` on every check (no `blocked`, no `fail`). Tasks 1A (default personas), 1B (threat model), 1C (README + deployment guide) all complete. Every Phase 1 row in the Sequencing table at the top of this file is marked `done` with an artifact link.
 **Reads:** [`docs/prd/07-phasing.md`](prd/07-phasing.md), [`docs/prd/08-acceptance.md`](prd/08-acceptance.md), [`.claude/skills/scenario-runner/SKILL.md`](../.claude/skills/scenario-runner/SKILL.md).
+
+---
+
+## Track 7 — UX rollout polish (Phase 1.5, blocks rollout)
+
+Surfaced by the 6I IDE-extension e2e walk (2026-05-22). The functional contract held, but the UX surface around it was clunky in ways that would make wider rollout (beyond the operator/dogfood loop) painful. [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) is the top-down inventory; [[d-15-ux-rollout-posture]] is the strategy decision; ND-32..35 are the per-surface deep-dives this track sequences.
+
+**Distinction from 6Z.** Track 7 gates *wider rollout* (a non-author user can install and use Relay without DMing the author). [`6Z`](#6z-phase-1-done-gate) gates *Phase 1 acceptance* (scenarios A–H pass on a clean install). The two gates are complementary, not alternatives — `6Z` can flip green while Track 7 is still pending; rollout requires both.
+
+### 7A. UX rollout posture: arch doc + D-15 + ND-32..35 — **done**
+
+**Output:** [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) (top-down inventory across four surfaces, with explicit rollout-readiness statement in §7), [`docs/decisions/D-15-ux-rollout-posture.md`](decisions/D-15-ux-rollout-posture.md) (resolved strategy decision), and four open ND children: [ND-32](decisions/ND-32-install-and-onboarding-deep-dive.md), [ND-33](decisions/ND-33-ide-gui-overhaul-deep-dive.md), [ND-34](decisions/ND-34-session-and-attach-polish-deep-dive.md), [ND-35](decisions/ND-35-diagnostics-and-error-ux-deep-dive.md). Identify-only; per-surface fixes happen in 7B–7E.
+
+---
+
+### 7B. ND-32 install + onboarding deep-dive
+
+**Goal:** Resolve [`ND-32`](decisions/ND-32-install-and-onboarding-deep-dive.md) — decide the painless-rollout bar for install and onboarding.
+**Reads:** [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) §3, [`docs/decisions/ND-32-install-and-onboarding-deep-dive.md`](decisions/ND-32-install-and-onboarding-deep-dive.md), [`docs/prd/06-distribution.md`](prd/06-distribution.md), [`docs/prd/03-server.md`](prd/03-server.md) §6, [[d-13-first-run-pairing-ux]], [[nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic-api-key-as-fallback]].
+**Done when:** ND-32 resolves with a one-paragraph rollout-bar statement quotable by [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) §7; any code/doc changes the resolution prescribes land in the appropriate subdocs (per the [decision-log skill's propagation protocol](../.claude/skills/decision-log/SKILL.md)); ND-32's `Propagated to:` line lists the subdocs touched.
+**Kickoff:** Use the [`build-plan-kickoff` skill](../.claude/skills/build-plan-kickoff/SKILL.md) when ready to start — surfaces required reads + Phase 0 surprises + D-NN/ND-NN cheatsheet.
+
+---
+
+### 7C. ND-33 IDE GUI overhaul deep-dive
+
+**Goal:** Resolve [`ND-33`](decisions/ND-33-ide-gui-overhaul-deep-dive.md) — decide the painless-rollout bar for the IDE GUI surface (sessions tree view, persona picker, BUSY anchoring, multi-server pairing, project-marker mental model, status-bar richness).
+**Reads:** [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) §4, [`docs/decisions/ND-33-ide-gui-overhaul-deep-dive.md`](decisions/ND-33-ide-gui-overhaul-deep-dive.md), [`docs/prd/04-ide-extension.md`](prd/04-ide-extension.md), [`packages/extension/`](../packages/extension/), [[nd-02-rejection-ux-for-busy-response]], [[nd-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers]], [[nd-31-secretstorage-key-namespace-for-multi-server-ide-pairing]], [[d-g6-project-discovery-workspace-to-project-binding]].
+**Done when:** ND-33 resolves with a one-paragraph rollout-bar statement; resolution explicitly addresses the [[nd-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers]] dependency (block on ND-30, or commit to a fallback UX); any extension code lands with co-located specs; `Propagated to:` populated.
+**Kickoff:** [`build-plan-kickoff` skill](../.claude/skills/build-plan-kickoff/SKILL.md) when ready.
+
+---
+
+### 7D. ND-34 session + attach polish deep-dive
+
+**Goal:** Resolve [`ND-34`](decisions/ND-34-session-and-attach-polish-deep-dive.md) — decide the painless-rollout bar for session and attach polish (`^D` detach, reattach replay, session naming, `session show`, persona switch, `idle` status).
+**Reads:** [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) §5, [`docs/decisions/ND-34-session-and-attach-polish-deep-dive.md`](decisions/ND-34-session-and-attach-polish-deep-dive.md), [`docs/prd/03-server.md`](prd/03-server.md) §5 and §7, [[nd-15-relay-session-show-subcommand-surface-alignment]], [[nd-17-relay-attach-raw-mode-tty-variant-of-the-5-1-client-fsm]], [[nd-25-relay-attach-detach-with-d-requires-two-keypresses-on-the-host-tty]], [[d-g3-reattach-semantics]].
+**Done when:** ND-34 resolves with a one-paragraph rollout-bar statement; resolution decides ND-15, ND-17, ND-25 inline or leaves them independent with rationale; any code lands with co-located specs and a [`sqlite-migration`](../.claude/skills/sqlite-migration/SKILL.md) if session labels ship; `Propagated to:` populated.
+**Kickoff:** [`build-plan-kickoff` skill](../.claude/skills/build-plan-kickoff/SKILL.md) when ready.
+
+---
+
+### 7E. ND-35 diagnostics + error UX deep-dive
+
+**Goal:** Resolve [`ND-35`](decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) — decide the painless-rollout bar for diagnostics and error UX (credential pre-flight, persona-load failure visibility, REST error recovery guidance, log access from IDE, `relay doctor`).
+**Reads:** [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) §6, [`docs/decisions/ND-35-diagnostics-and-error-ux-deep-dive.md`](decisions/ND-35-diagnostics-and-error-ux-deep-dive.md), [`docs/arch/persona-application.md`](arch/persona-application.md), [`docs/arch/rest-conventions.md`](arch/rest-conventions.md), [[d-10-agent-model-credentials-handling]], [[d-g1-persona-application-semantics]].
+**Done when:** ND-35 resolves with a one-paragraph rollout-bar statement; any code (pre-flight checks, `relay doctor`, log surfaces) lands with co-located specs; `Propagated to:` populated.
+**Kickoff:** [`build-plan-kickoff` skill](../.claude/skills/build-plan-kickoff/SKILL.md) when ready.
+
+---
+
+### 7F. Rollout-readiness re-walk
+
+**Goal:** Confirm the rollout-readiness gate from [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) §7 — every ND-32..35 is resolved or deliberately deferred with documented rationale, and the install-through-first-session walk is painless for a non-author.
+**Done when:** Re-run [`scenario-runner`](../.claude/skills/scenario-runner/SKILL.md) scenarios A–H against a fresh install with all Track 7 deep-dive changes applied; all checks `pass`. Additionally, walk the 6I e2e flow (install → pair → start session → cross-device attach → BUSY arbitration → detach → reattach) end-to-end from a non-author perspective and confirm no documented friction beyond what the ND resolutions explicitly defer. Output: an entry in [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md) (or sibling rollout-readiness file) with the verdict + per-ND status.
+**Sequences after:** 7B, 7C, 7D, 7E all resolved.
+**Gates:** wider rollout (beyond operator/dogfood loop).
 
 ---
 
