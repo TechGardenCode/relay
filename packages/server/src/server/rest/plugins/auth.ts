@@ -20,6 +20,14 @@ export interface AuthPluginOptions {
 
 const AUTH_HEADER = 'authorization';
 const BEARER_PREFIX = 'Bearer ';
+const SUBPROTOCOL_HEADER = 'sec-websocket-protocol';
+// Per ND-36: browsers cannot set Authorization on `new WebSocket(...)`, so
+// the WS subprotocol carries the bearer for the PWA. Scheme name is fixed
+// to keep the parser unambiguous (a future v2 scheme would be e.g.
+// `relay.bearer.v2.<token>`); the comma between scheme and token is the
+// standard CSV form browsers emit when given a two-element array.
+const SUBPROTOCOL_SCHEME = 'relay.bearer';
+const SPIKE_PWA_PREFIX = '/app/';
 
 function unauthorized(slug: string, detail: string): HttpProblemError {
   return new HttpProblemError({
@@ -31,16 +39,40 @@ function unauthorized(slug: string, detail: string): HttpProblemError {
   });
 }
 
+// Returns the bearer plaintext from either `Authorization: Bearer <token>` or
+// (per ND-36) `Sec-WebSocket-Protocol: relay.bearer, <token>` — the
+// Authorization header always wins when both are present, so a browser
+// client cannot override a server-trusted header source by smuggling a
+// subprotocol value.
+function extractBearer(req: FastifyRequest): string | undefined {
+  const authHeader = req.headers[AUTH_HEADER];
+  if (typeof authHeader === 'string' && authHeader.startsWith(BEARER_PREFIX)) {
+    return authHeader.slice(BEARER_PREFIX.length);
+  }
+  const subprotocol = req.headers[SUBPROTOCOL_HEADER];
+  if (typeof subprotocol !== 'string') return undefined;
+  // Browsers serialize `new WebSocket(url, ['relay.bearer', token])` as
+  // `relay.bearer, <token>` (RFC 6455 §1.9). Parse defensively — extra
+  // whitespace is permitted, any non-matching scheme is treated as absent.
+  const parts = subprotocol.split(',').map((p) => p.trim());
+  if (parts.length !== 2 || parts[0] !== SUBPROTOCOL_SCHEME) return undefined;
+  return parts[1];
+}
+
 export async function registerAuthPlugin(
   app: FastifyInstance,
   opts: AuthPluginOptions,
 ): Promise<void> {
   app.addHook('preHandler', async (req: FastifyRequest) => {
-    const header = req.headers[AUTH_HEADER];
-    if (typeof header !== 'string' || !header.startsWith(BEARER_PREFIX)) {
+    // Per ND-36: the /app/* static bundle is public-by-design (HTML/JS the
+    // browser fetches before pairing). Everything /app/* calls back into
+    // (REST + WS) is still authenticated by this same preHandler.
+    if (req.url.startsWith(SPIKE_PWA_PREFIX)) return;
+
+    const plaintext = extractBearer(req);
+    if (plaintext === undefined) {
       throw unauthorized('auth-missing', 'Authorization header missing or not Bearer.');
     }
-    const plaintext = header.slice(BEARER_PREFIX.length);
     const result = opts.tokenStore.verify(plaintext);
     if (!result.ok) {
       // The reason discriminator stays in the type slug so logs / tests can

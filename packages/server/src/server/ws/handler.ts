@@ -65,7 +65,22 @@ interface SessionWsState {
 const WS_OPEN = 1;
 
 export async function registerWs(app: FastifyInstance, opts: WsPluginOptions): Promise<void> {
-  await app.register(fastifyWebsocket);
+  await app.register(fastifyWebsocket, {
+    options: {
+      // Per ND-36: browsers cannot set the Authorization header on
+      // `new WebSocket(...)`, so the PWA passes the bearer through the
+      // `Sec-WebSocket-Protocol` header as `['relay.bearer', <token>]`.
+      // RFC 6455 §1.9 requires the server to echo back one of the
+      // requested subprotocols in the 101 response; without this echo the
+      // browser fails the handshake. Authentication itself happens in the
+      // REST auth preHandler (auth.ts), which reads the same header — this
+      // hook only completes the protocol negotiation. Native `relay attach`
+      // doesn't send a subprotocol (it uses Authorization directly), so
+      // this hook is not called for it.
+      handleProtocols: (protocols: Set<string>) =>
+        protocols.has('relay.bearer') ? 'relay.bearer' : false,
+    },
+  });
 
   // Per ws-protocol.md §5.2 + §6: the lock is per session, not per
   // connection. A second-connection's `claim` must contend with the first's,

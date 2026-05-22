@@ -77,6 +77,11 @@ export async function makeTestRig(opts: MakeTestRigOptions = {}): Promise<TestRi
       replayBufferBytes: 32 * 1024,
     },
     homeOverride,
+    // Per Track 8 / ND-36: REST and WS tests don't exercise the
+    // /app/* static surface — that's covered by static/index.test.ts
+    // with its own fixture. Opt out here so behavior is independent of
+    // whether the spike-pwa has been built into ../../../spike-pwa/dist/browser/.
+    spikePwaDist: null,
   });
   await app.ready();
 
