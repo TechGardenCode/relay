@@ -4,7 +4,7 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 31 · Open: 11 · Deferred: 3.
+**Counts.** Resolved: 32 · Open: 17 · Deferred: 3.
 
 ## Open / in-deliberation
 
@@ -19,6 +19,12 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 - [`ND-27` — Stability commitment for the WS endpoint as a third-party surface](ND-27-stability-commitment-for-the-ws-endpoint-as-a-third-party-surface.md)
 - [`ND-28` — Programmatic / machine-to-machine credential flow](ND-28-programmatic-machine-to-machine-credential-flow.md)
 - [`ND-29` — Distribute `relay attach` as a standalone package](ND-29-distribute-relay-attach-as-a-standalone-package.md)
+- [`ND-30` — `relay attach` stderr event-stream protocol for subprocess-of-attach consumers](ND-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers.md)
+- [`ND-31` — SecretStorage key namespace for multi-server IDE pairing](ND-31-secretstorage-key-namespace-for-multi-server-ide-pairing.md)
+- [`ND-32` — Install + onboarding deep-dive — painless-rollout bar](ND-32-install-and-onboarding-deep-dive.md)
+- [`ND-33` — IDE GUI overhaul deep-dive — painless-rollout bar](ND-33-ide-gui-overhaul-deep-dive.md)
+- [`ND-34` — Session + attach polish deep-dive — painless-rollout bar](ND-34-session-and-attach-polish-deep-dive.md)
+- [`ND-35` — Diagnostics + error UX deep-dive — painless-rollout bar](ND-35-diagnostics-and-error-ux-deep-dive.md)
 
 ## Deferred
 
@@ -30,6 +36,7 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 
 _Newest first._
 
+- [`D-15` — UX rollout posture](D-15-ux-rollout-posture.md) _(2026-05-22)_
 - [`ND-24` — Per-keystroke input streaming for TUI agents](ND-24-per-keystroke-input-streaming-for-tui-agents.md) _(2026-05-19)_
 - [`ND-23` — PTY size negotiation and SIGWINCH forwarding for attach clients](ND-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients.md) _(2026-05-18)_
 - [`ND-19` — `claude login` OAuth as the documented credential default; `ANTHROPIC_API_KEY` as fallback](ND-19-claude-login-oauth-as-the-documented-credential-default-anthropic-api-key-as-fallback.md) _(2026-05-18)_
