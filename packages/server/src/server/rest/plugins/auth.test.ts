@@ -67,4 +67,72 @@ describe('plugins/auth', () => {
     const body = res.json() as { type: string };
     expect(body.type).toMatch(/errors\/auth-missing/);
   });
+
+  // Per ND-36: the /app/* static bundle is public-by-design. The preHandler
+  // skips it; everything the bundle calls back into (REST + WS) is still
+  // gated by the rest of this suite.
+  it('skips auth for the /app/* prefix (Track 8 spike static bundle)', async () => {
+    // No token in headers — would normally 401. The path goes through the
+    // preHandler skip, then 404s downstream because no static route is
+    // registered in this test rig (registerStatic no-ops without a dist).
+    const res = await rig.app.inject({ method: 'GET', url: '/app/anything' });
+    expect(res.statusCode).toBe(404);
+    // Crucially: NOT 401, NOT WWW-Authenticate.
+    expect(res.headers['www-authenticate']).toBeUndefined();
+  });
+
+  // Per ND-36: browsers can't set Authorization on `new WebSocket(...)`,
+  // so the PWA sends `Sec-WebSocket-Protocol: relay.bearer, <token>`. The
+  // preHandler falls back to that header when Authorization is absent.
+  // We exercise the auth path against a REST route (test seam — the same
+  // preHandler gates REST and WS upgrades).
+  it('accepts Sec-WebSocket-Protocol: relay.bearer, <token> when Authorization is absent', async () => {
+    const res = await rig.app.inject({
+      method: 'GET',
+      url: '/tenants',
+      headers: { 'Sec-WebSocket-Protocol': `relay.bearer, ${rig.token.plaintext}` },
+    });
+    expect(res.statusCode).toBe(200);
+  });
+
+  it('rejects malformed Sec-WebSocket-Protocol → 401 auth-missing', async () => {
+    // Wrong scheme name.
+    const res = await rig.app.inject({
+      method: 'GET',
+      url: '/tenants',
+      headers: { 'Sec-WebSocket-Protocol': `wrong.scheme, ${rig.token.plaintext}` },
+    });
+    expect(res.statusCode).toBe(401);
+    const body = res.json() as { type: string };
+    expect(body.type).toMatch(/errors\/auth-missing/);
+  });
+
+  it('rejects Sec-WebSocket-Protocol with malformed token → 401 auth-malformed', async () => {
+    const res = await rig.app.inject({
+      method: 'GET',
+      url: '/tenants',
+      headers: { 'Sec-WebSocket-Protocol': 'relay.bearer, not-a-real-token' },
+    });
+    expect(res.statusCode).toBe(401);
+    const body = res.json() as { type: string };
+    expect(body.type).toMatch(/errors\/auth-malformed/);
+  });
+
+  // Authorization header takes precedence over the subprotocol fallback.
+  // A bad Authorization header is NOT silently masked by a good
+  // Sec-WebSocket-Protocol — otherwise a misconfigured client could
+  // smuggle credentials through a header browsers can't reach.
+  it('Authorization header takes precedence over Sec-WebSocket-Protocol', async () => {
+    const res = await rig.app.inject({
+      method: 'GET',
+      url: '/tenants',
+      headers: {
+        Authorization: 'Bearer not-a-real-token',
+        'Sec-WebSocket-Protocol': `relay.bearer, ${rig.token.plaintext}`,
+      },
+    });
+    expect(res.statusCode).toBe(401);
+    const body = res.json() as { type: string };
+    expect(body.type).toMatch(/errors\/auth-malformed/);
+  });
 });
