@@ -13,13 +13,14 @@ You are working in the Relay monorepo. Start here before doing anything else.
 
 Read these before touching the matching surface:
 
-| Before you touch…                    | Read                                                                   |
-| ------------------------------------ | ---------------------------------------------------------------------- |
-| session spawn / agent CLI invocation | [`docs/arch/persona-application.md`](docs/arch/persona-application.md) |
-| WebSocket frames or claim/release    | [`docs/arch/ws-protocol.md`](docs/arch/ws-protocol.md)                 |
-| SQLite DDL or migrations             | [`docs/arch/sqlite-schema.md`](docs/arch/sqlite-schema.md)             |
-| REST routes or error shapes          | [`docs/arch/rest-conventions.md`](docs/arch/rest-conventions.md)       |
-| repo layout / module boundaries      | [`docs/arch/repo-layout.md`](docs/arch/repo-layout.md)                 |
+| Before you touch…                              | Read                                                                   |
+| ---------------------------------------------- | ---------------------------------------------------------------------- |
+| session spawn / agent CLI invocation           | [`docs/arch/persona-application.md`](docs/arch/persona-application.md) |
+| WebSocket frames or claim/release              | [`docs/arch/ws-protocol.md`](docs/arch/ws-protocol.md)                 |
+| SQLite DDL or migrations                       | [`docs/arch/sqlite-schema.md`](docs/arch/sqlite-schema.md)             |
+| REST routes or error shapes                    | [`docs/arch/rest-conventions.md`](docs/arch/rest-conventions.md)       |
+| repo layout / module boundaries                | [`docs/arch/repo-layout.md`](docs/arch/repo-layout.md)                 |
+| client-surface design / new client integration | [`docs/arch/client-agnosticism.md`](docs/arch/client-agnosticism.md)   |
 
 ## Per-module context
 

@@ -4,7 +4,7 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 31 · Open: 7 · Deferred: 3.
+**Counts.** Resolved: 31 · Open: 11 · Deferred: 3.
 
 ## Open / in-deliberation
 
@@ -15,6 +15,10 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 - [`ND-17` — `relay attach` raw-mode TTY variant of the §5.1 client FSM](ND-17-relay-attach-raw-mode-tty-variant-of-the-5-1-client-fsm.md)
 - [`ND-18` — Lazy-load CLI dispatcher contract](ND-18-lazy-load-cli-dispatcher-contract.md)
 - [`ND-25` — `relay attach` detach with `^D` requires two keypresses on the host TTY](ND-25-relay-attach-detach-with-d-requires-two-keypresses-on-the-host-tty.md)
+- [`ND-26` — Publish `@relay/protocol` package to npm as a third-party surface](ND-26-publish-relay-protocol-package-to-npm-as-a-third-party-surface.md)
+- [`ND-27` — Stability commitment for the WS endpoint as a third-party surface](ND-27-stability-commitment-for-the-ws-endpoint-as-a-third-party-surface.md)
+- [`ND-28` — Programmatic / machine-to-machine credential flow](ND-28-programmatic-machine-to-machine-credential-flow.md)
+- [`ND-29` — Distribute `relay attach` as a standalone package](ND-29-distribute-relay-attach-as-a-standalone-package.md)
 
 ## Deferred
 
