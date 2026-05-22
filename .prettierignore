@@ -6,3 +6,14 @@ docs/
 
 # Intentionally malformed YAML fixture (validator parse_error coverage).
 packages/server/test/fixtures/personas/invalid/parse-error.yaml
+
+# Sibling worktrees (e.g., 6I IDE extension) — managed independently of
+# this branch's checkout; skipping avoids prettier choking on their
+# intentionally-malformed YAML test fixtures.
+.claude/worktrees/
+
+# Angular's tsc emit dir (not in dist/).
+**/out-tsc/
+
+# Angular CLI cache.
+.angular/
