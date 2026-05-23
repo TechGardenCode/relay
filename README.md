@@ -64,7 +64,7 @@ This walks acceptance scenario E ([`docs/prd/08-acceptance.md`](docs/prd/08-acce
 2. **Start the server** in a supervised process or a separate terminal:
 
    ```bash
-   relay server                          # binds 0.0.0.0:7777 by default
+   relay server                          # binds 127.0.0.1:7777 by default — see ~/.relay/config.yaml host: to expose on LAN
    ```
 
 3. **Register a project.**
