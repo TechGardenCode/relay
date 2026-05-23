@@ -81,6 +81,28 @@ describe('plugins/auth', () => {
     expect(res.headers['www-authenticate']).toBeUndefined();
   });
 
+  // Regression: the SPA prefix must skip auth for the *bare* `/app` URL too
+  // (no trailing slash). `@fastify/static` registers under prefix `/app`, so
+  // a browser hitting `http://host:port/app` without a slash MUST reach the
+  // static plugin — not get 401'd by the preHandler. Surfaced during the
+  // Track 8 desktop validation walk, 2026-05-22.
+  it.each(['/app', '/app?ref=x', '/app#frag'])(
+    'skips auth for bare `%s` (no trailing slash)',
+    async (url) => {
+      const res = await rig.app.inject({ method: 'GET', url });
+      expect(res.statusCode).not.toBe(401);
+      expect(res.headers['www-authenticate']).toBeUndefined();
+    },
+  );
+
+  // Negative case: `/app` is the boundary — `/applicant` (no slash after `app`)
+  // must NOT skip auth. Catches the obvious-but-wrong `startsWith('/app')` fix.
+  it('does NOT skip auth for paths that merely begin with /app (e.g. /applicant)', async () => {
+    const res = await rig.app.inject({ method: 'GET', url: '/applicant' });
+    expect(res.statusCode).toBe(401);
+    expect(res.headers['www-authenticate']).toBe('Bearer');
+  });
+
   // Per ND-36: browsers can't set Authorization on `new WebSocket(...)`,
   // so the PWA sends `Sec-WebSocket-Protocol: relay.bearer, <token>`. The
   // preHandler falls back to that header when Authorization is absent.

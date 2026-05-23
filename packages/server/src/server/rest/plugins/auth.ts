@@ -27,7 +27,11 @@ const SUBPROTOCOL_HEADER = 'sec-websocket-protocol';
 // `relay.bearer.v2.<token>`); the comma between scheme and token is the
 // standard CSV form browsers emit when given a two-element array.
 const SUBPROTOCOL_SCHEME = 'relay.bearer';
-const SPIKE_PWA_PREFIX = '/app/';
+// Match what @fastify/static is mounted at: prefix `/app`. The plugin serves
+// both `/app` (the bare prefix → index.html) and `/app/<asset>`, so the skip
+// must too. Restricting to `/app/` would 401 the SPA's root URL when typed
+// without a trailing slash.
+const SPIKE_PWA_PREFIX = '/app';
 
 function unauthorized(slug: string, detail: string): HttpProblemError {
   return new HttpProblemError({
@@ -67,7 +71,18 @@ export async function registerAuthPlugin(
     // Per ND-36: the /app/* static bundle is public-by-design (HTML/JS the
     // browser fetches before pairing). Everything /app/* calls back into
     // (REST + WS) is still authenticated by this same preHandler.
-    if (req.url.startsWith(SPIKE_PWA_PREFIX)) return;
+    // Match `/app` exact, `/app/...`, `/app?...`, `/app#...` — i.e. every URL
+    // the static plugin's `/app` prefix accepts. Plain `startsWith('/app')`
+    // would also match e.g. `/applicant`, so anchor on the boundary.
+    const url = req.url;
+    if (
+      url === SPIKE_PWA_PREFIX ||
+      url.startsWith(SPIKE_PWA_PREFIX + '/') ||
+      url.startsWith(SPIKE_PWA_PREFIX + '?') ||
+      url.startsWith(SPIKE_PWA_PREFIX + '#')
+    ) {
+      return;
+    }
 
     const plaintext = extractBearer(req);
     if (plaintext === undefined) {
