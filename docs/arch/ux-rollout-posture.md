@@ -23,7 +23,7 @@ That path has roughly twelve manual steps. Each step is documented somewhere, bu
 
 The 6I e2e walk also surfaced moment-to-moment ergonomic issues once a session is running: detaching from `relay attach` requires two `^D` presses ([[nd-25-relay-attach-detach-with-d-requires-two-keypresses-on-the-host-tty]]), reattaching to a quiet session shows a blank pane until the agent emits new bytes, sessions are identified only by ULID with no human-readable label, and the BUSY notice when another device interacts shows as an unstructured stderr line that scrolls away ([[nd-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers]]).
 
-None of these block Phase 1 *acceptance* — [`6Z`](../build-plan.md) tests that scenarios A–H pass on a clean install, which they do (modulo 6J distribution work). They block *painless rollout* — the bar that says someone who is not the author can install Relay, pair an IDE, and use it productively without DMing the author.
+None of these block Phase 1 *acceptance* — [`6Z`](../build-plan.md) tests that scenarios A–G pass on a clean install (per [[d-16-phase-1-ships-without-distribution]], scenario H / distribution is deferred to post-2.0 / Track 8), which they do. They block *painless rollout* — the bar that says someone who is not the author can install Relay, pair an IDE, and use it productively without DMing the author.
 
 ## 3. Surface 1 — Install & onboarding
 
@@ -135,7 +135,7 @@ None of these block Phase 1 *acceptance* — [`6Z`](../build-plan.md) tests that
 
 This statement is quotable verbatim. [`scenario-runner`](../../.claude/skills/scenario-runner/SKILL.md) and any future readiness audit may reference it as the rollout bar.
 
-The Phase 1 [`6Z`](../build-plan.md) acceptance gate ships independently of this bar — `6Z` is "scenarios A–H pass on a clean install"; this is "a non-author user can install and use Relay without DMing the author." The two gates are complementary, not alternatives.
+The Phase 1 [`6Z`](../build-plan.md) acceptance gate ships independently of this bar — `6Z` is "scenarios A–G pass on a clean install" (scenario H deferred to post-2.0 / Track 8 per [[d-16-phase-1-ships-without-distribution]]); this is "a non-author user can install and use Relay without DMing the author." The two gates are complementary, not alternatives — wider rollout requires both Track 7 *and* Track 8 (since distribution is what makes "non-author install" possible).
 
 ## 8. References
 

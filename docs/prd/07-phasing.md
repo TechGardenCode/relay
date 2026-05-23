@@ -26,13 +26,15 @@ Deliverables:
 
 - Relay server with REST + WebSocket API, SQLite state, node-pty session management
 - `relay` CLI for tenant/project/persona/session/token management
-- VS Code-family extension (.vsix via GitHub Releases): connect-to-server config, start-session command, attach-to-session command, status bar
+- VS Code-family extension (.vsix sideloaded from a workspace build; GitHub Releases attachment deferred to post-2.0 per [D-16](../decisions/D-16-phase-1-ships-without-distribution.md)): connect-to-server config, start-session command, attach-to-session command, status bar
 - Single CLI integration: Claude Code
 - Default persona set shipped as YAML defaults (`product`, `design`, `dev`, `test`, `infra`, `architect`, `review`)
-- npm and Docker distribution
+- ~~npm and Docker distribution~~ — **deferred to post-2.0 / Track 8** per [D-16](../decisions/D-16-phase-1-ships-without-distribution.md). Phase 1 ships on the dev/source-install path that scenarios A–G already exercise; `npm install -g`, the Docker image, and Docker Compose with Caddy + Tailscale sidecar move to Track 8.
 - Documentation: README, deployment guide, persona authoring guide
 
-Phase 1 ships when the eight acceptance scenarios in `08-acceptance.md` all pass.
+Phase 1 ships when the seven acceptance scenarios A–G in `08-acceptance.md` all pass. Scenario H (distribution paths) is deferred to post-2.0 per [D-16](../decisions/D-16-phase-1-ships-without-distribution.md).
+
+*Phase 1 distribution scope re-scoped by [D-16](../decisions/D-16-phase-1-ships-without-distribution.md) on 2026-05-22.*
 
 ## Phase 2 — Mobile PWA MVP (3–4 weekends)
 

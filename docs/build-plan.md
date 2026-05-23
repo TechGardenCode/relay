@@ -41,9 +41,9 @@ Work fans out from a single decision (repo layout). Everything after the scaffol
                                        ▼
                                   6I extension
                                        ▼
-                                 6J distribution
-                                       ▼
-                            6Z Phase 1 done gate
+                            6Z Phase 1 done gate  (A–G; H deferred via D-16)
+                                       │
+                                       │       6J distribution → Track 8 (post-2.0)
                                        ▼
               ── Track 7: UX rollout polish (Phase 1.5, blocks rollout) ──
                                        ▼
@@ -95,8 +95,8 @@ Track 7:   7B/7C/7D/7E independent (parallel); 7F sequences after all four resol
 | 6K | PTY size negotiation + SIGWINCH ([ND-23](decisions/ND-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients.md)) | 6I, scenarios C/D/E/F with TUI agents | **done** → [`packages/protocol/src/ws-frames.ts`](../packages/protocol/src/ws-frames.ts) · [`packages/server/src/server/ws/handler.ts`](../packages/server/src/server/ws/handler.ts) · [`packages/server/src/attach/`](../packages/server/src/attach/) · [`docs/arch/ws-protocol.md`](arch/ws-protocol.md) §2.2 |
 | 6L | Per-keystroke input streaming for TUI agents ([ND-24](decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md)) | 6I, scenarios E/F/H with claude TUI | **done** → [`packages/server/src/server/ws/handler.ts`](../packages/server/src/server/ws/handler.ts) (newline-conditional release) · [`packages/server/src/attach/tty.ts`](../packages/server/src/attach/tty.ts) · [`packages/server/src/attach/client.ts`](../packages/server/src/attach/client.ts) (Streaming state) · [`packages/protocol/src/ws-frames.ts`](../packages/protocol/src/ws-frames.ts) · [`docs/arch/ws-protocol.md`](arch/ws-protocol.md) §2.2 + §5.1 + §5.2 + §5.3 + §8 |
 | 6I | IDE extension wire-up (`packages/extension/`) | scenarios C/D/E | **done** → [`packages/extension/`](../packages/extension/) (esbuild bundle in [`dist/index.cjs`](../packages/extension/dist/index.cjs); `pnpm -F relay-extension vsix` packages `relay-extension-0.0.0.vsix`). Two NDs filed pre-code by the architect: [ND-30](decisions/ND-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers.md) (BUSY UX gap — extension ships without status-bar busyNotice; relay attach's existing stderr line is the only BUSY signal in the pane) and [ND-31](decisions/ND-31-secretstorage-key-namespace-for-multi-server-ide-pairing.md) (single-server keys at MVP; markers with mismatched serverUrl refuse-to-bind). |
-| 6J | Distribution: npm tarball, Docker image, Compose | scenario H | pending (needs 6H, 6I) |
-| 6Z | Phase 1 done gate — `scenario-runner` walks A–H + 1A/1B/1C land | — | pending → [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md) (2026-05-22: gate=blocked on H.1 + H.3; unblocks when 6J ships) |
+| 6J | Distribution: npm tarball, Docker image, Compose | scenario H | **deferred → [Track 8](#track-8--post-20-deferrals)** _(per [[d-16-phase-1-ships-without-distribution]])_ |
+| 6Z | Phase 1 done gate — `scenario-runner` walks A–G + 1A/1B/1C land | — | pending → [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md) (2026-05-22: under A–H gate, blocked on H.1 + H.3; [[d-16-phase-1-ships-without-distribution]] re-scoped to A–G, walk converts to pass — re-walk or accept evidence as-is) |
 | 7A | UX rollout posture: arch doc + D-15 + ND-32..35 | 7B, 7C, 7D, 7E | **done** → [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) · [`docs/decisions/D-15-ux-rollout-posture.md`](decisions/D-15-ux-rollout-posture.md) · ND-32/33/34/35 filed open |
 | 7B | ND-32 install + onboarding deep-dive | 7F | pending → [`docs/decisions/ND-32-install-and-onboarding-deep-dive.md`](decisions/ND-32-install-and-onboarding-deep-dive.md) |
 | 7C | ND-33 IDE GUI overhaul deep-dive | 7F | pending → [`docs/decisions/ND-33-ide-gui-overhaul-deep-dive.md`](decisions/ND-33-ide-gui-overhaul-deep-dive.md) |
@@ -148,7 +148,7 @@ Track 7:   7B/7C/7D/7E independent (parallel); 7F sequences after all four resol
 
 ### 3B. `scenario-runner` skill — **done**
 
-**Output:** [`.claude/skills/scenario-runner/SKILL.md`](../.claude/skills/scenario-runner/SKILL.md). Markdown-only skill (no scripts) that walks one Phase 1 acceptance scenario per invocation. Each check carries a `pass`/`fail`/`blocked`/`n/a` verdict with a `because:` reason and a citation to the originating `D-NN`/`ND-NN` or subdoc section. Read-only discipline enforced by an explicit `USER:`/`VERIFY:` action grammar — the skill spawns and kills sessions but never runs `relay project add`/`persona create`/`token create`. Three-layer check model (capability preflight → per-scenario preconditions → per-check verdicts) gracefully degrades for Phase 0 (D and E sub-checks emit `blocked (because: not in Phase 0 scope)` rather than `fail`) and for the unimplemented `relay` binary today (preflight short-circuits with one consolidated verdict). Phase-gate map at the top of the skill calls out D and E as the Phase 0 → Phase 1 gating scenarios; full A–H is the Phase 1 ship gate. CI-mode (run all eight non-stop) explicitly out of scope.
+**Output:** [`.claude/skills/scenario-runner/SKILL.md`](../.claude/skills/scenario-runner/SKILL.md). Markdown-only skill (no scripts) that walks one Phase 1 acceptance scenario per invocation. Each check carries a `pass`/`fail`/`blocked`/`n/a` verdict with a `because:` reason and a citation to the originating `D-NN`/`ND-NN` or subdoc section. Read-only discipline enforced by an explicit `USER:`/`VERIFY:` action grammar — the skill spawns and kills sessions but never runs `relay project add`/`persona create`/`token create`. Three-layer check model (capability preflight → per-scenario preconditions → per-check verdicts) gracefully degrades for Phase 0 (D and E sub-checks emit `blocked (because: not in Phase 0 scope)` rather than `fail`) and for the unimplemented `relay` binary today (preflight short-circuits with one consolidated verdict). Phase-gate map at the top of the skill calls out D and E as the Phase 0 → Phase 1 gating scenarios; A–G is the Phase 1 ship gate (scenario H deferred to post-2.0 / Track 8 per [[d-16-phase-1-ships-without-distribution]]; the skill still walks H on request for Track 8 verification). CI-mode (run all eight non-stop) explicitly out of scope.
 
 ---
 
@@ -257,7 +257,7 @@ Phase 1 implementation, decomposed by module per [`docs/arch/repo-layout.md`](ar
 
 **Kickoff prompts are written when each 6x task is ready to start, not pre-emptively** — per step 3 of "How to use this file" below. The arch docs are detailed enough that a fresh session can draft a kickoff against the named subdoc + arch doc in the **Reads** line.
 
-**Phase 1 ships when:** `.claude/skills/scenario-runner/SKILL.md` reports `pass` on every check of scenarios A–H (no `blocked`, no `fail`) AND tasks 1A, 1B, 1C are all `done`. See task **6Z** below.
+**Phase 1 ships when:** `.claude/skills/scenario-runner/SKILL.md` reports `pass` on every check of scenarios A–G (no `blocked`, no `fail`) AND tasks 1A, 1B, 1C are all `done`. See task **6Z** below. Scenario H (distribution) is deferred to post-2.0 / Track 8 per [[d-16-phase-1-ships-without-distribution]].
 
 ---
 
@@ -442,23 +442,19 @@ packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json f
 
 ---
 
-### 6J. Distribution: npm tarball, Docker image, Compose
+### 6J. Distribution: npm tarball, Docker image, Compose — **deferred to [Track 8](#track-8--post-20-deferrals)**
 
-**Goal:** npm-publishable tarball (`tsup` bundle → `dist/relay.js`); Docker image; Docker Compose example with Caddy + Tailscale sidecar; GitHub Releases vsix attachment.
-**Output:** root `Dockerfile`, `docker-compose.example.yml`, npm publish workflow, release workflow attaching the `.vsix`.
-**Done when:** scenario H — `npm install -g` on Node 22+ produces a working `relay`; the Docker image runs scenarios A–E from a clean container; the `.vsix` installs into VS Code from a GitHub Release.
-**Reads:** [`docs/prd/06-distribution.md`](prd/06-distribution.md).
-**Pre-6J ND-19 validation (2026-05-18):** Docker named-volume OAuth path (`-v relay_claude:/root/.claude` + `docker exec -it relay claude auth login`) validated on a macOS Docker host (Docker 29.4.1) with a stand-in `node:22-alpine` + `@anthropic-ai/claude-code` image; credentials persisted across `docker stop`/`docker start` and `claude -p` round-tripped without `ANTHROPIC_API_KEY`. Linux Docker host validation still outstanding (no Linux host reachable from this session). VM headless `claude auth login` device-flow over SSH validated on Ubuntu 24.04 (`techgardencode@10.0.60.221`, Node v22.22.2); ND-19's "deploying Relay on a headless Linux host" claim now empirically grounded. See [ND-19](decisions/ND-19-claude-login-oauth-as-the-documented-credential-default-anthropic-api-key-as-fallback.md) for the full validation log.
+Per [[d-16-phase-1-ships-without-distribution]] (2026-05-22), 6J moves to Track 8 (post-2.0). The full row body lives under Track 8 below; this stub preserves the dependency chain (`6H → 6I → 6J → 6Z`) but Phase 1 no longer requires it. Track 7 ND-32..35 resolutions inform Track 8 scope when distribution is picked up.
 
 ---
 
 ### 6Z. Phase 1 done gate
 
-**Status:** pending — first walk landed 2026-05-22, see [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md). Gate verdict: `blocked` (36 pass, 1 n/a, 2 blocked, 0 fail). The two blocked checks are H.1 (`npm install -g @relay/relay` 404s) and H.3 (no Dockerfile in tree) — both unblocked when **6J (Distribution)** ships. The other six scenarios (A, B, C, D, E, F, G) are settled. Re-walk H.1 + H.3 after 6J ships to flip the gate.
+**Status:** pending — first walk landed 2026-05-22, see [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md). Under the original A–H gate the verdict was `blocked` on H.1 (`npm install -g @relay/relay` 404s) and H.3 (no Dockerfile in tree). [[d-16-phase-1-ships-without-distribution]] re-scoped 6Z to scenarios A–G (H deferred to [Track 8](#track-8--post-20-deferrals)); under the re-scoped gate the same walk converts to `pass` (36 pass, 1 n/a, 0 blocked-in-scope, 0 fail). Re-walk to flip the gate, or accept the 2026-05-22 evidence as-is per user judgment.
 
-**Goal:** Phase 1 ships.
-**Done when:** `.claude/skills/scenario-runner/SKILL.md` walks scenarios A–H and reports `pass` on every check (no `blocked`, no `fail`). Tasks 1A (default personas), 1B (threat model), 1C (README + deployment guide) all complete. Every Phase 1 row in the Sequencing table at the top of this file is marked `done` with an artifact link.
-**Reads:** [`docs/prd/07-phasing.md`](prd/07-phasing.md), [`docs/prd/08-acceptance.md`](prd/08-acceptance.md), [`.claude/skills/scenario-runner/SKILL.md`](../.claude/skills/scenario-runner/SKILL.md).
+**Goal:** Phase 1 ships. Distribution (scenario H) is deferred to Track 8 per [[d-16-phase-1-ships-without-distribution]] — Phase 1 ships on the dev/source-install path that A–G already exercise.
+**Done when:** `.claude/skills/scenario-runner/SKILL.md` walks scenarios A–G and reports `pass` on every check (no `blocked`, no `fail`). Tasks 1A (default personas), 1B (threat model), 1C (README + deployment guide) all complete. Every Phase 1 row in the Sequencing table at the top of this file is marked `done` with an artifact link (6J is `deferred → Track 8`, which satisfies "no Phase 1 row left pending").
+**Reads:** [`docs/prd/07-phasing.md`](prd/07-phasing.md), [`docs/prd/08-acceptance.md`](prd/08-acceptance.md), [`.claude/skills/scenario-runner/SKILL.md`](../.claude/skills/scenario-runner/SKILL.md), [[d-16-phase-1-ships-without-distribution]].
 
 ---
 
@@ -466,7 +462,7 @@ packages/server/test/fixtures/auth/  # mkdir + .gitkeep for sample tokens.json f
 
 Surfaced by the 6I IDE-extension e2e walk (2026-05-22). The functional contract held, but the UX surface around it was clunky in ways that would make wider rollout (beyond the operator/dogfood loop) painful. [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) is the top-down inventory; [[d-15-ux-rollout-posture]] is the strategy decision; ND-32..35 are the per-surface deep-dives this track sequences.
 
-**Distinction from 6Z.** Track 7 gates *wider rollout* (a non-author user can install and use Relay without DMing the author). [`6Z`](#6z-phase-1-done-gate) gates *Phase 1 acceptance* (scenarios A–H pass on a clean install). The two gates are complementary, not alternatives — `6Z` can flip green while Track 7 is still pending; rollout requires both.
+**Distinction from 6Z.** Track 7 gates *wider rollout* (a non-author user can install and use Relay without DMing the author). [`6Z`](#6z-phase-1-done-gate) gates *Phase 1 acceptance* (scenarios A–G pass on a clean install; H deferred to [Track 8](#track-8--post-20-deferrals) per [[d-16-phase-1-ships-without-distribution]]). The two gates are complementary, not alternatives — `6Z` can flip green while Track 7 is still pending; wider rollout requires Track 7 *and* Track 8 (since the distribution surface 6J ships is what makes "non-author install" possible).
 
 ### 7A. UX rollout posture: arch doc + D-15 + ND-32..35 — **done**
 
@@ -516,6 +512,23 @@ Surfaced by the 6I IDE-extension e2e walk (2026-05-22). The functional contract 
 **Done when:** Re-run [`scenario-runner`](../.claude/skills/scenario-runner/SKILL.md) scenarios A–H against a fresh install with all Track 7 deep-dive changes applied; all checks `pass`. Additionally, walk the 6I e2e flow (install → pair → start session → cross-device attach → BUSY arbitration → detach → reattach) end-to-end from a non-author perspective and confirm no documented friction beyond what the ND resolutions explicitly defer. Output: an entry in [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md) (or sibling rollout-readiness file) with the verdict + per-ND status.
 **Sequences after:** 7B, 7C, 7D, 7E all resolved.
 **Gates:** wider rollout (beyond operator/dogfood loop).
+
+---
+
+## Track 8 — Post-2.0 deferrals
+
+Work deliberately scoped out of Phase 1 acceptance ([`6Z`](#6z-phase-1-done-gate)) and Track 7 (UX rollout polish) — picked up after the operator commits to a 2.0 / wider-rollout milestone. Per [[d-16-phase-1-ships-without-distribution]], Phase 1 ships on the dev/source-install path; distribution is the lone Track 8 row at gate-flip time.
+
+**Gating condition:** operator decision to ship 2.0 / wider rollout. Track 7's ND-32..35 resolutions inform Track 8 scope — in particular, [[nd-32-install-and-onboarding-deep-dive]] is likely to constrain or expand 6J's packaging contract (e.g. the install/onboarding deep-dive may pin Docker Compose with Caddy + Tailscale as required vs. optional).
+
+### 6J. Distribution: npm tarball, Docker image, Compose
+
+**Goal:** npm-publishable tarball (`tsup` bundle → `dist/relay.js`); Docker image; Docker Compose example with Caddy + Tailscale sidecar; GitHub Releases vsix attachment.
+**Output:** root `Dockerfile`, `docker-compose.example.yml`, npm publish workflow, release workflow attaching the `.vsix`.
+**Done when:** scenario H — `npm install -g` on Node 22+ produces a working `relay`; the Docker image runs scenarios A–E from a clean container; the `.vsix` installs into VS Code from a GitHub Release.
+**Reads:** [`docs/prd/06-distribution.md`](prd/06-distribution.md), [[d-16-phase-1-ships-without-distribution]], [[nd-32-install-and-onboarding-deep-dive]] (constrains scope when resolved).
+**Phase 0 surprises owned:** §1 (macOS spawn-helper chmod under pnpm) and §5 (Linux `build-essential` requirement / `node-pty` Linux prebuild) — see [`docs/phase-0-report.md`](phase-0-report.md). Both block H.1 / scenario E on a clean host without the fixup.
+**Pre-6J ND-19 validation (2026-05-18):** Docker named-volume OAuth path (`-v relay_claude:/root/.claude` + `docker exec -it relay claude auth login`) validated on a macOS Docker host (Docker 29.4.1) with a stand-in `node:22-alpine` + `@anthropic-ai/claude-code` image; credentials persisted across `docker stop`/`docker start` and `claude -p` round-tripped without `ANTHROPIC_API_KEY`. Linux Docker host validation still outstanding (no Linux host reachable from this session). VM headless `claude auth login` device-flow over SSH validated on Ubuntu 24.04 (`techgardencode@10.0.60.221`, Node v22.22.2); ND-19's "deploying Relay on a headless Linux host" claim now empirically grounded. See [ND-19](decisions/ND-19-claude-login-oauth-as-the-documented-credential-default-anthropic-api-key-as-fallback.md) for the full validation log.
 
 ---
 

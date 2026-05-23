@@ -24,7 +24,7 @@ When triggered without a letter, prompt the user to pick one rather than guessin
 Read these before walking any scenario; the scenario walks cite specific sections of each:
 
 - [`docs/prd/08-acceptance.md`](../../../docs/prd/08-acceptance.md) — source of truth for the scenarios.
-- [`docs/prd/07-phasing.md`](../../../docs/prd/07-phasing.md) — Phase 0 vs Phase 1 gating context. Phase 0 (one-weekend spike) exercises a subset of D and E; the full A–H bar is the Phase 1 ship gate.
+- [`docs/prd/07-phasing.md`](../../../docs/prd/07-phasing.md) — Phase 0 vs Phase 1 gating context. Phase 0 (one-weekend spike) exercises a subset of D and E; the A–G bar is the Phase 1 ship gate (scenario H / distribution is deferred to post-2.0 / Track 8 per [[d-16-phase-1-ships-without-distribution]] — the skill still walks H on request for Track 8 verification).
 - [`docs/prd/03-server.md`](../../../docs/prd/03-server.md) — REST/WS contracts the per-check verdicts test (especially §2 API surface, §3 state, §4 persona application, §5.1 input arbitration, §5.2 reattach, §6 auth, §7 CLI).
 - [`docs/prd/04-ide-extension.md`](../../../docs/prd/04-ide-extension.md) — IDE extension contract for scenarios C and the BUSY UX in F.
 - [`docs/prd/06-distribution.md`](../../../docs/prd/06-distribution.md) — packaging and distribution for scenario H.
