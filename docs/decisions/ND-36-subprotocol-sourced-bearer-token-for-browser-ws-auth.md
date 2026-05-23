@@ -4,22 +4,22 @@ status: resolved
 title: "Subprotocol-sourced bearer token for browser-WS auth"
 resolved-on: 2026-05-22
 affects: "packages/server/src/server/rest/plugins/auth.ts (preHandler accepts Sec-WebSocket-Protocol as token source); packages/server/src/server/ws/handler.ts (Fastify WS plugin echoes `relay.bearer` subprotocol in the 101 response); docs/arch/ws-protocol.md §6 (auth path, browser variant)."
-surfaced-by: "Track 8 PWA monitoring spike design (2026-05-22)."
+surfaced-by: "Track 9 PWA monitoring spike design (2026-05-22)."
 ---
 
 # ND-36 — Subprotocol-sourced bearer token for browser-WS auth
 
 **Status:** resolved (2026-05-22)
 **Affects:** `packages/server/src/server/rest/plugins/auth.ts` (preHandler accepts `Sec-WebSocket-Protocol` as token source); `packages/server/src/server/ws/handler.ts` (Fastify WS plugin echoes `relay.bearer` subprotocol in the 101 response); `docs/arch/ws-protocol.md` §6 (auth path, browser variant).
-**Surfaced by:** Track 8 PWA monitoring spike design (2026-05-22).
+**Surfaced by:** Track 9 PWA monitoring spike design (2026-05-22).
 
 ## Question
 
-Browsers cannot set custom headers on `new WebSocket(...)`. Today's WS upgrade at `/sessions/:id/stream` only accepts the bearer token via `Authorization: Bearer`. How does a browser-based client (the Track 8 spike PWA, the eventual Phase 2 PWA) authenticate the upgrade?
+Browsers cannot set custom headers on `new WebSocket(...)`. Today's WS upgrade at `/sessions/:id/stream` only accepts the bearer token via `Authorization: Bearer`. How does a browser-based client (the Track 9 spike PWA, the eventual Phase 2 PWA) authenticate the upgrade?
 
 ## Context
 
-The Track 8 PWA monitoring spike is the first browser-based Relay client. Until now, the only WS consumers were `relay attach` (Node.js `ws` package, can set arbitrary headers) and the IDE extension (which shells out to `relay attach`). The PWA needs a wire-level path that works in a browser; the answer constrains the eventual Phase 2 PWA too. Three real options exist, with very different security and surface-area implications.
+The Track 9 PWA monitoring spike is the first browser-based Relay client. Until now, the only WS consumers were `relay attach` (Node.js `ws` package, can set arbitrary headers) and the IDE extension (which shells out to `relay attach`). The PWA needs a wire-level path that works in a browser; the answer constrains the eventual Phase 2 PWA too. Three real options exist, with very different security and surface-area implications.
 
 ## Options under consideration
 
@@ -54,9 +54,9 @@ Wire compatibility:
 - Existing REST routes: unchanged. `Authorization: Bearer` continues to be the only documented path for REST.
 - `relay attach`: unchanged. Node's `ws` package can set `Authorization`, so the native client never sees the subprotocol path.
 - IDE extension: unchanged. Spawns `relay attach`.
-- Browser PWA (Track 8, eventual Phase 2): uses subprotocol.
+- Browser PWA (Track 9, eventual Phase 2): uses subprotocol.
 
-**Why not Option B (query param):** bearer-in-logs is the wrong default even on a Tailscale-only deployment, and once shipped you can't quietly take it back. The Track 8 spike has a disposability contract; the auth path under it should not.
+**Why not Option B (query param):** bearer-in-logs is the wrong default even on a Tailscale-only deployment, and once shipped you can't quietly take it back. The Track 9 spike has a disposability contract; the auth path under it should not.
 
 **Why not Option C (cookie + login):** the additional server surface (new route, cookie scoping, TTL, revocation reach) is disproportionate for a spike, and a future PWA would still want subprotocol auth as a complement — cookies don't replace it for embedded / direct-WS use-cases.
 

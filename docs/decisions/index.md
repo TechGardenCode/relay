@@ -4,7 +4,7 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 33 · Open: 17 · Deferred: 3.
+**Counts.** Resolved: 34 · Open: 17 · Deferred: 3.
 
 ## Open / in-deliberation
 
@@ -36,6 +36,7 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 
 _Newest first._
 
+- [`D-16` — Phase 1 ships without distribution (6J deferred to post-2.0)](D-16-phase-1-ships-without-distribution.md) _(2026-05-22)_
 - [`ND-36` — Subprotocol-sourced bearer token for browser-WS auth](ND-36-subprotocol-sourced-bearer-token-for-browser-ws-auth.md) _(2026-05-22)_
 - [`D-15` — UX rollout posture](D-15-ux-rollout-posture.md) _(2026-05-22)_
 - [`ND-24` — Per-keystroke input streaming for TUI agents](ND-24-per-keystroke-input-streaming-for-tui-agents.md) _(2026-05-19)_

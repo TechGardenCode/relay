@@ -2,7 +2,7 @@
   "name": "@relay/spike-pwa",
   "version": "0.0.0",
   "private": true,
-  "description": "Track 8 — exploratory PWA monitoring spike. Plain Angular web app served by the Relay server at /app/*. Disposable; see README.md.",
+  "description": "Track 9 — exploratory PWA monitoring spike. Plain Angular web app served by the Relay server at /app/*. Disposable; see README.md.",
   "scripts": {
     "dev": "ng serve",
     "build": "ng build",

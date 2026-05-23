@@ -1,8 +1,8 @@
-# @relay/spike-pwa — Track 8 PWA monitoring spike
+# @relay/spike-pwa — Track 9 PWA monitoring spike
 
 **Status:** exploratory · disposable · do not depend on this package.
 **Scope:** Validate that "monitor + prompt a Relay session from a phone over Tailscale" works against the existing server with zero protocol changes. Three screens: pair, sessions list, live session (xterm.js + compose + BUSY UX).
-**Not the Phase 2 PWA.** `packages/pwa/` is the eventual home, currently empty. This package is the throwaway-or-graduate spike. See [`docs/build-plan.md`](../../docs/build-plan.md) Track 8 and the design plan at [`/Users/kianalikhani/.claude/plans/i-ve-switched-over-to-silly-milner.md`](file:///Users/kianalikhani/.claude/plans/i-ve-switched-over-to-silly-milner.md).
+**Not the Phase 2 PWA.** `packages/pwa/` is the eventual home, currently empty. This package is the throwaway-or-graduate spike. See [`docs/build-plan.md`](../../docs/build-plan.md) Track 9 and the design plan at [`/Users/kianalikhani/.claude/plans/i-ve-switched-over-to-silly-milner.md`](file:///Users/kianalikhani/.claude/plans/i-ve-switched-over-to-silly-milner.md).
 
 ---
 
@@ -47,9 +47,9 @@ If this experiment doesn't graduate, removing it cleanly is four mechanical step
 1. `rm -rf packages/spike-pwa/`
 2. `git revert <feat(server,spike):...>` commits — the three server edits + the `@fastify/static` dep add (~50 lines of code reverted across `auth.ts`, `ws/handler.ts`, `index.ts`, and the new `static/index.ts` module).
 3. `pnpm install` — regenerate the lockfile without `@fastify/static`, Angular, and `xterm`.
-4. Mark Track 8 as `abandoned` in [`docs/build-plan.md`](../../docs/build-plan.md); mark [ND-36](../../docs/decisions/ND-36-subprotocol-sourced-bearer-token-for-browser-ws-auth.md) as `deferred`.
+4. Mark Track 9 as `abandoned` in [`docs/build-plan.md`](../../docs/build-plan.md); mark [ND-36](../../docs/decisions/ND-36-subprotocol-sourced-bearer-token-for-browser-ws-auth.md) as `deferred`.
 
-After step 4, `main` is bit-identical to its pre-Track-8 state except for an "abandoned" docs trail.
+After step 4, `main` is bit-identical to its pre-Track-9 state except for an "abandoned" docs trail.
 
 ---
 

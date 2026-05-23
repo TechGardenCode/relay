@@ -73,7 +73,7 @@ export class WsClientService {
   // accept `send` frames. Newline-bearing sends auto-release (ND-24), so
   // every compose-and-send must be preceded by a fresh `claim` — the design
   // plan's data-flow section called out the newline-release but omitted
-  // this prerequisite, surfaced during the Track 8 validation walk.
+  // this prerequisite, surfaced during the Track 9 validation walk.
   claim(): boolean {
     const open = this.open;
     if (open === null || open.socket.readyState !== WebSocket.OPEN) return false;

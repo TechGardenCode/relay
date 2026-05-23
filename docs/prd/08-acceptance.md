@@ -65,11 +65,15 @@ The eight scenarios below cover both headline pains (cross-device continuity, mu
 - Two sessions running simultaneously in different (project, persona) pairs operate independently — separate working directories, separate transcripts, no cross-contamination of persona context
 - `relay session list` and the IDE status bar correctly distinguish them
 
-### H — Distribution paths actually work
+### H — Distribution paths actually work — **deferred to post-2.0**
+
+> **Deferred to post-2.0 / Track 8** per [D-16](../decisions/D-16-phase-1-ships-without-distribution.md) (2026-05-22). Phase 1 ships on the dev/source-install path that scenarios A–G exercise; the distribution surface below is preserved here so future-us can re-walk it when Track 8 picks up. The Phase 1 gate ([`docs/build-plan.md`](../build-plan.md#6z-phase-1-done-gate) 6Z) requires A–G only.
 
 - `npm install -g` on a fresh Node 22+ host produces a working `relay` binary
 - The published Docker image runs scenarios A–E from a clean container
 - Documentation walks a new user through bring-up to scenario E without requiring spelunking
+
+*Deferred from Phase 1 by [D-16](../decisions/D-16-phase-1-ships-without-distribution.md) on 2026-05-22.*
 
 ---
 
@@ -77,6 +81,7 @@ The eight scenarios below cover both headline pains (cross-device continuity, mu
 
 The following capabilities are not part of the Phase 1 acceptance bar. They are listed here so a tester does not flag their absence as a regression.
 
+- **Distribution surface (scenario H).** `npm install -g`, the published Docker image, and Docker Compose with Caddy + Tailscale sidecar are deferred to post-2.0 / Track 8 per [D-16](../decisions/D-16-phase-1-ships-without-distribution.md). Phase 1 ships on dev/source-install; scenario H above is preserved as the future bar Track 8 will re-walk.
 - **Structured logging and observability.** Phase 1 emits whatever Node's default logger produces; there is no metrics endpoint, no tracing instrumentation, and no log-aggregation guidance beyond "run it under your service manager and collect stdout." Observability landing is a Phase 3 hardening concern.
 - **Token rotation.** Per-device tokens are valid indefinitely until revoked; automatic rotation is deferred per [D-05](../decisions/D-05-per-device-token-rotation.md).
 - **Multi-tenant client UX.** The tenant routes exist on the API surface but no Phase 1 client surfaces them; see `03-server.md` §2.
