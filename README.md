@@ -2,7 +2,9 @@
 
 > **Portable, persistent AI coding sessions across devices.**
 
-> ⚠️ **Implementation status — Phase 1 in flight.** The `relay` binary is not yet published. Track 6 (tasks 6A–6J) of [`docs/build-plan.md`](docs/build-plan.md) is the path to a runnable MVP. To exercise the cross-device attach architecture today, see [`spike/`](spike/) — the Phase 0 proof-of-concept that runs the wire protocol end-to-end. This README describes the eventual Phase 1 UX.
+> 👉 **New to Relay? Start with the [Getting Started handbook](docs/guides/getting-started.md)** — an A–Z walkthrough from install through your first cross-device session.
+
+> ⚠️ **Implementation status — Phase 1 in flight.** The `relay` binary is not yet published. Track 6 (tasks 6A–6J) of [`docs/build-plan.md`](docs/build-plan.md) is the path to a runnable MVP. To exercise the cross-device attach architecture today, see [`spike/`](spike/) — the Phase 0 proof-of-concept that runs the wire protocol end-to-end. The "Quick install" snippet below describes the eventual Phase 1 UX; the [handbook](docs/guides/getting-started.md) covers the source-install path that works today.
 
 ---
 
@@ -105,6 +107,7 @@ See [`docs/prd/07-phasing.md`](docs/prd/07-phasing.md) for the full roadmap and 
 
 ## Where to go next
 
+- [`docs/guides/getting-started.md`](docs/guides/getting-started.md) — **the user handbook.** A–Z install → first session → cross-device attach → manage tokens/projects/sessions → troubleshooting.
 - [`docs/prd.md`](docs/prd.md) — the spec. Start here for what Relay does and why.
 - [`docs/deployment.md`](docs/deployment.md) — operator guide: local mode, Docker, Compose with Caddy + Tailscale, configuration, backups.
 - [`docs/threat-model.md`](docs/threat-model.md) — security posture and the network-shape decision tree (localhost / Tailscale / Caddy + TLS / don't).

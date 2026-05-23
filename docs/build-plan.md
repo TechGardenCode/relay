@@ -57,9 +57,18 @@ Work fans out from a single decision (repo layout). Everything after the scaffol
                                       ▼
                                 wider rollout
 
+              ── Track 10: User handbook (parallel with Track 7) ──
+                                      ▼
+                       10A getting-started.md foundation
+                                      ▼
+        (per-ND chapter updates ride along as 7B/7C/7D/7E land)
+                                      ▼
+                          10B handbook audit at 7F
+
 Feeders:   3F → 6A · 3E → 6C · 3D → 6G · 5D-stubs → 5A/5B/5C · 5A → 6A onward · 5B → 6D · 5D-expand folded into 6A/6C/6D
 Track 1:   1A pairs with 6C · 1B pairs with 6B · 1C landed early · 3C optional (done)
 Track 7:   7B/7C/7D/7E independent (parallel); 7F sequences after all four resolve. Gates wider rollout, not Phase 1 acceptance (6Z).
+Track 10:  10A is the foundation user handbook (ships against current state); each 7B/7C/7D/7E resolution carries a chapter update; 10B is the audit at 7F.
 ```
 
 | ID | Task | Blocks | Status |
@@ -104,6 +113,8 @@ Track 7:   7B/7C/7D/7E independent (parallel); 7F sequences after all four resol
 | 7E | ND-35 diagnostics + error UX deep-dive | 7F | pending → [`docs/decisions/ND-35-diagnostics-and-error-ux-deep-dive.md`](decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) |
 | 7F | Rollout-readiness re-walk (scenarios A–H + per-surface ND verification) | wider rollout | pending (needs 7B, 7C, 7D, 7E) |
 | 9A | Track 9 PWA monitoring spike (`packages/spike-pwa/`, server static-serve, [ND-36](decisions/ND-36-subprotocol-sourced-bearer-token-for-browser-ws-auth.md)) | — | in progress |
+| 10A | User handbook foundation (`docs/guides/getting-started.md` + `docs/guides/README.md`) | 10B | **done** → [`docs/guides/getting-started.md`](guides/getting-started.md) · [`docs/guides/README.md`](guides/README.md) |
+| 10B | Handbook audit at 7F readiness re-walk | wider rollout | pending (needs 7B, 7C, 7D, 7E + 10A) |
 
 ---
 
@@ -551,6 +562,34 @@ A throwaway-or-graduate spike that validates "monitor + prompt Relay from a phon
 2. `git revert <feat(server,spike):...>` commits — the three server edits + the `@fastify/static` dep add.
 3. `pnpm install` — regenerate lockfile without spike deps.
 4. Mark 9A as `abandoned` in this table and `ND-36` as `deferred` in the decision index.
+
+---
+
+## Track 10 — User handbook (parallel with Track 7)
+
+User-facing documentation, distinct from `docs/prd/` (spec), `docs/arch/` (contributor architecture), and `docs/decisions/` (decision log). Lives at `docs/guides/`. The handbook ships a foundation **now** (against current state, pre-Track-7 polish) so the user and any non-author has a stable A–Z reference, then layers in updates as each Track 7 ND lands.
+
+**Why parallel.** Track 7 ships *features* (install tooling, `relay doctor`, IDE GUI, session polish). It does not by itself produce a coherent user narrative that takes a brand-new user from zero to productive. Track 10 owns that narrative.
+
+**Sync-with-Track-7 contract.** Each Track 7 ND resolution lists the affected handbook chapter on its `Propagated to:` line so propagation cannot forget the docs side:
+
+| Track 7 ND | Handbook chapter that updates with it |
+| -- | -- |
+| ND-32 (install + onboarding) | Ch 1 (Install) + Ch 2 (First connect) |
+| ND-33 (IDE GUI overhaul) | Ch 4 (IDE session) |
+| ND-34 (session + attach polish) | Ch 4 (IDE session) + Ch 5 (Cross-device attach) |
+| ND-35 (diagnostics + error UX) | Ch 7 (Troubleshooting) |
+
+### 10A. User handbook foundation — **done**
+
+**Output:** [`docs/guides/getting-started.md`](guides/getting-started.md) — eight-chapter A–Z handbook (install → first connect → persona authoring → IDE session → cross-device attach → CLI reference → troubleshooting → where-to-go-next) shipped against current source-install state per [[d-16-phase-1-ships-without-distribution]]. Companion index at [`docs/guides/README.md`](guides/README.md) frames the guides-vs-prd-vs-arch-vs-decisions boundary. `README.md` gained a prominent handbook callout near the value prop and a "Where to go next" pointer. Known sharp edges in Ch 7 cite the ND-NN tracking each fix (ND-25 Ctrl-D, ND-30 BUSY UX, ND-31 multi-server SecretStorage, Track 7 ND-35 `relay doctor`); each Track 7 ND resolution will edit the chapter listed in the table above.
+
+### 10B. Handbook audit at 7F readiness re-walk
+
+**Goal:** Fresh-eyes pass of the entire handbook against the polished surfaces — ensure no Track 7 change left the docs lying.
+**Done when:** Every chapter accurately reflects post-Track-7 surfaces; the troubleshooting chapter's known-sharp-edges callouts are removed for fixed issues and updated for any new ones; an entry in [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md) (or sibling rollout-readiness file) confirms handbook ↔ surface parity.
+**Sequences after:** 7B, 7C, 7D, 7E all resolved; 10A landed.
+**Gates:** wider rollout (piggybacks on 7F).
 
 ---
 
