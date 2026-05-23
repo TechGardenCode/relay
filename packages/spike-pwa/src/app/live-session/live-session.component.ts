@@ -58,6 +58,20 @@ import { WsClientService, type ConnectionEvent } from './ws-client.service';
       .compose textarea {
         flex: 1;
       }
+      .compose .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+      .compose .actions button {
+        padding: 0.4rem 0.7rem;
+        font-size: 0.85rem;
+        white-space: nowrap;
+      }
+      .compose .actions button.send {
+        padding: 0.6rem 1rem;
+        font-size: 1rem;
+      }
       .banner {
         padding: 0.5rem 0.75rem;
         border-radius: var(--radius);
@@ -104,13 +118,34 @@ import { WsClientService, type ConnectionEvent } from './ws-client.service';
         autocapitalize="off"
         autocomplete="off"
         spellcheck="false"
-        placeholder="Send a message (Enter to submit)"
+        placeholder="Send a message (Enter to submit, Shift+Enter for newline)"
         [(ngModel)]="draft"
         name="draft"
         [disabled]="ended()"
-        (keydown)="onKeydown($event)"
+        (keydown.enter)="onEnter($event)"
+        (keydown)="onAnyKeydown()"
       ></textarea>
-      <button type="submit" [disabled]="ended() || draft().length === 0">Send</button>
+      <div class="actions">
+        <button
+          type="button"
+          (click)="onEscape()"
+          [disabled]="ended()"
+          title="Send Escape — interrupts Claude's in-flight response"
+        >
+          Esc
+        </button>
+        <button
+          type="button"
+          (click)="onClear()"
+          [disabled]="ended()"
+          title="Send Ctrl+U — clears Claude's input prompt if a message is staged but not submitted"
+        >
+          Clear
+        </button>
+        <button type="submit" class="send" [disabled]="ended() || draft().length === 0">
+          Send
+        </button>
+      </div>
     </form>
   `,
 })
@@ -149,28 +184,62 @@ export class LiveSessionComponent implements OnInit {
     void this.router.navigate(['/sessions']);
   }
 
+  // Send the ESC byte (0x1b). In Claude Code's TUI this interrupts an
+  // in-flight response and returns control to the input prompt. The byte
+  // does not contain `\r` or `\n`, so per ND-24 the claim stays held
+  // after this send — fine for the spike (next user action either sends
+  // a newline-bearing message that releases, or the 30 s ND-01 timeout
+  // expires).
+  onEscape(): void {
+    this.ws.claim();
+    this.ws.send(new Uint8Array([0x1b]));
+  }
+
+  // Send Ctrl+U (0x15) — the POSIX line-discipline "kill" character and
+  // the convention every Unix line editor (readline, ink, blessed) honors
+  // as "clear input from cursor back to start." Useful when characters
+  // streamed to the PTY landed in Claude's input prompt but the user
+  // doesn't want to actually submit them.
+  onClear(): void {
+    this.ws.claim();
+    this.ws.send(new Uint8Array([0x15]));
+  }
+
   onSend(ev: Event): void {
     ev.preventDefault();
     const text = this.draft();
     if (text.length === 0) return;
-    // Per ND-24: appending a trailing newline triggers server-side
-    // claim-release on this send frame's boundary. Without it, the
-    // server holds the claim past the send and a second send from this
-    // PWA would be served by the same claim; with it, the next send
-    // re-claims and a peer's BUSY UX fires immediately if appropriate.
-    const payload = new TextEncoder().encode(text + '\n');
+    // Per D-G2 + ws-protocol.md §5.1: SEND requires a held claim. Issue a
+    // claim first; if a peer holds it the server replies `busy` (handled
+    // in handleServerFrame) and the SEND is dropped server-side with a
+    // non-fatal `send_without_claim` error.
+    this.ws.claim();
+    // Terminal Enter is CR (0x0d), not LF (0x0a) — TUIs running in raw
+    // mode (Claude Code, vim, anything ink/blessed-based) read `\r` from
+    // stdin and treat that as Return. LF would queue into the input
+    // buffer without committing. Per ND-24 + ws-frames.ts §SendFrameSchema
+    // the server's claim auto-release scans for both `\r` and `\n`, so
+    // CR is also a valid release trigger.
+    const payload = new TextEncoder().encode(text + '\r');
     const ok = this.ws.send(payload);
     if (ok) this.draft.set('');
   }
 
-  onKeydown(ev: KeyboardEvent): void {
-    // Enter without Shift submits; Shift+Enter inserts a newline as
-    // textarea default.
-    if (ev.key === 'Enter' && !ev.shiftKey) {
-      ev.preventDefault();
-      this.onSend(ev);
-    }
-    // Dismiss the BUSY banner on next keystroke per prd/05-mobile-pwa.md §3a.
+  // Angular's `(keydown.enter)` event-modifier matches both plain Enter and
+  // NumpadEnter and fires reliably across browsers. Shift+Enter falls through
+  // to the textarea default (newline) because `(keydown.enter)` only catches
+  // unmodified Enter. IME composition (e.g., mobile autocomplete commit) is
+  // skipped so we don't submit a half-typed glyph.
+  onEnter(ev: KeyboardEvent): void {
+    if (ev.isComposing) return;
+    ev.preventDefault();
+    this.onSend(ev);
+  }
+
+  // Per prd/05-mobile-pwa.md §3a: BUSY banner auto-dismisses on the next
+  // user keystroke. Bound on the general keydown stream so any keypress
+  // (not just Enter) clears the affordance.
+  onAnyKeydown(): void {
     if (this.busyVisible()) this.dismissBusy();
   }
 

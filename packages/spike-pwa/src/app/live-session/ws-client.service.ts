@@ -35,6 +35,12 @@ export class WsClientService {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly events$ = new Subject<ConnectionEvent>();
   private sessionId: string | null = null;
+  // Cache the last fit-emitted size so we can flush it the moment the WS
+  // reaches OPEN. Terminal-host fires its first resize on ngAfterViewInit,
+  // which races the WS handshake — without this cache the very first size
+  // is dropped and the server PTY sits at the spawn default (80×24) until
+  // the next viewport change.
+  private lastResize: { cols: number; rows: number } | null = null;
 
   // Per D-G3 + the reconnect plan in the design doc: starts at 500ms,
   // caps at 8s, with ±20% jitter to avoid synchronized retries from
@@ -63,7 +69,21 @@ export class WsClientService {
     return true;
   }
 
+  // Per ws-protocol.md §5.1 + D-G2: the server requires a held claim to
+  // accept `send` frames. Newline-bearing sends auto-release (ND-24), so
+  // every compose-and-send must be preceded by a fresh `claim` — the design
+  // plan's data-flow section called out the newline-release but omitted
+  // this prerequisite, surfaced during the Track 8 validation walk.
+  claim(): boolean {
+    const open = this.open;
+    if (open === null || open.socket.readyState !== WebSocket.OPEN) return false;
+    const frame: ClientFrame = { type: 'claim' };
+    open.socket.send(JSON.stringify(frame));
+    return true;
+  }
+
   resize(cols: number, rows: number): boolean {
+    this.lastResize = { cols, rows };
     const open = this.open;
     if (open === null || open.socket.readyState !== WebSocket.OPEN) return false;
     const frame: ClientFrame = { type: 'resize', cols, rows };
@@ -117,6 +137,15 @@ export class WsClientService {
     socket.addEventListener('open', () => {
       this.reconnectAttempt = 0;
       this.events$.next({ kind: 'connected' });
+      // Flush the cached fit size — terminal-host's first emit usually
+      // arrives before this handler fires, and resize() silently drops
+      // sends that race the OPEN transition. Resending here also covers
+      // reconnects, so a long-lived PTY ends up at the client's size.
+      const last = this.lastResize;
+      if (last !== null) {
+        const frame: ClientFrame = { type: 'resize', cols: last.cols, rows: last.rows };
+        socket.send(JSON.stringify(frame));
+      }
     });
     socket.addEventListener('message', (ev: MessageEvent<string | ArrayBuffer>) => {
       if (typeof ev.data === 'string') {

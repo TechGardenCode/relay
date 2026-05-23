@@ -117,7 +117,11 @@ export class PairComponent {
   private readonly router = inject(Router);
 
   readonly snippet = signal('');
-  readonly serverUrl = signal('');
+  // Default to the origin the SPA was served from — the common dogfood case
+  // is "browser is on a device that can reach the Relay server at its current
+  // origin." Pasting a `relay://` snippet still overrides this; users on
+  // cross-origin setups can edit the field by hand.
+  readonly serverUrl = signal(window.location.origin);
   readonly token = signal('');
   readonly busy = signal(false);
   readonly error = signal<string | null>(null);
