@@ -17,3 +17,8 @@ packages/server/test/fixtures/personas/invalid/parse-error.yaml
 
 # Angular CLI cache.
 .angular/
+
+# Skill docs are prose markdown (like docs/, already excluded above). Some embed
+# nested code fences requiring 4-backtick outer wrappers, which prettier would
+# collapse to 3 and break. Exclude them from prettier; they're authored by hand.
+.claude/skills/**/SKILL.md
