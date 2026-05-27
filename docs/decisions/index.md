@@ -4,14 +4,11 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 42 · Open: 9 · Deferred: 4.
+**Counts.** Resolved: 45 · Open: 6 · Deferred: 4.
 
 ## Open / in-deliberation
 
 - [`ND-08` — Skill subset enforcement mechanism](ND-08-skill-subset-enforcement-mechanism.md)
-- [`ND-10` — `relay token list` subcommand surface alignment](ND-10-relay-token-list-subcommand-surface-alignment.md)
-- [`ND-16` — CLI ↔ data-plane boundary rule](ND-16-cli-data-plane-boundary-rule.md)
-- [`ND-18` — Lazy-load CLI dispatcher contract](ND-18-lazy-load-cli-dispatcher-contract.md)
 - [`ND-26` — Publish `@relay/protocol` package to npm as a third-party surface](ND-26-publish-relay-protocol-package-to-npm-as-a-third-party-surface.md)
 - [`ND-27` — Stability commitment for the WS endpoint as a third-party surface](ND-27-stability-commitment-for-the-ws-endpoint-as-a-third-party-surface.md)
 - [`ND-28` — Programmatic / machine-to-machine credential flow](ND-28-programmatic-machine-to-machine-credential-flow.md)
@@ -29,6 +26,9 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 
 _Newest first._
 
+- [`ND-16` — CLI ↔ data-plane boundary rule](ND-16-cli-data-plane-boundary-rule.md) _(2026-05-27)_
+- [`ND-18` — Lazy-load CLI dispatcher contract](ND-18-lazy-load-cli-dispatcher-contract.md) _(2026-05-27)_
+- [`ND-10` — `relay token list` subcommand surface alignment](ND-10-relay-token-list-subcommand-surface-alignment.md) _(2026-05-27)_
 - [`ND-35` — Diagnostics + error UX deep-dive — painless-rollout bar](ND-35-diagnostics-and-error-ux-deep-dive.md) _(2026-05-27)_
 - [`ND-34` — Session + attach polish deep-dive — painless-rollout bar](ND-34-session-and-attach-polish-deep-dive.md) _(2026-05-27)_
 - [`ND-25` — `relay attach` detach with `^D` requires two keypresses on the host TTY](ND-25-relay-attach-detach-with-d-requires-two-keypresses-on-the-host-tty.md) _(2026-05-27)_

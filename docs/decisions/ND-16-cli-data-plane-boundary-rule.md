@@ -1,6 +1,7 @@
 ---
 id: ND-16
-status: open
+status: resolved
+resolved-on: 2026-05-27
 title: "CLI ↔ data-plane boundary rule"
 affects: "docs/arch/repo-layout.md §3 (module boundaries for cli/), docs/arch/rest-conventions.md (cross-reference from CLI), packages/server/src/cli/CLAUDE.md (new — to be authored when this resolves), docs/build-plan.md task 6H (Done-when)"
 surfaced-by: "build-plan 6H preflight (2026-05-18) — 6B established the precedent that relay token {create,revoke,list} talks to ~/.relay/tokens.json directly without going through the running server (no HTTP). 6H must extend the CLI surface with subcommands that **cannot** uniformly follow that rule: relay session kill needs to terminate a live PTY supervised by the long-running relay server process; relay project add needs the canonicalization + marker-file + gitignore logic already centralized in 6F's POST /projects handler. The CLI ↔ data-plane boundary is unspecified."
@@ -9,7 +10,7 @@ surfaced-by: "build-plan 6H preflight (2026-05-18) — 6B established the preced
 # ND-16 — CLI ↔ data-plane boundary rule
 
 
-**Status:** open
+**Status:** resolved (2026-05-27)
 **Affects:** `docs/arch/repo-layout.md` §3 (module boundaries for `cli/`), `docs/arch/rest-conventions.md` (cross-reference from CLI), `packages/server/src/cli/CLAUDE.md` (new — to be authored when this resolves), `docs/build-plan.md` task 6H (Done-when)
 **Surfaced by:** build-plan 6H preflight (2026-05-18) — 6B established the precedent that `relay token {create,revoke,list}` talks to `~/.relay/tokens.json` directly without going through the running server (no HTTP). 6H must extend the CLI surface with subcommands that **cannot** uniformly follow that rule: `relay session kill` needs to terminate a live PTY supervised by the long-running `relay server` process; `relay project add` needs the canonicalization + marker-file + gitignore logic already centralized in 6F's `POST /projects` handler. The CLI ↔ data-plane boundary is unspecified.
 
@@ -38,3 +39,18 @@ What to validate before resolving: (a) whether `relay session list` should be RE
 Proposed direction is Option C with the carve-out for `relay persona create` being filesystem-direct. Build-plan 6H is blocked on this resolution because the CLI dispatchers for `session/project/persona` need to know which client (SQLite reader, REST client, filesystem writer) to instantiate per subcommand.
 
 This is filed as `open` so the resolution lands as a deliberate arch-doc edit + a CLI per-module CLAUDE.md (if warranted) rather than an inline implementation drift. Build-plan 6H ships against the Option C posture provisionally; the propagation closes the doc gap.
+
+## Resolution
+
+**Option C — the split rule.** A CLI subcommand's data plane is determined by what the operation actually touches, not by a uniform policy. The rule lives in `docs/arch/repo-layout.md` §3 (no separate `cli/CLAUDE.md` — `cli/` is not otherwise a load-bearing module).
+
+1. **Read-only subcommands read SQLite/filesystem directly** — `relay session list`, `relay session show`, `relay project list`, `relay persona list`, `relay token list`. No running server required; offline inspection and recovery work. For Phase 1 these render only persisted DB columns (no in-memory registry state like attached-client count or claim holder), so the direct read returns the same data the REST route would.
+2. **State-mutating subcommands that touch a live session go through the running server's REST API over loopback** — `relay session kill`. The PTY supervisor lives only inside the `relay server` process's in-memory registry; a one-shot CLI cannot reach it. Direct SQLite would mark the row `killed` while leaving the `node-pty` child alive until the next boot orphan sweep ([[d-11-server-restart-and-session-orphaning]]) — a correctness violation. REST is the only correct path.
+3. **State-mutating subcommands with non-trivial logic centralized in a REST handler go through REST** — `relay project add`, `relay project remove`. `POST /projects` already owns `realpathSync` canonicalization, slug derivation, `409` mapping of `SQLITE_CONSTRAINT_UNIQUE`, the marker-file write per [[nd-07-marker-file-schema]], and the idempotent `.gitignore` append. Routing the CLI through REST avoids duplicating that logic and the drift it invites.
+4. **Filesystem-only writes go direct** — `relay persona create` writes a YAML file under `~/.relay/personas/`; `POST /personas` adds nothing beyond the file write, so the CLI writes the file itself. No server required.
+5. **When a REST-bound subcommand can't reach the server, it fails loudly — it never falls back to direct DB mutation.** `relay session kill` with no server reachable exits non-zero with a clear "no relay server reachable at `<url>`" message and a hint to start one. Falling back to a direct row update would orphan the PTY (rule 2).
+6. **Loopback URL + token come from the same place as the IDE first-run snippet** — URL from `~/.relay/config.yaml` (default `127.0.0.1:7777`), bearer from `--token`/`RELAY_TOKEN` → `~/.relay/config.yaml`, mirroring `attach/config.ts` precedence.
+
+**Why this and not Option A (uniform REST):** forcing every invocation through the server makes `relay session list` and offline recovery impossible whenever `relay server` isn't bound, and pays loopback latency on sub-millisecond SQLite reads — for no benefit at single-tenant Phase 1 scale, where there's no row-level ACL or audit logging that would justify funneling reads through one place. **Why not Option B (uniform direct):** it would force a brand-new control-plane IPC surface (a UNIX socket the server listens on) purely to let `session kill` reach the in-memory registry — large new surface area for one subcommand, and it defeats the point of having a REST API at all.
+
+**Propagated to:** docs/arch/repo-layout.md §3 `cli/` (2026-05-27), docs/arch/rest-conventions.md §8 (2026-05-27). No `cli/CLAUDE.md` authored — the rule lives in repo-layout §3. Build-plan 6H already shipped against the Option C posture (no remaining Done-when gate; task is `done`).

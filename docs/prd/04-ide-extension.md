@@ -42,7 +42,7 @@ A **workspace extension** — runs in the remote VS Code Server context when the
 - **Start session command.** Command palette entry `Relay: Start session in current project`. Quick-pick of available personas. On selection, the extension:
   1. Calls `POST /sessions` to create the session server-side, passing the workspace root as the session's working directory
   2. Opens a new terminal in the editor with a custom shell pointing at `relay attach <session-id>`
-  3. The `relay attach` command is a tiny client that establishes a WebSocket to `/sessions/:id/stream` and proxies stdin/stdout to the local terminal
+  3. The `relay attach` command is a tiny client that establishes a WebSocket to `/sessions/:id/stream` and proxies stdin/stdout to the local terminal. The `relay` binary the extension spawns from `PATH` loads only the WebSocket + TTY client cone on this path — `relay attach` never pulls `node-pty`, `better-sqlite3`, or `fastify`, so the extension works on a thin-client device that lacks the native build toolchain. *Lazy-load contract resolved by [ND-18](../decisions/ND-18-lazy-load-cli-dispatcher-contract.md) on 2026-05-27.*
 
   The command does not pre-prompt for a working directory. The workspace root is the unambiguous default and aligns with where the project marker file lives, so a subdirectory picker would only add friction without resolving any ambiguity. Subdirectory selection is a deferred enhancement to revisit if a concrete need surfaces (e.g., monorepo with per-package agents).
 - **Attach to session command.** Quick-pick of running sessions, opens a terminal attached to the chosen one. Reattach behavior (what the user sees on attach) is governed by the server-side reattach contract in `03-server.md` §5.2.

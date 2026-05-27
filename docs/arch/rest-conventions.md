@@ -109,7 +109,13 @@ This is **documentation**, not a payload field. A machine-readable `recovery` ex
 
 *Recovery-guidance documentation resolved by [ND-35](../decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) on 2026-05-27.*
 
-## 8. Propagation
+## 8. CLI clients of this surface
+
+The `relay` CLI is a first-class consumer of these routes, but not a uniform one. Per the CLI data-plane split rule ([`repo-layout.md`](repo-layout.md) §3 `cli/`), only subcommands that mutate a live session (`relay session kill`) or reuse logic centralized in a handler (`relay project add`/`remove`) call REST over loopback; read-only and filesystem-only subcommands bypass this surface and touch SQLite/the filesystem directly. CLI REST clients consume the RFC 9457 problem-details shape (§2) and the status-code table (§3) the same way any other client does — `relay session kill` against a missing session surfaces the `404` problem-details `detail`, and an unreachable server is a distinct typed error (no fallback to direct DB mutation, which would orphan the PTY).
+
+*CLI data-plane split rule resolved by [ND-16](../decisions/ND-16-cli-data-plane-boundary-rule.md) on 2026-05-27.*
+
+## 9. Propagation
 
 This doc affects:
 

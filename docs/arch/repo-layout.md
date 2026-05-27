@@ -107,8 +107,16 @@ Each module below names what it **owns**, what it explicitly **does not own** (s
 - **Test isolation.** WS client against fake PTY + fake session registry.
 
 ### `cli/`
-- **Owns.** commander subcommand dispatcher for the subcommands in `prd/03-server.md` §7. Each subcommand is thin: parse args → call a domain module (offline subcommands like `relay init`, `relay token create`) or an HTTP client against the running server (server-required subcommands like `relay session kill`, `relay attach`).
-- **Does not own.** Direct file I/O outside the offline subcommand set; in-process duplication of server logic.
+- **Owns.** commander subcommand dispatcher for the subcommands in `prd/03-server.md` §7. Each subcommand is thin: parse args → pick a data plane by the split rule below → render.
+- **Data-plane rule (which client per subcommand).** Determined by what the operation touches, not a uniform policy:
+  - **Read-only → SQLite/filesystem direct** (`session list`/`show`, `project list`, `persona list`, `token list`). No running server required; offline inspection works. Phase 1 reads render only persisted columns, never in-memory registry state.
+  - **Mutates a live session → REST over loopback** (`session kill`). The PTY supervisor lives only in the `relay server` process; a direct DB write would mark the row `killed` while orphaning the `node-pty` child until the next boot sweep ([D-11](../decisions/D-11-server-restart-and-session-orphaning.md)) — a correctness violation.
+  - **Logic centralized in a REST handler → REST** (`project add`/`remove`). `POST /projects` owns canonicalization, slug derivation, marker-file write ([ND-07](../decisions/ND-07-marker-file-schema.md)), and `.gitignore` append; the CLI routes through it rather than duplicating.
+  - **Filesystem-only write → direct** (`persona create`). Writes a YAML file under `~/.relay/personas/`; the REST handler adds nothing beyond the write.
+  - A REST-bound subcommand that can't reach the server **fails loudly (non-zero + "no relay server reachable at `<url>`")** — it never falls back to direct DB mutation. Loopback URL/token resolve as in `attach/config.ts` (`~/.relay/config.yaml` + `--token`/`RELAY_TOKEN`).
+- **Does not own.** Direct file I/O outside the read-direct / filesystem-write sets above; in-process duplication of server logic for the REST-bound mutations.
+- *CLI data-plane split rule resolved by [ND-16](../decisions/ND-16-cli-data-plane-boundary-rule.md) on 2026-05-27.*
+- **Lazy-load contract.** `relay attach`, `relay --help`, `relay --version`, `relay token *`, and `relay persona list`/`create` must NOT transitively load `node-pty`, `better-sqlite3`, or `fastify` at module-init time — a thin-client device (phone-class, IDE-extension spawn target, CI runner with no `claude` binary) must not be forced to compile native deps it never runs. Subcommands that genuinely need a heavy data plane (`init`, `doctor`, `project *`, `session *`, `server`) `await import()` their handler inside the commander `.action()` callback so the cone loads only when that action fires. A `NODE_DEBUG=module` regression test (`cli/dispatcher-deps.test.ts`) enforces this. *Lazy-load contract resolved by [ND-18](../decisions/ND-18-lazy-load-cli-dispatcher-contract.md) on 2026-05-27.*
 - **Test isolation.** Snapshot tests of subcommand stdout against fixture state.
 
 ### `attach/`
