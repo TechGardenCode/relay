@@ -39,6 +39,31 @@ program
     process.stdout.write(result.pairingSnippet + '\n\n' + result.nextSteps + '\n');
   });
 
+program
+  .command('doctor')
+  .description(
+    'Diagnose a Relay install: probe credentials, `claude` on PATH, personas, storage, and server reachability. Read-only.',
+  )
+  .action(async () => {
+    // Per ND-35, the one P0 diagnostics deliverable. Lazy-load so the
+    // dispatcher stays thin (ND-18); doctor.ts pulls only light deps (js-yaml,
+    // fetch), never better-sqlite3.
+    const { runDoctor } = await import('./doctor.js');
+    const report = await runDoctor();
+    const glyph = { ok: 'OK  ', warn: 'WARN', fail: 'FAIL' } as const;
+    process.stdout.write(`relay doctor (relay v${report.version})\n\n`);
+    for (const check of report.checks) {
+      process.stdout.write(`[${glyph[check.status]}] ${check.name} — ${check.detail}\n`);
+      if (check.remediation !== undefined && check.status !== 'ok') {
+        process.stdout.write(`         → ${check.remediation}\n`);
+      }
+    }
+    process.stdout.write(
+      `\n${report.ok ? 'All checks passed.' : 'One or more checks failed — see remediations above.'}\n`,
+    );
+    if (!report.ok) process.exitCode = 1;
+  });
+
 const token = program
   .command('token')
   .description('Manage bearer tokens stored in ~/.relay/tokens.json');

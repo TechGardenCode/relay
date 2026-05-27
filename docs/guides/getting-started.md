@@ -304,6 +304,16 @@ Default config: `~/.relay/config.yaml`. Override with `--config`. For production
 
 The known rough edges in the current UX, with citations to the ND-NN that tracks each fix. When Track 7 lands, the corresponding callouts here will be removed.
 
+### First: run `relay doctor`
+
+Most "it doesn't work and I don't know why" failures have a one-command answer. On the machine running `relay server`:
+
+```bash
+relay doctor
+```
+
+It probes the whole local surface — `~/.relay/` is initialized and writable, `config.yaml` parses, a token store exists, the `claude` binary is on your `PATH`, Claude credentials are present (via `ANTHROPIC_API_KEY` or a `claude login` session), your tenant personas parse, and the server is reachable with a valid token (set `RELAY_TOKEN` first to probe that last one) — and prints a remediation line for every failing check. It is read-only: it never changes anything in `~/.relay/`. The sections below explain individual failures in more depth, but `relay doctor` is the fastest way to find which one you're hitting. Tracked by [ND-35](../decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) (resolved 2026-05-27).
+
 ### `node-pty` install fails
 
 The `node-pty` native build is the most common install snag. Two flavours:
@@ -315,6 +325,7 @@ The `node-pty` native build is the most common install snag. Two flavours:
 
 Relay spawns the `claude` binary and inherits your shell's `$HOME` / credentials. If the agent boots but every prompt returns an auth error:
 
+- **Run `relay doctor` first.** Its `credentials` check tells you whether *any* credential surface is present (`ANTHROPIC_API_KEY` or a `claude login` session) — a `FAIL` here means you never authenticated on the server host. Note the probe checks *presence*, not validity: a present-but-expired token passes the probe and still fails at the agent, so also verify with the next step.
 - **Verify outside Relay first.** `claude -p "say hi"` from a fresh shell should succeed. If it doesn't, the issue is upstream of Relay.
 - **macOS.** `claude auth login` writes to the Keychain. If you're running `relay server` under `launchd`, the launch agent needs Keychain access — easiest fix is to run `relay server` from your interactive shell while debugging.
 - **Linux.** Credentials live at `~/.claude/.credentials.json`. Permissions must allow the user running `relay server` to read it.
@@ -334,7 +345,7 @@ The extension keys SecretStorage on a single `relay.serverUrl` + `relay.token` p
 
 ### Persona didn't load — what went wrong?
 
-If `relay session list` shows the session but the agent's behavior doesn't reflect the persona's `systemPrompt`, check the spawn audit at `~/.relay/sessions/<sid>/spawn-record.json` ([ND-12](../decisions/ND-12-spawn-json-schema-location.md)) — it records the exact argv used and which persona file resolved. A near-future `relay doctor` will surface this automatically; until then, hand-check the audit. Tracked by Track 7 ND-35.
+If `relay session list` shows the session but the agent's behavior doesn't reflect the persona's `systemPrompt`, the persona file may have failed to load — persona-load failures are non-fatal (the session spawns without the persona applied; see [D-G1](../decisions/D-G1-persona-application-semantics.md)). Run `relay doctor`: its `personas` check lists any tenant persona file that didn't parse, with the reason. For deeper inspection, the spawn audit at `~/.relay/sessions/<sid>/spawn-record.json` ([ND-12](../decisions/ND-12-spawn-json-schema-location.md)) records the exact argv used and which persona file resolved. Surfaced by `relay doctor` per [ND-35](../decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) (resolved 2026-05-27).
 
 ### Server says "connection refused" from another device
 

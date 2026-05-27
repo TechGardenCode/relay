@@ -92,7 +92,24 @@ No MVP list endpoint actually needs pagination yet (sessions, projects, personas
 
 **Known inconsistency:** the transcript response example in [`prd/03-server.md`](../prd/03-server.md) §2 uses `snake_case` field names (`session_id`, `total_bytes`, `has_more`). This doc supersedes that example; the implementation will use `sessionId`, `totalBytes`, `hasMore`. A propagation entry to update the PRD snippet at implementation time will be filed in [`../decisions/index.md`](../decisions/index.md) via the decision-log skill.
 
-## 7. Propagation
+## 7. Recovery guidance per error class
+
+Every `type` code documents a **recovery path** — the next action a user takes to clear the error. The recovery copy lives here (the authoritative table) so the IDE extension's error-handler can hard-code user-facing strings keyed on the slug, and so a human reading a raw problem-details response knows what to do. A client that meets an unknown `type` falls back to rendering `detail`.
+
+| `type` slug | Recovery path |
+|---|---|
+| `project-path-taken` | A project is already registered at that canonical path. Use the existing project (`existingProjectId` rides on the payload), or pass a different path. |
+| `project-slug-undeducible` | The slug could not be derived from the path basename. Re-run with an explicit `--name <kebab-slug>` (CLI) / `slug` field (REST). |
+| `persona-not-found` | The named persona did not resolve in the tenant or project persona dirs. Run `relay persona list` to see valid names, or `relay doctor` to surface persona files that failed to parse. |
+| `session-not-found` | No session row for that id. Run `relay session list --all`; a killed session is still queryable, a never-created one is not. |
+| validation error (`validationErrors` present) | One or more request fields are malformed; each entry's `path` + `message` names the field to fix. |
+| `401` (auth) | The bearer token is missing, expired, or revoked. Re-pair the device, or mint a fresh token with `relay token create`. `relay doctor`'s server probe distinguishes unreachable-server from rejected-token. |
+
+This is **documentation**, not a payload field. A machine-readable `recovery` extension member on the problem-details body was considered and **deferred** (ND-35): the `ProblemDetailsSchema` already `passthrough()`es extension members, so the field can be added non-breakingly once an in-IDE error-renderer exists to consume it (that renderer is itself deferred, gated on the extension diagnostics surface). Until then, the recovery copy is sourced from this table.
+
+*Recovery-guidance documentation resolved by [ND-35](../decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) on 2026-05-27.*
+
+## 8. Propagation
 
 This doc affects:
 

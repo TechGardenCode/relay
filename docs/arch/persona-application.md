@@ -200,6 +200,12 @@ A persona may reference an MCP server that isn't in the user's native `~/.claude
 
 Hard fail is the more honest default for MCP servers (a listed-but-missing MCP server is a configuration error, not a benign omission). The exact policy choice is implementation detail rather than architecture — capture it during implementation if anyone cares to formalize it; otherwise the implementation can ship with hard-fail and we revisit only if friction surfaces. Not currently filed as a sub-question.
 
+### 6.6 Diagnosing a persona that didn't load
+
+Persona-load failure stays **non-fatal** (D-G1): a persona YAML with a syntax or schema error is *excluded* per D-09 §4 — the server does not crash and other personas still load — and an `agentSessionId` that never gets captured leaves the field `NULL` (ND-11) without surfacing an error to the client. The diagnostic surface for this class is the `relay doctor` command: its persona-parse probe runs the tenant persona directory through the same `loadPersonasFromDirectory` loader the server uses and lists any file that failed to load with its `PersonaLoadReason`, so a typo is a named diagnostic instead of an invisible exclusion. `relay persona list` already prints invalid files to stderr, and the `~/.relay/sessions/<sid>/spawn-record.json` audit (ND-12) records which persona file actually resolved for a given session. Making persona-load fatal, or adding a "persona did not apply" field to the session record that the IDE renders, were both considered and **deferred** — the first would change this non-fatal contract (and a one-file typo should not refuse to boot the server), the second is a multi-surface feature for a rare failure.
+
+*Persona-load diagnostics surface resolved by [ND-35](../decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) on 2026-05-27; the D-G1 non-fatal contract is unchanged.*
+
 ---
 
 ## 7. Sketch of the data flow at spawn
