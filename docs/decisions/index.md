@@ -4,28 +4,24 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 37 · Open: 15 · Deferred: 3.
+**Counts.** Resolved: 41 · Open: 10 · Deferred: 4.
 
 ## Open / in-deliberation
 
 - [`ND-08` — Skill subset enforcement mechanism](ND-08-skill-subset-enforcement-mechanism.md)
 - [`ND-10` — `relay token list` subcommand surface alignment](ND-10-relay-token-list-subcommand-surface-alignment.md)
-- [`ND-15` — `relay session show` subcommand surface alignment](ND-15-relay-session-show-subcommand-surface-alignment.md)
 - [`ND-16` — CLI ↔ data-plane boundary rule](ND-16-cli-data-plane-boundary-rule.md)
-- [`ND-17` — `relay attach` raw-mode TTY variant of the §5.1 client FSM](ND-17-relay-attach-raw-mode-tty-variant-of-the-5-1-client-fsm.md)
 - [`ND-18` — Lazy-load CLI dispatcher contract](ND-18-lazy-load-cli-dispatcher-contract.md)
-- [`ND-25` — `relay attach` detach with `^D` requires two keypresses on the host TTY](ND-25-relay-attach-detach-with-d-requires-two-keypresses-on-the-host-tty.md)
 - [`ND-26` — Publish `@relay/protocol` package to npm as a third-party surface](ND-26-publish-relay-protocol-package-to-npm-as-a-third-party-surface.md)
 - [`ND-27` — Stability commitment for the WS endpoint as a third-party surface](ND-27-stability-commitment-for-the-ws-endpoint-as-a-third-party-surface.md)
 - [`ND-28` — Programmatic / machine-to-machine credential flow](ND-28-programmatic-machine-to-machine-credential-flow.md)
-- [`ND-29` — Distribute `relay attach` as a standalone package](ND-29-distribute-relay-attach-as-a-standalone-package.md)
 - [`ND-30` — `relay attach` stderr event-stream protocol for subprocess-of-attach consumers](ND-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers.md)
 - [`ND-31` — SecretStorage key namespace for multi-server IDE pairing](ND-31-secretstorage-key-namespace-for-multi-server-ide-pairing.md)
-- [`ND-34` — Session + attach polish deep-dive — painless-rollout bar](ND-34-session-and-attach-polish-deep-dive.md)
 - [`ND-35` — Diagnostics + error UX deep-dive — painless-rollout bar](ND-35-diagnostics-and-error-ux-deep-dive.md)
 
 ## Deferred
 
+- [`ND-29` — Distribute `relay attach` as a standalone package](ND-29-distribute-relay-attach-as-a-standalone-package.md) _(deferred: a constrained-distribution third-party consumer or a PWA native-helper companion surfaces)_
 - [`D-02` — PWA initial server discovery](D-02-pwa-initial-server-discovery.md) _(deferred: Phase 2 PWA work begins)_
 - [`D-05` — Per-device token rotation](D-05-per-device-token-rotation.md) _(deferred: Phase 3 hardening)_
 - [`D-14` — Product name](D-14-product-name.md) _(deferred: pre-launch naming review)_
@@ -34,6 +30,10 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 
 _Newest first._
 
+- [`ND-34` — Session + attach polish deep-dive — painless-rollout bar](ND-34-session-and-attach-polish-deep-dive.md) _(2026-05-27)_
+- [`ND-25` — `relay attach` detach with `^D` requires two keypresses on the host TTY](ND-25-relay-attach-detach-with-d-requires-two-keypresses-on-the-host-tty.md) _(2026-05-27)_
+- [`ND-17` — `relay attach` raw-mode TTY variant of the §5.1 client FSM](ND-17-relay-attach-raw-mode-tty-variant-of-the-5-1-client-fsm.md) _(2026-05-27)_
+- [`ND-15` — `relay session show` subcommand surface alignment](ND-15-relay-session-show-subcommand-surface-alignment.md) _(2026-05-27)_
 - [`ND-37` — REST poll cadence and lifecycle for extension live surfaces](ND-37-rest-poll-cadence-and-lifecycle-for-extension-live-surfaces.md) _(2026-05-26)_
 - [`ND-33` — IDE GUI overhaul deep-dive — painless-rollout bar](ND-33-ide-gui-overhaul-deep-dive.md) _(2026-05-26)_
 - [`ND-32` — Install + onboarding deep-dive — painless-rollout bar](ND-32-install-and-onboarding-deep-dive.md) _(2026-05-26)_

@@ -105,6 +105,8 @@ None of these block Phase 1 *acceptance* — [`6Z`](../build-plan.md) tests that
 - [[nd-24-per-keystroke-input-streaming-for-tui-agents]] — per-keystroke streaming (resolved).
 - [[nd-25-relay-attach-detach-with-d-requires-two-keypresses-on-the-host-tty]] — `^D` two-press.
 
+*Resolved by [ND-34](../decisions/ND-34-session-and-attach-polish-deep-dive.md) on 2026-05-27 — the painless-rollout bar for this surface lives in that resolution (quoted into §7 by link, per D-15 ownership). P0 shipped: single-press `^D` detach + still-running confirmation. Doc-drift NDs resolved inline: [[nd-15-relay-session-show-subcommand-surface-alignment]], [[nd-17-relay-attach-raw-mode-tty-variant-of-the-5-1-client-fsm]], [[nd-25-relay-attach-detach-with-d-requires-two-keypresses-on-the-host-tty]]. Deferred with rationale: session naming, mid-session persona switch, `idle` fill-in, CLI BUSY polish, and [[nd-29-distribute-relay-attach-as-a-standalone-package]] (attach-as-package, item h). The 32 KB replay ([[nd-03-ring-buffer-size-for-attach-replay]]) and immutable-persona ([[d-g1-persona-application-semantics]]) contracts stand unchanged.*
+
 ## 6. Surface 4 — Diagnostics & error UX
 
 **Entry point for the deep-dive:** [[nd-35-diagnostics-and-error-ux-deep-dive]]. **Track 7 row:** 7E.

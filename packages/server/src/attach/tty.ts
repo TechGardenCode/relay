@@ -76,6 +76,14 @@ export function runTty(opts: RunTtyOptions): RunTtyResult {
     client.resize(size.cols, size.rows);
   };
 
+  // Per ND-34 item (i) + ND-25: latch whether *we* initiated the close (^D or
+  // a canonical-mode EOF). WS close code 1000 is overloaded — per
+  // ws-protocol.md §4.2 it covers both a clean local detach AND a server
+  // shutdown after `session_ended`. The latch lets onClose print the
+  // "still running" confirmation only for a real detach, never for a session
+  // that actually ended.
+  let localDetach = false;
+
   let cleanedUp = false;
   function cleanup(): void {
     if (cleanedUp) return;
@@ -123,7 +131,17 @@ export function runTty(opts: RunTtyOptions): RunTtyResult {
       },
       onClose(code: number, reason: string): void {
         cleanup();
-        if (reason !== '') {
+        // Per ND-34 item (i): on a clean local detach the session keeps
+        // running (D-G3 / §5.2), so confirm that and how to get back in —
+        // otherwise the operator is dumped to their shell unsure they didn't
+        // kill it. Gated on `localDetach` so a session_ended-driven 1000 close
+        // (§4.2) does not falsely report the session alive.
+        if (code === 1000 && localDetach) {
+          stderr.write(
+            `\n[relay] detached from session ${client.sessionId}; the session is still running. ` +
+              `Reattach with: relay attach ${client.sessionId}\n`,
+          );
+        } else if (reason !== '') {
           stderr.write(`\n[relay] disconnected (${String(code)}: ${reason}).\n`);
         }
         resolve(code);
@@ -145,6 +163,19 @@ export function runTty(opts: RunTtyOptions): RunTtyResult {
       // Per prd/03-server.md §7: ^D is a clean detach; the session keeps
       // running, the socket closes 1000, and any bytes after the ^D in the
       // same chunk are dropped (the user's intent was to detach).
+      localDetach = true;
+      client.close();
+    });
+
+    // Per ND-25(b): defense-in-depth for single-press ^D. If raw mode was
+    // silently no-op'd on the host (macOS Terminal.app under Node 24 was the
+    // repro), the TTY stays canonical and the first ^D on an empty line is an
+    // EOF Node delivers as 'end' — never a 'data' chunk containing 0x04 — so
+    // the handler above misses it and the operator must press ^D twice.
+    // Closing on 'end' too makes single-press detach work in both regimes;
+    // `client.close()` is idempotent so the raw-mode 'data' path is unaffected.
+    stdin.on('end', (): void => {
+      localDetach = true;
       client.close();
     });
   });

@@ -1,6 +1,7 @@
 ---
 id: ND-29
-status: open
+status: deferred
+deferred-until: "a third-party tool surfaces with constrained-distribution requirements, or the Phase 2 PWA grows a native-helper companion that wants only the attach client"
 title: "Distribute `relay attach` as a standalone package"
 affects: "packages/server/src/attach/, docs/arch/repo-layout.md §3, docs/prd/04-ide-extension.md §4"
 surfaced-by: "Client-agnosticism audit, 2026-05-22 (see [`docs/arch/client-agnosticism.md`](../arch/client-agnosticism.md) §5)"
@@ -9,7 +10,7 @@ surfaced-by: "Client-agnosticism audit, 2026-05-22 (see [`docs/arch/client-agnos
 # ND-29 — Distribute `relay attach` as a standalone package
 
 
-**Status:** open
+**Status:** deferred (until a third-party tool surfaces with constrained-distribution requirements, or the Phase 2 PWA grows a native-helper companion that wants only the attach client)
 **Affects:** `packages/server/src/attach/`, `docs/arch/repo-layout.md` §3, `docs/prd/04-ide-extension.md` §4
 **Surfaced by:** Client-agnosticism audit, 2026-05-22 (see [`docs/arch/client-agnosticism.md`](../arch/client-agnosticism.md) §5)
 
@@ -33,4 +34,13 @@ This entry is distinct from ND-26 (publishing the protocol schemas) because the 
 No preference yet. Option B is the lowest-cost path and is probably right for as long as the IDE extension is the only first-party consumer that does subprocess-spawning — the extension already takes the server install, so the recipe is invisible. Option A becomes attractive if the PWA grows a "native-helper" companion that wants only the attach client, or if a third-party tool surfaces with constrained distribution requirements. Re-evaluate when one of those triggers fires.
 
 ## Resolution
-*(unresolved)*
+
+Deferred. [[nd-32-install-and-onboarding-deep-dive]] (e) handed the attach-package question to 7D / ND-29 "so it lands in one place," and [[nd-34-session-and-attach-polish-deep-dive]] (h) confirms it: the attach-distribution shape is a third-party-integration concern, not a non-author-daily-use concern, so it does not gate the painless-rollout bar. The single first-party subprocess consumer — the IDE extension — already takes the full `@relay/relay` install, so the recipe cost is invisible today.
+
+**MVP behavior.** `relay attach` stays bundled inside `@relay/relay` per [[d-08-single-binary-vs-separate-packages]]. Third-party tools that want the thin client install the server package and invoke only the `attach` subcommand (Option B, recipe-only) — accepting the `node-pty`/SQLite/Fastify dependency cost as the price of zero packaging churn.
+
+**Default direction when picked up.** Option B (document the "install `@relay/relay`, run only `relay attach`" recipe) for as long as the IDE extension is the only first-party subprocess consumer. Option A (extract `@relay/attach` consuming `@relay/protocol`) becomes the lean if a constrained-distribution consumer (a container, a single-purpose CI image) or a PWA native-helper companion makes the full-install cost actually bite.
+
+**Re-open trigger.** A third-party tool surfaces with constrained-distribution requirements, or the Phase 2 PWA grows a native-helper companion that wants only the attach client.
+
+**Disposition recorded as part of [[nd-34-session-and-attach-polish-deep-dive]] (Track 7D), item (h).**

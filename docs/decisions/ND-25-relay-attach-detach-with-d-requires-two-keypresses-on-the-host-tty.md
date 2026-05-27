@@ -1,6 +1,7 @@
 ---
 id: ND-25
-status: open
+status: resolved
+resolved-on: 2026-05-27
 title: "`relay attach` detach with `^D` requires two keypresses on the host TTY"
 affects: "packages/server/src/attach/tty.ts (stdin raw-mode setup at lines 62–94 and the ^D handler at lines 133–149); potentially docs/arch/ws-protocol.md §5.1 (client FSM detach trigger — currently silent on whether detach is a single keypress or a documented host-TTY drain-then-EOF gesture); packages/server/src/attach/client.ts (client.close() path that fires from the handler); operator-facing detach copy in .claude/skills/vm-e2e/SKILL.md and the future relay attach --help."
 surfaced-by: "Laptop-local e2e walk (2026-05-19) — same init → server → project add → POST /sessions → relay attach <sid> flow that ND-24 documents, with HOME symlinked per ND-22 and @anthropic-ai/claude-code 2.1.145 as the spawned agent. Two attach round-trips (initial + reattach) under the same Node 24.15.0 / Terminal.app host both required pressing ^D twice to return the operator to the host shell. The first press was perceptually a no-op (no rendered feedback, no detach banner, no shell prompt); the second press cleanly closed the WS and returned control. Symptom is independent of the agent's compose-buffer content (occurred with the prompt buffer empty after the agent's last reply)."
@@ -9,7 +10,7 @@ surfaced-by: "Laptop-local e2e walk (2026-05-19) — same init → server → pr
 # ND-25 — `relay attach` detach with `^D` requires two keypresses on the host TTY
 
 
-**Status:** open
+**Status:** resolved (2026-05-27)
 **Affects:** `packages/server/src/attach/tty.ts` (stdin raw-mode setup at lines 62–94 and the `^D` handler at lines 133–149); potentially `docs/arch/ws-protocol.md` §5.1 (client FSM detach trigger — currently silent on whether detach is a single keypress or a documented host-TTY drain-then-EOF gesture); `packages/server/src/attach/client.ts` (`client.close()` path that fires from the handler); operator-facing detach copy in `.claude/skills/vm-e2e/SKILL.md` and the future `relay attach --help`.
 **Surfaced by:** Laptop-local e2e walk (2026-05-19) — same `init → server → project add → POST /sessions → relay attach <sid>` flow that ND-24 documents, with `HOME` symlinked per ND-22 and `@anthropic-ai/claude-code` 2.1.145 as the spawned agent. Two attach round-trips (initial + reattach) under the same Node 24.15.0 / Terminal.app host both required pressing `^D` twice to return the operator to the host shell. The first press was perceptually a no-op (no rendered feedback, no detach banner, no shell prompt); the second press cleanly closed the WS and returned control. Symptom is independent of the agent's compose-buffer content (occurred with the prompt buffer empty after the agent's last reply).
 
@@ -32,3 +33,20 @@ What to validate before resolving:
 Resolution should land as either: (i) a fix to the raw-mode setup so single-press `^D` works as `tty.ts:145–147` already documents, with a regression test in `attach/tty.test.ts` that asserts the handler sees the 0x04 byte and fires `client.close()` exactly once; or (ii) an updated contract that explicitly names two-press detach as the host-TTY canonical-mode-drain gesture, with `relay attach --help` copy, an operator note in `.claude/skills/vm-e2e/SKILL.md`, and a `ws-protocol.md` §5.1 footnote naming the gesture. Mixed outcome is plausible (fix on a hardened host, document the fallback) — but the resolution should call out which is canonical.
 
 This is filed as `open` so the resolution lands as a deliberate code/doc edit rather than an inline implementation drift. ND-25 does not block any current build-plan task; it is operator-UX polish for the laptop-local attach path. Worth fast-following before 6I (IDE extension) ships, because the extension's terminal widget will inherit whatever detach gesture `relay attach` exposes.
+
+## Resolution
+
+**Single-press `^D` is the canonical detach gesture — option (i). The defect is closed with a defense-in-depth `stdin.on('end')` listener so the first press detaches in both raw-mode and canonical-mode regimes, rather than redefining the contract around two presses or a new escape sequence.** Root cause, per the elaboration's hypothesis (a): when `setRawMode` is silently no-op'd on the host (the macOS Terminal.app / Node 24 repro), the TTY stays canonical, so the first `^D` on an empty line is an EOF that Node delivers as a stdin `'end'` event — never a `'data'` chunk containing `0x04`. The existing handler listened only on `'data'`, so the first press was invisible and the second (with stdin already drained) delivered the raw `0x04` byte as `'data'`. The fix does not try to guarantee raw mode took effect on every host; it makes detach correct whether or not it did.
+
+### Contract
+
+1. **Single-press `^D` detaches.** This is the canonical gesture, matching standard terminal EOF-on-empty-line behavior and the contract `tty.ts:145–147` / `prd/03-server.md` §7 already documented. No two-press gesture, no `~.` / `Ctrl-A d` escape sequence (rejected — see below).
+2. **Two close paths, both single-press.** In genuine raw mode the `^D` byte arrives as a `0x04` `'data'` chunk and the existing handler slices any prefix bytes, then closes. In canonical mode the first `^D` is an EOF delivered as `'end'`; a new `stdin.on('end', () => client.close())` listener closes on it. Both call the idempotent `AttachClient.close()` (it guards on `readyState === OPEN`), so whichever path fires first wins and the other is a no-op.
+3. **`^D` overloads EOF-to-agent — accepted.** Because `^D` is consumed as a detach gesture, an operator cannot send a bare EOF byte through to the agent. This is the same class of accepted limitation as §5.1's "character-at-a-time programs like `vim` are not the MVP target"; the agent surface (`claude` TUI) does not need a passthrough `^D`.
+4. **Regression coverage.** `attach/tty.test.ts` asserts (a) the `'end'` path closes the WS cleanly with code 1000 and (b) the existing `0x04`-in-`'data'` path is unchanged. The `^D` byte mid-chunk still slices the prefix and drops post-`^D` bytes.
+
+**Why this and not option (ii) or a new escape sequence:** Option (ii) — documenting two-press as the canonical gesture — would enshrine a confusing behavior (the first press renders no feedback) as the contract and propagate it into `--help`, the handbook, and the IDE terminal widget that inherits the gesture. The escape-sequence alternative raised in elaboration (f) (`~.` à la `ssh`, `Ctrl-A d` à la `tmux`) was rejected because it trades a one-keystroke convention every terminal user already knows for a discoverability burden, and it would break the already-shipped `^D` contract plus all existing handbook copy. The `'end'` defense-in-depth is the minimal change that makes the *documented* single-press behavior actually hold, independent of whether the host honored `setRawMode`.
+
+**Resolved as part of [[nd-34-session-and-attach-polish-deep-dive]] (Track 7D), item (a).**
+
+**Propagated to:** `packages/server/src/attach/tty.ts` (`stdin.on('end')` + `localDetach` latch) + `attach/tty.test.ts` (2026-05-27); `docs/prd/03-server.md` §7 `relay attach` line (2026-05-27); `docs/guides/getting-started.md` Ch 4 + Ch 7 (2026-05-27).

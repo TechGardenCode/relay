@@ -253,6 +253,72 @@ describe('runTty ^D close handling', () => {
   });
 });
 
+describe('runTty single-press ^D detach (ND-25)', () => {
+  // Per ND-25(b): defense-in-depth `stdin.on('end')` so a first ^D that arrives
+  // as a canonical-mode EOF (raw mode silently no-op'd on the host) still closes
+  // on the first press, not the second.
+  it("closes the WS cleanly when stdin emits 'end' (canonical-mode EOF)", async () => {
+    const rig = await newRig();
+    runTty({
+      client: rig.client,
+      stdin: rig.stdin,
+      stdout: rig.stdout,
+      stderr: rig.stderr,
+      setRawMode: () => {},
+      installExitHook: () => {},
+    });
+    rig.stdin.end(); // first ^D delivered as EOF in canonical mode → 'end'
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(rig.socket.closeCode).toBe(1000);
+  });
+});
+
+describe('runTty detach confirmation (ND-34 item i)', () => {
+  function collectStderr(stderr: PassThrough): { text: () => string } {
+    const chunks: Buffer[] = [];
+    stderr.on('data', (b: Buffer) => chunks.push(Buffer.from(b)));
+    return { text: () => Buffer.concat(chunks).toString('utf8') };
+  }
+
+  it('prints "still running" + reattach hint on a local ^D detach (code 1000)', async () => {
+    const rig = await newRig();
+    const err = collectStderr(rig.stderr);
+    runTty({
+      client: rig.client,
+      stdin: rig.stdin,
+      stdout: rig.stdout,
+      stderr: rig.stderr,
+      setRawMode: () => {},
+      installExitHook: () => {},
+    });
+    rig.stdin.write(Buffer.from([0x04]));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const text = err.text();
+    expect(text).toContain('still running');
+    expect(text).toContain('01J7ZXY9PQ2K0M4B6F3HV8C5R7');
+    expect(text).toContain('relay attach 01J7ZXY9PQ2K0M4B6F3HV8C5R7');
+  });
+
+  // Per ws-protocol.md §4.2 a session_ended-driven shutdown ALSO closes 1000;
+  // the confirmation must NOT fire then or it would report a dead session alive.
+  it('does NOT print "still running" when a 1000 close follows session_ended', async () => {
+    const rig = await newRig();
+    const err = collectStderr(rig.stderr);
+    runTty({
+      client: rig.client,
+      stdin: rig.stdin,
+      stdout: rig.stdout,
+      stderr: rig.stderr,
+      setRawMode: () => {},
+      installExitHook: () => {},
+    });
+    rig.socket.receiveText({ type: 'session_ended', reason: 'agent_exit' });
+    rig.socket.close(1000); // server clean shutdown after session_ended
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(err.text()).not.toContain('still running');
+  });
+});
+
 describe('runTty resize forwarding (ND-23)', () => {
   it('emits resize on startup with current stdout dimensions', async () => {
     const rig = await newRig();

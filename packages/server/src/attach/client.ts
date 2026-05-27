@@ -139,6 +139,12 @@ export class AttachClient {
     return this.state;
   }
 
+  /** The session this client is attached to. Used by the TTY bridge to print
+   * the ND-34 item (i) detach confirmation without re-threading the id. */
+  get sessionId(): string {
+    return this.opts.sessionId;
+  }
+
   get helloFrame(): HelloFrame | undefined {
     return this.hello;
   }

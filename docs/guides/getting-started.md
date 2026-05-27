@@ -205,8 +205,10 @@ The status-bar indicator follows focus across workspace roots. The current scope
 
 In the terminal pane:
 
-- Press `Ctrl-D` **twice in quick succession** to detach (the two-press requirement is a current sharp edge — see [Chapter 7](#d-disconnect-requires-two-presses)).
+- Press `Ctrl-D` **once** to detach. The client prints `detached from session <id>; the session is still running. Reattach with: relay attach <id>` so you know it kept running and how to get back in.
 - The session keeps running on the server. You can re-attach later from any device.
+
+(Single-press detach was finalized in [ND-25](../decisions/ND-25-relay-attach-detach-with-d-requires-two-keypresses-on-the-host-tty.md), resolved as part of Track 7 [ND-34](../decisions/ND-34-session-and-attach-polish-deep-dive.md) — earlier builds needed two presses on some hosts.)
 
 To kill a session (not just detach), use:
 
@@ -238,6 +240,8 @@ relay attach <session-id>
 ```
 
 You'll see a short replay of the last terminal viewport (so you're not staring at a blank screen), then live PTY output streams in real time. Type to send input — every keystroke is forwarded per [ND-24](../decisions/ND-24-per-keystroke-input-streaming-for-tui-agents.md) so TUI agents like Claude Code feel native.
+
+Detach with a single `Ctrl-D`; the client confirms `the session is still running` and prints the reattach command, so you can hop between devices without fear of killing the session (resolved in Track 7 [ND-34](../decisions/ND-34-session-and-attach-polish-deep-dive.md)). The replay on each reattach is a fixed 32 KB window ([ND-03](../decisions/ND-03-ring-buffer-size-for-attach-replay.md)) — enough for a viewport of context; pull deeper history via the transcript API if you need it.
 
 ### Multi-client semantics
 
@@ -284,7 +288,7 @@ relay session show <session-id>           # full detail: persona, project, statu
 relay session kill <session-id>           # SIGTERM the underlying claude process; status becomes 'terminated'
 ```
 
-`relay session show`'s output shape is currently still being finalized — see [ND-15](../decisions/ND-15-relay-session-show-subcommand-surface-alignment.md), part of Track 7 ND-34.
+`relay session show <id>` prints the full record as `key: value` lines (`id`, `status`, `personaName`, `projectId`, `terminatedReason`, `totalBytes`, `agentSessionId`, `ptyPid`, `createdAt`, `updatedAt`); a missing id exits 1 with `No session with id <id>.`. Output shape finalized in [ND-15](../decisions/ND-15-relay-session-show-subcommand-surface-alignment.md) (resolved with Track 7 [ND-34](../decisions/ND-34-session-and-attach-polish-deep-dive.md)).
 
 ### Server
 
@@ -316,9 +320,9 @@ Relay spawns the `claude` binary and inherits your shell's `$HOME` / credentials
 - **Linux.** Credentials live at `~/.claude/.credentials.json`. Permissions must allow the user running `relay server` to read it.
 - **Docker / headless.** Use `ANTHROPIC_API_KEY` as the fallback; the docs default is `claude auth login` per [ND-19](../decisions/ND-19-claude-login-oauth-as-the-documented-credential-default-anthropic-api-key-as-fallback.md).
 
-### Detach with `Ctrl-D` requires two presses
+### Detaching with `Ctrl-D`
 
-Pressing `Ctrl-D` once in an attached session sometimes sends an EOF to the agent instead of closing the attach. Two presses in quick succession reliably detaches. Tracked by [ND-25](../decisions/ND-25-relay-attach-detach-with-d-requires-two-keypresses-on-the-host-tty.md); the fix lands with Track 7 ND-34.
+A single `Ctrl-D` detaches a `relay attach` session; the client prints `detached from session <id>; the session is still running. Reattach with: relay attach <id>` so you know the session survived. Earlier builds needed two presses on hosts where raw mode didn't take effect — fixed in [ND-25](../decisions/ND-25-relay-attach-detach-with-d-requires-two-keypresses-on-the-host-tty.md) (resolved with Track 7 [ND-34](../decisions/ND-34-session-and-attach-polish-deep-dive.md)). If you ever see a `Ctrl-D` reach the agent instead of detaching, update to the current `relay` binary.
 
 ### No BUSY notification in the IDE pane
 
