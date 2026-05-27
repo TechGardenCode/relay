@@ -4,7 +4,7 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 36 · Open: 15 · Deferred: 3.
+**Counts.** Resolved: 37 · Open: 15 · Deferred: 3.
 
 ## Open / in-deliberation
 
@@ -34,6 +34,7 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 
 _Newest first._
 
+- [`ND-37` — REST poll cadence and lifecycle for extension live surfaces](ND-37-rest-poll-cadence-and-lifecycle-for-extension-live-surfaces.md) _(2026-05-26)_
 - [`ND-33` — IDE GUI overhaul deep-dive — painless-rollout bar](ND-33-ide-gui-overhaul-deep-dive.md) _(2026-05-26)_
 - [`ND-32` — Install + onboarding deep-dive — painless-rollout bar](ND-32-install-and-onboarding-deep-dive.md) _(2026-05-26)_
 - [`D-16` — Phase 1 ships without distribution (6J deferred to post-2.0)](D-16-phase-1-ships-without-distribution.md) _(2026-05-22)_

@@ -18,6 +18,24 @@
     "onUri"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "relay",
+          "title": "Relay",
+          "icon": "$(broadcast)"
+        }
+      ]
+    },
+    "views": {
+      "relay": [
+        {
+          "id": "relay.sessions",
+          "name": "Sessions",
+          "contextualTitle": "Relay Sessions"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "relay.connectServer",
@@ -34,12 +52,73 @@
       {
         "command": "relay.registerWorkspace",
         "title": "Relay: Register this workspace as a project"
+      },
+      {
+        "command": "relay.sessions.refresh",
+        "title": "Relay: Refresh sessions",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "relay.sessions.attachNode",
+        "title": "Attach",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "relay.sessions.releaseNode",
+        "title": "Release",
+        "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "relay.sessions.killNode",
+        "title": "Kill",
+        "icon": "$(trash)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "relay.sessions.refresh",
+          "when": "view == relay.sessions",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "relay.sessions.attachNode",
+          "when": "view == relay.sessions && viewItem =~ /^relaySession\\.(running|idle)$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "relay.sessions.releaseNode",
+          "when": "view == relay.sessions && viewItem =~ /^relaySession\\.(running|idle)$/",
+          "group": "inline@2"
+        },
+        {
+          "command": "relay.sessions.killNode",
+          "when": "view == relay.sessions && viewItem =~ /^relaySession\\.(running|idle)$/",
+          "group": "inline@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "relay.sessions.attachNode",
+          "when": "false"
+        },
+        {
+          "command": "relay.sessions.releaseNode",
+          "when": "false"
+        },
+        {
+          "command": "relay.sessions.killNode",
+          "when": "false"
+        }
+      ]
+    }
   },
   "scripts": {
     "typecheck": "tsc -b --pretty",
     "build": "node esbuild.config.mjs",
+    "test": "vitest run",
     "vsix": "vsce package --no-dependencies --allow-missing-repository"
   },
   "dependencies": {
@@ -49,6 +128,7 @@
   "devDependencies": {
     "@types/vscode": "^1.85.0",
     "@vscode/vsce": "^3.9.1",
-    "esbuild": "^0.28.0"
+    "esbuild": "^0.28.0",
+    "vitest": "^2.1.8"
   }
 }

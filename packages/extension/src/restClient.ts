@@ -157,6 +157,21 @@ export class RelayRestClient {
     );
   }
 
+  // Per D-11 + ND-33 Contract #2: the sessions tree renders running / idle /
+  // killed nodes, so it lists with ?status=all (the wire filter that unions all
+  // three statuses) rather than the running-only default `listRunningSessions`.
+  async listAllSessions(): Promise<SessionListResponse> {
+    return SessionListResponseSchema.parse(
+      await this.request('GET', '/sessions', undefined, { status: 'all' }),
+    );
+  }
+
+  // Per D-11: DELETE is idempotent on an existing row (re-killing a killed
+  // session returns 204). 204 → undefined. Backs the tree's per-node kill.
+  async deleteSession(sessionId: string): Promise<void> {
+    await this.request('DELETE', `/sessions/${sessionId}`);
+  }
+
   async createSession(req: SessionCreateRequest): Promise<Session> {
     return SessionSchema.parse(await this.request('POST', '/sessions', req));
   }

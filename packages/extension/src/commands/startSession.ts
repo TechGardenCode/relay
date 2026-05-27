@@ -17,6 +17,7 @@ import {
   RelayRestClient,
   type RelayCredentials,
 } from '../restClient.js';
+import { type AttachTerminalRegistry } from '../terminalRegistry.js';
 
 export function registerStartSession(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
@@ -93,7 +94,11 @@ interface SpawnArgs {
 // Per D-13: the bearer token rides via RELAY_TOKEN env var (recognized by
 // attach/config.ts:71-72); the server URL rides via --url so the spawned
 // attach hits the same server the extension is paired with.
-function spawnAttachTerminal(args: SpawnArgs): void {
+//
+// Returns the terminal and, when a registry is passed, tracks it by session id
+// so the sessions tree's "release" action can dispose it later (per D-G2 rule 4
+// the WS-close performs the actual claim release inside `relay attach`).
+function spawnAttachTerminal(args: SpawnArgs, registry?: AttachTerminalRegistry): vscode.Terminal {
   const terminal = vscode.window.createTerminal({
     name: `Relay: ${args.personaName} · ${args.rootName}`,
     shellPath: 'relay',
@@ -102,6 +107,8 @@ function spawnAttachTerminal(args: SpawnArgs): void {
     isTransient: true,
   });
   terminal.show();
+  registry?.track(args.sessionId, terminal);
+  return terminal;
 }
 
 function renderSessionError(err: unknown): void {
