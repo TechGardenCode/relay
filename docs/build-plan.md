@@ -113,7 +113,7 @@ Track 10:  10A is the foundation user handbook (ships against current state); ea
 | 7C-polish | IDE picker filters + REST-poll status-bar enrichment — P1 | 7F | pending → kickoff via [`build-plan-kickoff`](../.claude/skills/build-plan-kickoff/SKILL.md) |
 | 7D | ND-34 session + attach polish deep-dive | 7F | pending → [`docs/decisions/ND-34-session-and-attach-polish-deep-dive.md`](decisions/ND-34-session-and-attach-polish-deep-dive.md) |
 | 7E | ND-35 diagnostics + error UX deep-dive | 7F | pending → [`docs/decisions/ND-35-diagnostics-and-error-ux-deep-dive.md`](decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) |
-| 7F | Rollout-readiness re-walk (scenarios A–H + per-surface ND verification) | wider rollout | pending (needs 7B, 7C, 7D, 7E) |
+| 7F | Rollout-readiness re-walk (scenarios A–H + per-surface ND verification) | wider rollout | pending (needs 7B, 7C, 7D, 7E + the shipped P0 code each resolution names — for 7C that is 7C-tree) |
 | 9A | Track 9 PWA monitoring spike (`packages/spike-pwa/`, server static-serve, [ND-36](decisions/ND-36-subprotocol-sourced-bearer-token-for-browser-ws-auth.md)) | — | in progress |
 | 10A | User handbook foundation (`docs/guides/getting-started.md` + `docs/guides/README.md`) | 10B | **done** → [`docs/guides/getting-started.md`](guides/getting-started.md) · [`docs/guides/README.md`](guides/README.md) |
 | 10B | Handbook audit at 7F readiness re-walk | wider rollout | pending (needs 7B, 7C, 7D, 7E + 10A) |
@@ -537,7 +537,7 @@ Resolved [`ND-33`](decisions/ND-33-ide-gui-overhaul-deep-dive.md) (2026-05-26): 
 
 **Goal:** Confirm the rollout-readiness gate from [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) §7 — every ND-32..35 is resolved or deliberately deferred with documented rationale, and the install-through-first-session walk is painless for a non-author.
 **Done when:** Re-run [`scenario-runner`](../.claude/skills/scenario-runner/SKILL.md) scenarios A–H against a fresh install with all Track 7 deep-dive changes applied; all checks `pass`. Additionally, walk the 6I e2e flow (install → pair → start session → cross-device attach → BUSY arbitration → detach → reattach) end-to-end from a non-author perspective and confirm no documented friction beyond what the ND resolutions explicitly defer. Output: an entry in [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md) (or sibling rollout-readiness file) with the verdict + per-ND status.
-**Sequences after:** 7B, 7C, 7D, 7E all resolved.
+**Sequences after:** 7B, 7C, 7D, 7E all resolved **and** the P0 code each resolution names is shipped. For 7C (decision-only), that P0 is the sessions tree view — 7F gates on **7C-tree** landing, since the IDE GUI is not painless-in-practice until the tree view exists even though ND-33 is resolved. (7C-polish is P1 and does not gate.) Other deep-dives whose P0 shipped inline with the resolution — e.g. 7B's `relay init` bridge — add no extra gate.
 **Gates:** wider rollout (beyond operator/dogfood loop).
 
 ---
