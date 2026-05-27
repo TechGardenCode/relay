@@ -1,6 +1,7 @@
 ---
 id: ND-32
-status: open
+status: resolved
+resolved-on: 2026-05-26
 title: "Install + onboarding deep-dive — painless-rollout bar"
 affects: "docs/prd/06-distribution.md (the install / distribution narrative); docs/prd/03-server.md §6 (`relay init` + pairing flow); packages/extension/ packaging shape (Marketplace publication, sideload story, `relay` binary discovery); the operator's first-run path from `claude login` through paired-IDE to first session."
 surfaced-by: "[[d-15-ux-rollout-posture]] resolution (2026-05-22). One of four per-surface deep-dives opened to gate Phase 1.5 rollout."
@@ -8,7 +9,7 @@ surfaced-by: "[[d-15-ux-rollout-posture]] resolution (2026-05-22). One of four p
 
 # ND-32 — Install + onboarding deep-dive — painless-rollout bar
 
-**Status:** open
+**Status:** resolved (2026-05-26)
 **Affects:** `docs/prd/06-distribution.md` (the install / distribution narrative); `docs/prd/03-server.md` §6 (`relay init` + pairing flow); `packages/extension/` packaging shape (Marketplace publication, sideload story, `relay` binary discovery); the operator's first-run path from `claude login` through paired-IDE to first session.
 **Surfaced by:** [[d-15-ux-rollout-posture]] resolution (2026-05-22). One of four per-surface deep-dives opened to gate Phase 1.5 rollout.
 
@@ -42,4 +43,32 @@ This is filed as `open` so the resolution lands as a deliberate deep-dive (Track
 
 ## Resolution
 
-*(unresolved)*
+**Make `relay init` self-narrating as the one P0 install/onboarding change; name a published install channel as the bar's destination but ride its *mechanism* on Track 8; defer or hold every other item as P1-sharpening or out-of-posture.** The deliberate frame: [[d-16-phase-1-ships-without-distribution]] puts distribution (the `6J` row, now Track 8) past 2.0, so this deep-dive can only ship things that work *on today's source-install path*. Exactly one such thing carries rollout weight and is cheap: the narrative bridge after the pairing snippet. Everything that needs a published artifact, a marketplace, or a version-skew comparison is by definition Track-8-gated and is named as the bar's *target*, not its precondition.
+
+### Per-item (a)–(h) triage
+
+- **(a) Marketplace publication — bar names it; mechanism → Track 8.** The bar's destination is "extension installs from VS Code Marketplace *and* Open VSX" (both, so Cursor/VSCodium/Windsurf users are first-class), but the publish pipeline, publisher account, and `.vsix` metadata hardening land with `6J` distribution. P0-for-the-bar, deferred-for-execution. No 7B code.
+- **(b) `relay` binary discovery from the extension — P1, deferred to Track 8 / 7C.** An activation-time PATH probe that surfaces "binary not found, install thus" is the right affordance, but it only becomes meaningful once `npm install -g @relay/relay` is the real install path (Track 8); the Remote-SSH local-vs-remote PATH twist is extension-surface work that overlaps [[nd-33-ide-gui-overhaul-deep-dive]]. Held as P1 sharpening, not shipped in 7B.
+- **(c) `claude login` pre-flight — P0 *narrative only*; mechanism → [[nd-35-diagnostics-and-error-ux-deep-dive]].** The onboarding *reminder* ("run `claude auth login` before you start the server; spawned agents inherit it") ships now, embedded in the (d) next-steps block per [[nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic-api-key-as-fallback]]. The credential-*validation* diagnostic (does `relay server` fail-fast? does `relay doctor` probe?) is explicitly ND-35's, split deliberately so 7B owns the words and 7E owns the check.
+- **(d) `relay init` narrative bridge — P0 (the one shipped code change).** `relay init` now prints a numbered next-steps block after the pairing snippet: (1) `claude auth login` with the `ANTHROPIC_API_KEY` headless fallback, (2) `relay server`, (3) IDE "Connect to server" + paste, (4) register a project, (5) start a session — closing with a handbook link. The block is ephemeral console guidance and is **not** written to `~/.relay/last-pairing.txt`, which stays the pure pairing payload the operator re-reads for the token. The optional `relay init --start` launch flag is P1, deferred (it couples `init` to the long-lived server lifecycle for marginal benefit).
+- **(e) `relay attach` distribution shape — deferred, not decided here.** Already tracked by the dedicated [[nd-29-distribute-relay-attach-as-a-standalone-package]] (Options A–D, currently leaning recipe-only/defer) and cross-referenced by [[nd-34-session-and-attach-polish-deep-dive]] (h); 7B does not duplicate the call. The single-binary posture from [[d-08-single-binary-vs-separate-packages]] holds in the meantime. Resolving the package-split question is handed to 7D / ND-29 so it lands in one place.
+- **(f) Cross-device install assumptions — P1, mostly already covered.** The headline "server on machine A, IDE/attach on machine B" story is already documented end-to-end in handbook Ch 5 (cross-device attach) and [`docs/deployment.md`](../deployment.md) (Caddy / Tailscale / reverse proxy). A "where does the server run?" framing note in Ch 1/2 would sharpen the on-ramp but is not rollout-blocking; held as P1.
+- **(g) Update / version-check UX — P1; skew detection → Track 8 / 7C.** `relay --version` already exists (`commander` `.version('0.0.0')`); surfacing it in `relay init` output and the extension status bar is cheap P1. Version-*skew* warnings between extension and server are meaningless until multiple versions are published (Track 8) and the comparison UI is extension-surface (7C). Deferred.
+- **(h) First-run telemetry / failure-reporting — deferred, out of posture.** A self-host single-user product does not phone home. No telemetry ships in Phase 1.5. Re-open only if a hosted/managed Relay offering appears where opt-in failure reporting has a coherent owner.
+
+### Contract
+
+1. **One P0 code change.** `relay init` prints a numbered next-steps narrative bridge to stdout after the pairing snippet (`packages/server/src/cli/init.ts` `buildNextSteps()` → `InitResult.nextSteps`, printed by `cli/relay.ts`). It is the only shipped install/onboarding code in 7B.
+2. **The bridge is not persisted.** `~/.relay/last-pairing.txt` continues to hold only the pairing snippet (token payload); the next-steps block is ephemeral guidance, regenerated on every `relay init`.
+3. **`claude auth login`, never bare `claude login`.** Step 1 uses the subcommand form per ND-19's validation-pass fix (bare `claude login` is parsed by the TUI as a prompt). The `ANTHROPIC_API_KEY` fallback is named as headless-only, not co-equal, to avoid the billing-precedence footgun ND-19 documents.
+4. **Credential narrative here, credential validation in ND-35.** 7B owns the onboarding words that tell the operator to authenticate; it does not add any credential-presence check, fail-fast, or `relay doctor` probe — those are [[nd-35-diagnostics-and-error-ux-deep-dive]].
+5. **Published-channel items are named, not built.** Marketplace publication (a), PATH-probe binary discovery (b), and version-skew UX (g) are the bar's destination but execute on Track 8 (`6J`) / [[nd-33-ide-gui-overhaul-deep-dive]]; ND-32 constrains their scope (both registries for the marketplace; probe-with-guidance for discovery) without shipping them.
+6. **Attach-package shape is not litigated here.** Deferred to [[nd-29-distribute-relay-attach-as-a-standalone-package]] / 7D; [[d-08-single-binary-vs-separate-packages]] holds.
+
+**Why this and not "ship more code now":** the rejected "Bridge + binary probe" scope would have pulled extension-surface code (the PATH probe) into an install/onboarding deep-dive whose only source-install-independent, rollout-weighted lever is the `relay init` text. The probe's value is gated on a published binary that does not exist pre-Track-8, so shipping it now buys an affordance for an install path nobody can yet use. The rejected "decision-only, defer all code" scope would have left today's twelve-manual-step onboarding (ux-rollout-posture §2) with no narrative bridge at all until distribution lands — the single cheapest, highest-leverage fix would have been deferred for no reason. The chosen scope ships exactly the lever that helps a non-author *today* and names everything else as Track-8 destination or sibling-ND work.
+
+**Surfaces new sub-questions:** none — (e) routes to the existing [[nd-29-distribute-relay-attach-as-a-standalone-package]] / [[nd-34-session-and-attach-polish-deep-dive]] rather than opening a new entry.
+
+**the painless-rollout bar for install + onboarding is: a non-author can go from "nothing installed" to a paired, running session by following one self-narrating path — `relay init` prints not only the pairing snippet but a numbered next-steps block (`claude auth login` → `relay server` → IDE pair → register project → start session) with a handbook link, so the install sequence never requires reading the source tree or DMing the author; a published install channel (npm for the binary, VS Code Marketplace *and* Open VSX for the extension), extension-side `relay`-binary discovery, version surfacing, `relay init --start`, and a cross-device on-ramp note sharpen that path as P1 / Track-8 work but do not block it, while first-run telemetry is deferred as out of posture for self-host single-user and the `relay attach` standalone-package shape is deferred to ND-29 / ND-34.**
+
+**Propagated to:** `prd/03-server.md` §7 (2026-05-26), `prd/06-distribution.md` "Install & onboarding bar" (2026-05-26), `docs/guides/getting-started.md` Ch 1 (Install) + Ch 2 (First connect) (2026-05-26). P0 code: `packages/server/src/cli/init.ts` (`buildNextSteps()` + `InitResult.nextSteps`) + `cli/relay.ts` print, covered by `cli/init.test.ts` (2026-05-26). `docs/arch/ux-rollout-posture.md` §7 quotes the bar by link only (no inline copy, per D-15 ownership).

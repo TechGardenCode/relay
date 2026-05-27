@@ -34,7 +34,9 @@ program
     // Lazy-load: init.ts opens better-sqlite3 to migrate the schema.
     const { runInit } = await import('./init.js');
     const result = runInit({ url: opts.url, force: opts.force });
-    process.stdout.write(result.pairingSnippet + '\n');
+    // Per ND-32: snippet first (also in last-pairing.txt), then the ephemeral
+    // next-steps narrative bridge — guidance that is not persisted.
+    process.stdout.write(result.pairingSnippet + '\n\n' + result.nextSteps + '\n');
   });
 
 const token = program

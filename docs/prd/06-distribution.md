@@ -20,6 +20,16 @@ This shape is deliberate. Splitting the server and CLI into separate packages wo
 - **Docker Compose:** documented example with Caddy reverse proxy and Tailscale sidecar for users wanting tunnel-fronted deployment.
 - **Helm chart:** Phase 3 deliverable.
 
+## Install & onboarding bar
+
+The painless-rollout bar for getting a non-author from "nothing installed" to a paired, running session: the install sequence must be **self-narrating**, never requiring a reader to open the source tree or message the author. The destination is a published channel — `npm install -g @relay/relay` for the binary, and the IDE extension installable from **both** the VS Code Marketplace and Open VSX (so Cursor / VSCodium / Windsurf operators are first-class) — but that channel's *mechanism* is Track 8 work, not a Phase 1.5 precondition (Phase 1 ships from source per [[d-16-phase-1-ships-without-distribution]]).
+
+What ships now, on the source-install path, is the one source-install-independent lever: `relay init` prints a numbered next-steps narrative bridge after the pairing snippet (see `03-server.md` §7) so the operator always knows the sequence — `claude auth login`, `relay server`, IDE pairing, project registration, session start. Extension-side `relay`-binary discovery (PATH probe + install guidance), version surfacing, an optional `relay init --start`, and a cross-device on-ramp note sharpen the path but do not block it; first-run telemetry stays out of scope for the self-host single-user posture.
+
+**Track 8 gating prerequisites.** A clean `npm install -g @relay/relay` does not yet reach a first `POST /sessions` unaided on every host: the macOS `node-pty` spawn-helper needs its executable bit set (Phase 0 surprise §1) and Linux hosts need `build-essential` / `python3` for the native builds (Phase 0 surprise §5). Both are owned by the Track 8 (`6J`) distribution work — the install story must not assume "it Just Works" until the prebuild / postinstall path lands. See [`docs/phase-0-report.md`](../phase-0-report.md).
+
+*Resolved by [ND-32](../decisions/ND-32-install-and-onboarding-deep-dive.md) on 2026-05-26.*
+
 ## Configuration
 
 - `~/.relay/config.yaml` for declarative configuration.

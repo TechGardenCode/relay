@@ -73,6 +73,33 @@ describe('runInit', () => {
     expect(onDisk).toBe(result.pairingSnippet);
   });
 
+  it('emits a next-steps narrative bridge naming login, server start, pair, register, session (per ND-32)', () => {
+    const result = runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
+
+    // Step 1 must say `claude auth login`, NOT bare `claude login` (the TUI
+    // parses the latter as a prompt) — per ND-19's validation-pass fix.
+    expect(result.nextSteps).toContain('claude auth login');
+    expect(result.nextSteps).not.toMatch(/claude login\b/);
+    // ANTHROPIC_API_KEY named as the headless fallback (ND-19), not the default.
+    expect(result.nextSteps).toContain('ANTHROPIC_API_KEY');
+    expect(result.nextSteps).toContain('relay server');
+    expect(result.nextSteps).toContain('Relay: Connect to server');
+    expect(result.nextSteps).toContain('relay project add');
+    expect(result.nextSteps).toContain('Relay: Start session');
+    // Literal repo path to the handbook (accurate on the source-install path).
+    expect(result.nextSteps).toContain('docs/guides/getting-started.md');
+  });
+
+  it('does NOT persist the next-steps bridge into last-pairing.txt (snippet stays pure pairing payload)', () => {
+    const result = runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
+
+    const onDisk = readFileSync(lastPairingPath(home), 'utf8');
+    expect(onDisk).not.toContain('Next steps:');
+    expect(onDisk).not.toContain('claude auth login');
+    // The bridge is distinct from the snippet, not appended to it.
+    expect(result.nextSteps).not.toBe(result.pairingSnippet);
+  });
+
   it('writes config.yaml and last-pairing.txt with 0600 mode (sensitive — contains pairing token)', () => {
     runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
 

@@ -45,6 +45,15 @@ export interface InitResult {
   tokenPlaintext: string;
   serverUrl: string;
   pairingSnippet: string;
+  /**
+   * Per ND-32, the onboarding narrative bridge: a numbered next-steps block
+   * printed to stdout after the pairing snippet so a non-author knows the
+   * sequence (`claude auth login` → `relay server` → IDE pair → register
+   * project → start session) without reading the source tree. Ephemeral
+   * console guidance — deliberately NOT persisted to last-pairing.txt, which
+   * stays the pure pairing payload the operator re-reads for the token.
+   */
+  nextSteps: string;
   alreadyInitialized: boolean;
 }
 
@@ -86,6 +95,7 @@ export function runInit(opts: InitOptions = {}): InitResult {
     tokenPlaintext: created.plaintext,
     serverUrl,
     pairingSnippet: snippet,
+    nextSteps: buildNextSteps(),
     alreadyInitialized: false,
   };
 }
@@ -127,5 +137,28 @@ function buildPairingSnippet(serverUrl: string, tokenPlaintext: string): string 
     'Or by URL + token separately:',
     `    Server URL: ${serverUrl}`,
     `    Token:      ${tokenPlaintext}`,
+  ].join('\n');
+}
+
+// Per ND-32, `relay init` is self-narrating: D-13 fixed the pairing snippet
+// shape but left the operator at "I have a token, now what?". This block names
+// the remaining steps so a non-author reaches a running session without
+// reading the source tree. Step 1 uses `claude auth login` (not bare `claude
+// login`, which the TUI parses as a prompt) and names the ANTHROPIC_API_KEY
+// fallback per ND-19; the credential-*validation* mechanism is ND-35, not here.
+function buildNextSteps(): string {
+  return [
+    'Next steps:',
+    '  1. Make sure Claude Code is logged in on this machine:',
+    '         claude auth login          # spawned agents inherit this login',
+    '     Headless / CI? Set ANTHROPIC_API_KEY instead — see docs/deployment.md.',
+    '  2. Start the Relay server (leave it running):',
+    '         relay server',
+    '  3. In your IDE, run "Relay: Connect to server" and paste the snippet above.',
+    '  4. Register a project: open it in your IDE → "Relay: Register this workspace',
+    '     as a project" (or from the CLI: relay project add <path>).',
+    '  5. Start a session: "Relay: Start session in current project", pick a persona.',
+    '',
+    'Full walkthrough: docs/guides/getting-started.md',
   ].join('\n');
 }

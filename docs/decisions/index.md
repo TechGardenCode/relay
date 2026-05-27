@@ -4,7 +4,7 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 34 · Open: 17 · Deferred: 3.
+**Counts.** Resolved: 35 · Open: 16 · Deferred: 3.
 
 ## Open / in-deliberation
 
@@ -21,7 +21,6 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 - [`ND-29` — Distribute `relay attach` as a standalone package](ND-29-distribute-relay-attach-as-a-standalone-package.md)
 - [`ND-30` — `relay attach` stderr event-stream protocol for subprocess-of-attach consumers](ND-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers.md)
 - [`ND-31` — SecretStorage key namespace for multi-server IDE pairing](ND-31-secretstorage-key-namespace-for-multi-server-ide-pairing.md)
-- [`ND-32` — Install + onboarding deep-dive — painless-rollout bar](ND-32-install-and-onboarding-deep-dive.md)
 - [`ND-33` — IDE GUI overhaul deep-dive — painless-rollout bar](ND-33-ide-gui-overhaul-deep-dive.md)
 - [`ND-34` — Session + attach polish deep-dive — painless-rollout bar](ND-34-session-and-attach-polish-deep-dive.md)
 - [`ND-35` — Diagnostics + error UX deep-dive — painless-rollout bar](ND-35-diagnostics-and-error-ux-deep-dive.md)
@@ -36,6 +35,7 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 
 _Newest first._
 
+- [`ND-32` — Install + onboarding deep-dive — painless-rollout bar](ND-32-install-and-onboarding-deep-dive.md) _(2026-05-26)_
 - [`D-16` — Phase 1 ships without distribution (6J deferred to post-2.0)](D-16-phase-1-ships-without-distribution.md) _(2026-05-22)_
 - [`ND-36` — Subprotocol-sourced bearer token for browser-WS auth](ND-36-subprotocol-sourced-bearer-token-for-browser-ws-auth.md) _(2026-05-22)_
 - [`D-15` — UX rollout posture](D-15-ux-rollout-posture.md) _(2026-05-22)_

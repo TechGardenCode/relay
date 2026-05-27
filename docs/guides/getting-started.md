@@ -8,7 +8,7 @@
 
 Relay is in **Phase 1** and ships from source today. The `relay` binary and the IDE extension `.vsix` are not yet published — `npm install -g @relay/relay` and a Marketplace install do not work yet. Distribution is deferred to post-2.0 per [[d-16-phase-1-ships-without-distribution]].
 
-This guide describes the path that works **today**: clone the repo, `pnpm install`, `pnpm build`, link the binary, install the extension from the locally-built `.vsix`. When distribution lands, Chapters 1 and 2 will be rewritten — track [ND-32](../decisions/ND-32-install-and-onboarding-deep-dive.md) for the design.
+This guide describes the path that works **today**: clone the repo, `pnpm install`, `pnpm build`, link the binary, install the extension from the locally-built `.vsix`. [ND-32](../decisions/ND-32-install-and-onboarding-deep-dive.md) (resolved 2026-05-26) set the onboarding bar: `relay init` is now self-narrating (see Chapter 2 — it prints a numbered next-steps block after the pairing snippet). The published-channel install (`npm install -g @relay/relay`, Marketplace + Open VSX for the extension) is the bar's destination but rides Track 8 distribution; when it lands, Chapters 1 and 2 get their source-install steps swapped for the published path.
 
 Several known sharp edges in the current UX are documented in [Chapter 7 — Troubleshooting](#chapter-7--troubleshooting) with citations to the ND-NN that tracks each fix.
 
@@ -92,7 +92,9 @@ This is a one-time bootstrap. It:
 3. Prints a pairing snippet on stdout — a `relay://pair?url=…&token=…` deep link plus the raw URL + token — and writes the same snippet to `~/.relay/last-pairing.txt`.
 4. Scaffolds the seven default personas into `~/.relay/personas/` (`architect`, `dev`, `design`, `infra`, `product`, `review`, `test`).
 
-**Keep `~/.relay/last-pairing.txt` handy** — you'll paste from it in a moment. If you lose it, generate a fresh token with `relay token create --device <name>`.
+After the pairing snippet, `relay init` prints a **numbered next-steps block** (per [ND-32](../decisions/ND-32-install-and-onboarding-deep-dive.md)) that walks you through the rest of this chapter — `claude auth login`, start `relay server`, pair the IDE, register a project, start a session. It's a quick orientation; the detailed version is the sections below. That block is console-only guidance and is **not** saved to `~/.relay/last-pairing.txt`.
+
+**Keep `~/.relay/last-pairing.txt` handy** — it holds the pairing snippet (URL + token) you'll paste in a moment. If you lose it, generate a fresh token with `relay token create --device <name>`.
 
 ### Start the server
 

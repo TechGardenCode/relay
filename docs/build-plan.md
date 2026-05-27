@@ -107,7 +107,7 @@ Track 10:  10A is the foundation user handbook (ships against current state); ea
 | 6J | Distribution: npm tarball, Docker image, Compose | scenario H | **deferred → [Track 8](#track-8--post-20-deferrals)** _(per [[d-16-phase-1-ships-without-distribution]])_ |
 | 6Z | Phase 1 done gate — `scenario-runner` walks A–G + 1A/1B/1C land | — | pending → [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md) (2026-05-22: under A–H gate, blocked on H.1 + H.3; [[d-16-phase-1-ships-without-distribution]] re-scoped to A–G, walk converts to pass — re-walk or accept evidence as-is) |
 | 7A | UX rollout posture: arch doc + D-15 + ND-32..35 | 7B, 7C, 7D, 7E | **done** → [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) · [`docs/decisions/D-15-ux-rollout-posture.md`](decisions/D-15-ux-rollout-posture.md) · ND-32/33/34/35 filed open |
-| 7B | ND-32 install + onboarding deep-dive | 7F | pending → [`docs/decisions/ND-32-install-and-onboarding-deep-dive.md`](decisions/ND-32-install-and-onboarding-deep-dive.md) |
+| 7B | ND-32 install + onboarding deep-dive | 7F | **done** → [`ND-32` resolved](decisions/ND-32-install-and-onboarding-deep-dive.md); P0 = self-narrating `relay init` next-steps bridge |
 | 7C | ND-33 IDE GUI overhaul deep-dive | 7F | pending → [`docs/decisions/ND-33-ide-gui-overhaul-deep-dive.md`](decisions/ND-33-ide-gui-overhaul-deep-dive.md) |
 | 7D | ND-34 session + attach polish deep-dive | 7F | pending → [`docs/decisions/ND-34-session-and-attach-polish-deep-dive.md`](decisions/ND-34-session-and-attach-polish-deep-dive.md) |
 | 7E | ND-35 diagnostics + error UX deep-dive | 7F | pending → [`docs/decisions/ND-35-diagnostics-and-error-ux-deep-dive.md`](decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) |
@@ -482,12 +482,9 @@ Surfaced by the 6I IDE-extension e2e walk (2026-05-22). The functional contract 
 
 ---
 
-### 7B. ND-32 install + onboarding deep-dive
+### 7B. ND-32 install + onboarding deep-dive — **done**
 
-**Goal:** Resolve [`ND-32`](decisions/ND-32-install-and-onboarding-deep-dive.md) — decide the painless-rollout bar for install and onboarding.
-**Reads:** [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) §3, [`docs/decisions/ND-32-install-and-onboarding-deep-dive.md`](decisions/ND-32-install-and-onboarding-deep-dive.md), [`docs/prd/06-distribution.md`](prd/06-distribution.md), [`docs/prd/03-server.md`](prd/03-server.md) §6, [[d-13-first-run-pairing-ux]], [[nd-19-claude-login-oauth-as-the-documented-credential-default-anthropic-api-key-as-fallback]].
-**Done when:** ND-32 resolves with a one-paragraph rollout-bar statement quotable by [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) §7; any code/doc changes the resolution prescribes land in the appropriate subdocs (per the [decision-log skill's propagation protocol](../.claude/skills/decision-log/SKILL.md)); ND-32's `Propagated to:` line lists the subdocs touched.
-**Kickoff:** Use the [`build-plan-kickoff` skill](../.claude/skills/build-plan-kickoff/SKILL.md) when ready to start — surfaces required reads + Phase 0 surprises + D-NN/ND-NN cheatsheet.
+Resolved [`ND-32`](decisions/ND-32-install-and-onboarding-deep-dive.md) (2026-05-26): the painless-rollout bar is a self-narrating install path. P0 = `relay init` prints a numbered next-steps bridge (`claude auth login` → `relay server` → IDE pair → register → start) after the pairing snippet (`packages/server/src/cli/init.ts` + `cli/relay.ts`, covered by `cli/init.test.ts`). Marketplace/Open-VSX publication, binary discovery, version surfacing, `--start`, cross-device on-ramp = P1/Track-8; telemetry deferred; attach-package shape → [[nd-29-distribute-relay-attach-as-a-standalone-package]] / 7D. Propagated to `prd/03-server.md` §7, `prd/06-distribution.md`, handbook Ch 1 + Ch 2.
 
 ---
 
