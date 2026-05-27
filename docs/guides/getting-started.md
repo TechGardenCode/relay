@@ -130,7 +130,7 @@ Reload your editor.
 
 The token is stored in VS Code's SecretStorage, not in plaintext on disk. The status bar should now show a Relay indicator (project name will be empty until you register a workspace in Chapter 4).
 
-> **Note — single server per install today.** The current extension keys SecretStorage by a fixed `relay.serverUrl` + `relay.token` pair; pairing a second server overwrites the first. Multi-server support is tracked by [ND-31](../decisions/ND-31-secretstorage-key-namespace-for-multi-server-ide-pairing.md) and lands with Track 7 ND-33.
+> **Note — single server per install today.** The current extension keys SecretStorage by a fixed `relay.serverUrl` + `relay.token` pair; pairing a second server overwrites the first. [ND-33](../decisions/ND-33-ide-gui-overhaul-deep-dive.md) (resolved 2026-05-26) deferred the multi-server picker behind per-server keying ([ND-31](../decisions/ND-31-secretstorage-key-namespace-for-multi-server-ide-pairing.md)); single-server-per-install with refuse-to-bind-on-mismatch is the documented Phase-1 limitation (use one VS Code profile per server as a workaround — see [Chapter 7](#already-paired-with-a-different-server-when-adding-a-second-server)).
 
 ---
 
@@ -199,7 +199,7 @@ You're now in a normal terminal pane talking to the agent. Type, hit enter, watc
 
 ### What the status bar tells you
 
-The status-bar indicator follows focus across workspace roots. The current scope is intentionally minimal; richer status (BUSY anchoring, multi-session indicator, queue depth) lands with Track 7 ND-33 — see [ND-33](../decisions/ND-33-ide-gui-overhaul-deep-dive.md).
+The status-bar indicator follows focus across workspace roots. The current scope is intentionally minimal. [ND-33](../decisions/ND-33-ide-gui-overhaul-deep-dive.md) (resolved 2026-05-26) set the IDE GUI rollout bar: the headline coming surface is a **sessions tree view in the Activity Bar** (sessions grouped by project, with attach/release/kill actions and live status badges, refreshed by REST poll) — that's the P0 GUI affordance, landing in a follow-up build-plan row. Picker search/filter and a REST-poll running-session indicator are P1 polish. Claim-holder and agent-activity indicators are deferred with the BUSY notice on [ND-30](../decisions/ND-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers.md); a multi-server picker is deferred on [ND-31](../decisions/ND-31-secretstorage-key-namespace-for-multi-server-ide-pairing.md).
 
 ### Detach without killing the session
 
@@ -322,11 +322,11 @@ Pressing `Ctrl-D` once in an attached session sometimes sends an EOF to the agen
 
 ### No BUSY notification in the IDE pane
 
-When a second client is typing into your session, the only signal in the IDE terminal pane is a plain stderr line from `relay attach` — `[relay] another device is interacting with this session.`. There's no status-bar toast or auto-dismissing banner yet. Tracked by [ND-30](../decisions/ND-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers.md); the fix is gated on a structured event-stream protocol on `relay attach` that the extension can consume. Lands with Track 7 ND-33.
+When a second client is typing into your session, the only signal in the IDE terminal pane is a plain stderr line from `relay attach` — `[relay] another device is interacting with this session.`. There's no status-bar toast or auto-dismissing banner yet. [ND-33](../decisions/ND-33-ide-gui-overhaul-deep-dive.md) (resolved 2026-05-26) deliberately **deferred** the anchored BUSY notice: it is blocked on a structured event-stream protocol on `relay attach` that the extension can consume ([ND-30](../decisions/ND-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers.md)), and the prose stderr line is the documented interim until ND-30 lands.
 
 ### "Already paired with a different server" when adding a second server
 
-The extension keys SecretStorage on a single `relay.serverUrl` + `relay.token` pair. Pairing a second server overwrites the first. Workaround: use one VS Code profile per Relay server (Profiles isolate extension state including SecretStorage). Permanent fix lands with Track 7 ND-33 (per-server-URL-hashed keys, [ND-31](../decisions/ND-31-secretstorage-key-namespace-for-multi-server-ide-pairing.md)).
+The extension keys SecretStorage on a single `relay.serverUrl` + `relay.token` pair. Pairing a second server overwrites the first. Workaround: use one VS Code profile per Relay server (Profiles isolate extension state including SecretStorage). [ND-33](../decisions/ND-33-ide-gui-overhaul-deep-dive.md) (resolved 2026-05-26) deliberately **deferred** the multi-server picker: it is blocked on per-server-URL-hashed SecretStorage keys ([ND-31](../decisions/ND-31-secretstorage-key-namespace-for-multi-server-ide-pairing.md)). Single-server pairing with refuse-to-bind-on-URL-mismatch is the documented Phase-1 limitation; the per-profile workaround stands until ND-31 resolves.
 
 ### Persona didn't load — what went wrong?
 

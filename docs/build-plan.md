@@ -108,7 +108,9 @@ Track 10:  10A is the foundation user handbook (ships against current state); ea
 | 6Z | Phase 1 done gate — `scenario-runner` walks A–G + 1A/1B/1C land | — | pending → [`docs/phase-1-acceptance-walk.md`](phase-1-acceptance-walk.md) (2026-05-22: under A–H gate, blocked on H.1 + H.3; [[d-16-phase-1-ships-without-distribution]] re-scoped to A–G, walk converts to pass — re-walk or accept evidence as-is) |
 | 7A | UX rollout posture: arch doc + D-15 + ND-32..35 | 7B, 7C, 7D, 7E | **done** → [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) · [`docs/decisions/D-15-ux-rollout-posture.md`](decisions/D-15-ux-rollout-posture.md) · ND-32/33/34/35 filed open |
 | 7B | ND-32 install + onboarding deep-dive | 7F | **done** → [`ND-32` resolved](decisions/ND-32-install-and-onboarding-deep-dive.md); P0 = self-narrating `relay init` next-steps bridge |
-| 7C | ND-33 IDE GUI overhaul deep-dive | 7F | pending → [`docs/decisions/ND-33-ide-gui-overhaul-deep-dive.md`](decisions/ND-33-ide-gui-overhaul-deep-dive.md) |
+| 7C | ND-33 IDE GUI overhaul deep-dive | 7F, 7C-tree, 7C-polish | **done** → [`ND-33` resolved](decisions/ND-33-ide-gui-overhaul-deep-dive.md); decision-only, P0 = sessions tree view (Activity Bar, REST-poll) → follow-up rows 7C-tree / 7C-polish |
+| 7C-tree | Sessions tree view (Activity Bar) — P0 GUI surface + extension test harness | 7F | pending → kickoff via [`build-plan-kickoff`](../.claude/skills/build-plan-kickoff/SKILL.md) |
+| 7C-polish | IDE picker filters + REST-poll status-bar enrichment — P1 | 7F | pending → kickoff via [`build-plan-kickoff`](../.claude/skills/build-plan-kickoff/SKILL.md) |
 | 7D | ND-34 session + attach polish deep-dive | 7F | pending → [`docs/decisions/ND-34-session-and-attach-polish-deep-dive.md`](decisions/ND-34-session-and-attach-polish-deep-dive.md) |
 | 7E | ND-35 diagnostics + error UX deep-dive | 7F | pending → [`docs/decisions/ND-35-diagnostics-and-error-ux-deep-dive.md`](decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) |
 | 7F | Rollout-readiness re-walk (scenarios A–H + per-surface ND verification) | wider rollout | pending (needs 7B, 7C, 7D, 7E) |
@@ -488,11 +490,27 @@ Resolved [`ND-32`](decisions/ND-32-install-and-onboarding-deep-dive.md) (2026-05
 
 ---
 
-### 7C. ND-33 IDE GUI overhaul deep-dive
+### 7C. ND-33 IDE GUI overhaul deep-dive — **done**
 
-**Goal:** Resolve [`ND-33`](decisions/ND-33-ide-gui-overhaul-deep-dive.md) — decide the painless-rollout bar for the IDE GUI surface (sessions tree view, persona picker, BUSY anchoring, multi-server pairing, project-marker mental model, status-bar richness).
-**Reads:** [`docs/arch/ux-rollout-posture.md`](arch/ux-rollout-posture.md) §4, [`docs/decisions/ND-33-ide-gui-overhaul-deep-dive.md`](decisions/ND-33-ide-gui-overhaul-deep-dive.md), [`docs/prd/04-ide-extension.md`](prd/04-ide-extension.md), [`packages/extension/`](../packages/extension/), [[nd-02-rejection-ux-for-busy-response]], [[nd-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers]], [[nd-31-secretstorage-key-namespace-for-multi-server-ide-pairing]], [[d-g6-project-discovery-workspace-to-project-binding]].
-**Done when:** ND-33 resolves with a one-paragraph rollout-bar statement; resolution explicitly addresses the [[nd-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers]] dependency (block on ND-30, or commit to a fallback UX); any extension code lands with co-located specs; `Propagated to:` populated.
+Resolved [`ND-33`](decisions/ND-33-ide-gui-overhaul-deep-dive.md) (2026-05-26): the painless-rollout bar is anchored on one P0 affordance — a **sessions tree view in the Activity Bar** (sessions grouped by project, attach/release/kill actions, live running/idle/killed badges, REST-poll refresh per [[d-g2-multi-client-input-arbitration]]). Decision-only: no extension code in 7C (test-harness preflight is N/A here, becomes the first task of 7C-tree). BUSY anchoring deferred on [[nd-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers]] (prose stderr interim, no scraping fallback); multi-server picker deferred on [[nd-31-secretstorage-key-namespace-for-multi-server-ide-pairing]] (single-server + refuse-to-bind interim); persona-switch deferred per [[d-g1-persona-application-semantics]]; subdir selection deferred per [[d-01-workspace-root-vs-subdirectory-for-start-session]]; webview UI out-of-scope (Phase 2 PWA). Item (e) marker-gap was a **stale premise** — `relay project add` already writes the marker via the shared `POST /projects` handler ([[d-12-project-record-storage-and-relay-project-add-semantics]] rules 6–7); re-affirmed, stale §4/ND-33 framing corrected, no CLI row. Propagated to `prd/04-ide-extension.md` §6, `ux-rollout-posture.md` §4, handbook Ch 4 + Ch 7. P0/P1 code → rows 7C-tree / 7C-polish.
+
+---
+
+### 7C-tree. Sessions tree view (Activity Bar) — P0 GUI surface
+
+**Goal:** Implement the ND-33 P0 — an Activity Bar sessions tree view (`viewsContainers` + `views`, `vscode.window.createTreeView`): sessions grouped by project, per-node attach/release/kill quick actions, live `running`/`idle`/`killed` badges per [[d-11-server-restart-and-session-orphaning]], REST-poll refresh (no WebSocket in the extension, per [[d-g2-multi-client-input-arbitration]]).
+**Preflight (first task):** Stand up the extension test harness — Vitest with a mocked `vscode` module (matches the repo's Vitest-everywhere convention and the subprocess-of-attach "most logic is plain TS" shape). No `*.test.ts`, no Vitest wiring, no test script exist under `packages/extension/` today.
+**Reads:** [`docs/decisions/ND-33-ide-gui-overhaul-deep-dive.md`](decisions/ND-33-ide-gui-overhaul-deep-dive.md), [`docs/prd/04-ide-extension.md`](prd/04-ide-extension.md) §6, [`packages/extension/`](../packages/extension/), [[d-g2-multi-client-input-arbitration]], [[d-11-server-restart-and-session-orphaning]].
+**Done when:** Tree view contributes + lists sessions grouped by project with live status and attach/release/kill actions; extension test harness green; `pnpm -F relay-extension typecheck && build && vsix` clean; `relay-architect` plan-review + `relay-spec-reviewer` branch-diff audit pass.
+**Kickoff:** [`build-plan-kickoff` skill](../.claude/skills/build-plan-kickoff/SKILL.md) when ready.
+
+---
+
+### 7C-polish. IDE picker filters + status-bar enrichment — P1
+
+**Goal:** Implement the ND-33 P1 polish — `matchOnDescription`/`matchOnDetail` + per-project grouping on the persona quick-pick (item b) and the attach quick-pick (item f), plus a REST-poll-derived running-session indicator in the status bar (item i, the non-ND-30-gated part).
+**Reads:** [`docs/decisions/ND-33-ide-gui-overhaul-deep-dive.md`](decisions/ND-33-ide-gui-overhaul-deep-dive.md), [`docs/prd/04-ide-extension.md`](prd/04-ide-extension.md) §6, [`packages/extension/src/commands/`](../packages/extension/src/commands/), [`packages/extension/src/statusBar.ts`](../packages/extension/src/statusBar.ts).
+**Done when:** Quick-picks filter + group; status bar shows running-session count/state from REST poll; co-located specs on the harness from 7C-tree; `pnpm -F relay-extension typecheck && build && vsix` clean.
 **Kickoff:** [`build-plan-kickoff` skill](../.claude/skills/build-plan-kickoff/SKILL.md) when ready.
 
 ---
