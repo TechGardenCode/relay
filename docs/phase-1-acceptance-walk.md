@@ -250,3 +250,57 @@ After walking, **the following remain running** for the user's inspection — ki
 - The `/usr/local/bin/relay` symlink on the VM — leave installed for next walks (or `sudo rm /usr/local/bin/relay` to remove)
 - `/tmp/relay-6z/` workspace on VM — `rm -rf /tmp/relay-6z` to clean
 - `~/.relay/`, `~/.claude/projects/-tmp-project-A`, `/tmp/project-A`, `/tmp/project-G1`, `/tmp/project-G2` on VM — leave or clean per your preference
+
+---
+
+## 2026-05-28 gate-close addendum (D-17 re-scope → A,C–G PASS)
+
+> **This addendum flips 6Z to `done`.** Everything above is the 2026-05-22 evidence snapshot at HEAD `ed97bc3`, framed under the original A–H gate. This section re-scopes that evidence to the **A, C–G** gate that is now in force and records the aggregate close. Basis: **accept-with-delta** (verified evidence ledger + a green suite at current HEAD), chosen by the user over a fresh cold re-walk.
+
+### Gate re-scope since 2026-05-22
+
+Two resolved decisions moved the gate after the walk above was written:
+
+- **[D-16](decisions/D-16-phase-1-ships-without-distribution.md)** (resolved 2026-05-22) — scenario **H (distribution)** is deferred to [Track 8](build-plan.md#track-8--post-20-deferrals). The walk's `blocked` H.1/H.3 are **out of Phase 1 scope**, not failures.
+- **[D-17](decisions/D-17-personas-descoped-from-mvp.md)** (resolved 2026-05-28, postdates the walk) — scenario **B (personas)** is deferred to Phase 2 and task **1A (default personas) is dropped** from the gate. The walk's passing Scenario B section (4/4) is **moot, not load-bearing**: the persona module is dormant and off every user-reachable path. An absent persona picker or an unseeded `~/.relay/personas/` is **not a regression** (see [`08-acceptance.md`](prd/08-acceptance.md) "Explicit Phase 1 deferrals"). The 2026-05-22 candidate ND **B.2** (persona-discovery surface gap) is correspondingly moot under D-17 and is **not** filed.
+
+**The Phase 1 gate is therefore A, C–G** — not A–H. With B and H removed from scope, the only in-scope checks are A/C/D/E/F/G, all of which are covered below.
+
+### Evidence ledger (each row verified to exist and say what it claims)
+
+| Scenario | In-scope verdict | Source (verified) |
+| -------- | ---------------- | ----------------- |
+| **A** — bring-up + project registration | pass (7/7) | 2026-05-22 walk §A above; server-side suite green at current HEAD (see Verification) |
+| ~~B~~ — personas | **out of gate** | deferred → Phase 2 per [D-17](decisions/D-17-personas-descoped-from-mvp.md); the walk's 4/4 is moot |
+| **C** — single-client IDE lifecycle | pass (4/4, C.5 n/a) | 2026-05-22 walk §C above; C.5 multi-root not exercised (not regression-blocking) |
+| **D** — survives disconnect | pass (5/5) | 2026-05-22 walk §D above; replay path improved since by [ND-40](decisions/ND-40-relay-attach-drops-replayed-bytes-in-connect-subscribe-gap.md) (7G) |
+| **E** — cross-device continuation | pass (freshest) | [`rollout-readiness-walk.md`](rollout-readiness-walk.md) "7G follow-up" ledger **row #10** — `vm-e2e` real `claude` over LAN from `techgardencode@10.0.60.221` (2026-05-28): replay delivered identically **5/5**, single raw-mode `^D` → VM shell **3/3** `rc=0` no-hang ([ND-38](decisions/ND-38-relay-attach-process-hangs-after-clean-ctrl-d-detach-in-raw-mode.md)), session stays `running` |
+| **F** — concurrent multi-client attach | pass (freshest) | 7H clamp-to-smallest landed in `server/ws/handler.ts`; [ND-39](decisions/ND-39-concurrent-multi-client-attach-tui-rendering-corruption.md) (resolved 2026-05-28) — both clients render **legibly** under `min(cols),min(rows)`; `handler.test.ts` arbitration (D-G2) + `multiclient-resize-visual.test.ts` clamp guards green |
+| **G** — concurrent sessions/projects | pass (5/5) | 2026-05-22 walk §G above; server-side suite green at current HEAD |
+| ~~H~~ — distribution | **out of gate** | deferred → Track 8 per [D-16](decisions/D-16-phase-1-ships-without-distribution.md); the walk's H.1/H.3 `blocked` are out of scope |
+
+The E and F legs from 2026-05-22 tested code older than `ed97bc3`; both are superseded here by fresher 2026-05-28 evidence (7G/7H), which **improves** them (clean teardown, no replay drop, legible multi-client TUI).
+
+### Verification at current HEAD (evidence before assertion)
+
+Run from repo root at HEAD `13c2d2d` (vs the walk's original `ed97bc3`) — the cheap proof the A/G server-side contracts still hold under 7G/7H:
+
+```
+$ git rev-parse --short HEAD
+13c2d2d
+$ pnpm typecheck   # tsc -b
+=== TYPECHECK OK ===
+$ pnpm lint        # eslint .
+=== LINT OK ===
+$ pnpm test        # vitest run
+ Test Files  54 passed (54)
+      Tests  482 passed (482)
+```
+
+0 type errors, 0 lint errors, 0 test failures.
+
+### Aggregate verdict under the A,C–G gate
+
+**PASS.** Every in-scope check of A, C–G is `pass`/`n/a` (no `fail`, no `blocked`-in-scope): A 7/7, C 4/4 + C.5 n/a, D 5/5, E 5/5 cross-device + 3/3 no-hang, F legible-under-clamp, G 5/5. B and H are out of gate (Phase 2 / Track 8). The pre-known caveats **ND-25** (`^D` two-keypress — note 7D shipped single-press `^D` detach since), **ND-30** (IDE BUSY notice as prose stderr line), **ND-31** (multi-server SecretStorage keying) are carried as accepted, **not** refiled.
+
+**Phase 1 ships.** 6Z flips to `done`.
