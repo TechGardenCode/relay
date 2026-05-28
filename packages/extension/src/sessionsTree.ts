@@ -9,10 +9,12 @@ import * as vscode from 'vscode';
 import { type Project, type Session, type SessionStatus } from '@relay/protocol';
 
 import { loadCredentials } from './pairing.js';
+import { PollLoop, POLL_INTERVAL_MS } from './poll.js';
 import { RelayHttpError, RelayNetworkError, RelayRestClient } from './restClient.js';
 
-// Per ND-37: 5s poll while the view is visible.
-export const POLL_INTERVAL_MS = 5000;
+// Re-exported for callers that imported the cadence from here before it moved
+// to the shared poll helper (ND-37 #6).
+export { POLL_INTERVAL_MS };
 
 export type TreeModel =
   | { kind: 'unpaired' }
@@ -55,9 +57,13 @@ export class SessionsTreeProvider
 
   // Pre-first-load state renders as "not connected" until refresh() runs.
   private model: TreeModel = { kind: 'unpaired' };
-  private timer: ReturnType<typeof setInterval> | undefined;
+  // Per ND-37 #6: the visibility-gated poll runs on the shared PollLoop so the
+  // tree and the status-bar indicator never run two divergent timers.
+  private readonly poll: PollLoop;
 
-  constructor(private readonly deps: SessionsTreeDeps) {}
+  constructor(private readonly deps: SessionsTreeDeps) {
+    this.poll = new PollLoop(() => this.refresh(), deps.pollIntervalMs ?? POLL_INTERVAL_MS);
+  }
 
   async refresh(): Promise<void> {
     // Per ND-37 rule 4: a failed poll renders an inline error and never tears
@@ -74,22 +80,15 @@ export class SessionsTreeProvider
   // Per ND-37 rule 2: an immediate poll on becoming visible, then on cadence.
   // Idempotent — a second call while polling is a no-op (no duplicate timer).
   startPolling(): void {
-    if (this.timer !== undefined) return;
-    void this.refresh();
-    this.timer = setInterval(() => {
-      void this.refresh();
-    }, this.deps.pollIntervalMs ?? POLL_INTERVAL_MS);
+    this.poll.start();
   }
 
   stopPolling(): void {
-    if (this.timer !== undefined) {
-      clearInterval(this.timer);
-      this.timer = undefined;
-    }
+    this.poll.stop();
   }
 
   get polling(): boolean {
-    return this.timer !== undefined;
+    return this.poll.running;
   }
 
   getChildren(element?: SessionsTreeNode): SessionsTreeNode[] {

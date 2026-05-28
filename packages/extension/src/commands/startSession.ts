@@ -9,8 +9,11 @@
 
 import * as vscode from 'vscode';
 
+import { type PersonaResource, type PersonaSource } from '@relay/protocol';
+
 import { pickTargetRoot, renderResolveFailure, resolveRootForCommand } from '../discovery.js';
 import { loadCredentials } from '../pairing.js';
+import { groupQuickPickItems } from '../quickPickGroups.js';
 import {
   RelayHttpError,
   RelayNetworkError,
@@ -71,16 +74,42 @@ async function pickPersona(client: RelayRestClient): Promise<string | undefined>
     );
     return undefined;
   }
-  const items = response.items.map((p) => ({
-    label: p.name,
-    description: p.description,
-    detail: `${p.source} · ${p.filePath}`,
-  }));
+  // Per ND-33 (b): grouped by source + matchOnDescription/matchOnDetail so a
+  // long persona list (post `personas/` growth) stays searchable and readable.
+  const items = buildPersonaQuickPickItems(response.items);
   const picked = await vscode.window.showQuickPick(items, {
     placeHolder: 'Pick a persona',
     matchOnDescription: true,
+    matchOnDetail: true,
   });
   return picked?.label;
+}
+
+// Group header per persona source. The detail line carries the same source +
+// path the headers group by, so matchOnDetail makes both searchable.
+const PERSONA_GROUP_LABELS: Record<PersonaSource, string> = {
+  tenant: 'Tenant personas',
+  project: 'Project personas',
+};
+
+interface PersonaQuickPickItem extends vscode.QuickPickItem {
+  label: string;
+  source: PersonaSource;
+}
+
+// Per ND-33 (b): build the persona quick-pick items grouped under per-source
+// separator headers (tenant before project, first-seen order). Exported so the
+// item shape + grouping is unit-testable without driving the whole command.
+export function buildPersonaQuickPickItems(
+  personas: readonly PersonaResource[],
+): (PersonaQuickPickItem | vscode.QuickPickItem)[] {
+  const items: PersonaQuickPickItem[] = personas.map((p) => ({
+    label: p.name,
+    description: p.description,
+    detail: `${p.source} · ${p.filePath}`,
+    source: p.source,
+  }));
+  return groupQuickPickItems(items, (item) => PERSONA_GROUP_LABELS[item.source]);
 }
 
 interface SpawnArgs {

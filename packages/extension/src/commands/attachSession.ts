@@ -4,7 +4,10 @@
 
 import * as vscode from 'vscode';
 
+import { type Session } from '@relay/protocol';
+
 import { loadCredentials } from '../pairing.js';
+import { groupQuickPickItems } from '../quickPickGroups.js';
 import { RelayHttpError, RelayNetworkError, RelayRestClient } from '../restClient.js';
 
 import { spawnAttachTerminal } from './startSession.js';
@@ -39,16 +42,22 @@ export function registerAttachSession(context: vscode.ExtensionContext): void {
         );
         return;
       }
+      // Per ND-33 (f): group the session list by project + matchOnDetail so a
+      // long list narrows. Project display names are best-effort — a failed
+      // /projects fetch falls back to raw projectIds rather than failing attach,
+      // since the grouping is presentational only.
+      const projectLabelOf = await loadProjectLabeller(client);
       const picked = await vscode.window.showQuickPick(
-        response.items.map((s) => ({
-          label: s.personaName,
-          description: s.id,
-          detail: `project ${s.projectId} · ${s.agentSessionId ?? '(agent session id pending)'}`,
-          session: s,
-        })),
-        { placeHolder: 'Pick a session to attach to', matchOnDescription: true },
+        buildSessionQuickPickItems(response.items, projectLabelOf),
+        {
+          placeHolder: 'Pick a session to attach to',
+          matchOnDescription: true,
+          matchOnDetail: true,
+        },
       );
-      if (picked === undefined) return;
+      // Separator rows carry no session and are never returned by showQuickPick;
+      // the `in` guard narrows the union so picked.session is safe to read.
+      if (picked === undefined || !('session' in picked)) return;
       spawnAttachTerminal({
         sessionId: picked.session.id,
         personaName: picked.session.personaName,
@@ -57,4 +66,40 @@ export function registerAttachSession(context: vscode.ExtensionContext): void {
       });
     }),
   );
+}
+
+interface SessionQuickPickItem extends vscode.QuickPickItem {
+  label: string;
+  session: Session;
+}
+
+// Per ND-33 (f): build the attach quick-pick items grouped under per-project
+// separator headers (first-seen order). Exported so the item shape + grouping
+// is unit-testable without driving the whole command.
+export function buildSessionQuickPickItems(
+  sessions: readonly Session[],
+  projectLabelOf: (projectId: string) => string,
+): (SessionQuickPickItem | vscode.QuickPickItem)[] {
+  const items: SessionQuickPickItem[] = sessions.map((s) => ({
+    label: s.personaName,
+    description: s.id,
+    detail: `${projectLabelOf(s.projectId)} · ${s.agentSessionId ?? '(agent session id pending)'}`,
+    session: s,
+  }));
+  return groupQuickPickItems(items, (item) => projectLabelOf(item.session.projectId));
+}
+
+// Resolve a projectId → display-name labeller from the server's project list.
+// Best-effort: on any failure the labeller falls back to the raw projectId, so
+// a /projects hiccup degrades grouping headers without blocking attach.
+async function loadProjectLabeller(
+  client: RelayRestClient,
+): Promise<(projectId: string) => string> {
+  const byId = new Map<string, string>();
+  try {
+    for (const p of await client.listProjects()) byId.set(p.id, p.displayName);
+  } catch {
+    // Cosmetic-only — raw projectIds are acceptable group headers.
+  }
+  return (projectId: string): string => byId.get(projectId) ?? projectId;
 }

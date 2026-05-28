@@ -18,6 +18,13 @@ export enum StatusBarAlignment {
   Right = 2,
 }
 
+// Mirrors vscode.QuickPickItemKind: Separator rows render as non-selectable
+// group headers (ND-33 (b)/(f) grouped pickers); Default is a normal item.
+export enum QuickPickItemKind {
+  Separator = -1,
+  Default = 0,
+}
+
 export class ThemeColor {
   constructor(readonly id: string) {}
 }
@@ -129,6 +136,10 @@ export const window = {
   showInformationMessage: (): Promise<undefined> => Promise.resolve(undefined),
   showWarningMessage: (): Promise<undefined> => Promise.resolve(undefined),
   showErrorMessage: (): Promise<undefined> => Promise.resolve(undefined),
+  // Default resolves to undefined (user dismissed); specs vi.spyOn to program a
+  // selection and assert the items/options the grouped pickers pass.
+  showQuickPick: (): Promise<undefined> => Promise.resolve(undefined),
+  showInputBox: (): Promise<undefined> => Promise.resolve(undefined),
 
   createStatusBarItem: () => ({
     text: '',

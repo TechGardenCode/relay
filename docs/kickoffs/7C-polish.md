@@ -1,5 +1,7 @@
 # Kickoff: 7C-polish — IDE picker filters + REST-poll status-bar enrichment (P1)
 
+> ✅ **Completed 2026-05-27.** Shipped: grouped/filterable persona + attach quick-picks, a REST-poll running-session status-bar indicator reusing a shared `PollLoop` extracted from `sessionsTree.ts` (ND-37 #6), 23 new specs. See the **7C-polish** done entry in [`docs/build-plan.md`](../build-plan.md). This file is retained as a historical artifact — do not re-execute.
+
 _Written 2026-05-27. This kickoff is a point-in-time snapshot._
 
 ## ⚠️ Before you write any code (read this first)
