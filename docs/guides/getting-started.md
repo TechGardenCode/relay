@@ -18,7 +18,7 @@ Several known sharp edges in the current UX are documented in [Chapter 7 — Tro
 
 1. [Install](#chapter-1--install)
 2. [First connect](#chapter-2--first-connect)
-3. [Author your first persona](#chapter-3--author-your-first-persona)
+3. [Personas (deferred to Phase 2)](#chapter-3--personas-deferred-to-phase-2)
 4. [Start a session in VS Code](#chapter-4--start-a-session-in-vs-code)
 5. [Attach from another device](#chapter-5--attach-from-another-device)
 6. [Manage tokens, projects, and sessions](#chapter-6--manage-tokens-projects-and-sessions)
@@ -90,7 +90,8 @@ This is a one-time bootstrap. It:
 1. Creates `~/.relay/` with `config.yaml` (default `host=127.0.0.1`, `port=7777`, `claimLockTimeoutSeconds=30`).
 2. Generates a bearer token (Crockford-Base32, 26 characters, ≥128 bits of entropy, hashed at rest per [D-13](../decisions/D-13-first-run-pairing-ux.md) and [ND-09](../decisions/ND-09-bearer-token-hashing-algorithm.md)).
 3. Prints a pairing snippet on stdout — a `relay://pair?url=…&token=…` deep link plus the raw URL + token — and writes the same snippet to `~/.relay/last-pairing.txt`.
-4. Scaffolds the seven default personas into `~/.relay/personas/` (`architect`, `dev`, `design`, `infra`, `product`, `review`, `test`).
+
+(At MVP `relay init` does **not** seed default personas — personas are deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md); see [Chapter 3](#chapter-3--personas-deferred-to-phase-2).)
 
 After the pairing snippet, `relay init` prints a **numbered next-steps block** (per [ND-32](../decisions/ND-32-install-and-onboarding-deep-dive.md)) that walks you through the rest of this chapter — `claude auth login`, start `relay server`, pair the IDE, register a project, start a session. It's a quick orientation; the detailed version is the sections below. That block is console-only guidance and is **not** saved to `~/.relay/last-pairing.txt`.
 
@@ -134,42 +135,13 @@ The token is stored in VS Code's SecretStorage, not in plaintext on disk. The st
 
 ---
 
-## Chapter 3 — Author your first persona
+## Chapter 3 — Personas (deferred to Phase 2)
 
-A **persona** is a YAML file that tells Relay how to compose the agent's system prompt and (optionally) which model, skills, and MCP servers to apply when a session starts. Personas are the answer to "switch from architect to dev to review without hand-editing `CLAUDE.md` / `.mcp.json` / skill folders."
+> **Personas are descoped from the MVP per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) (2026-05-28).** There is nothing to do in this chapter today — skip to [Chapter 4](#chapter-4--start-a-session-in-vs-code).
 
-### The defaults you already have
+A **persona** is a named role bundle (system prompt overlay + optional model / skills / MCP subset) that Relay would compose onto a session at spawn. At MVP that whole path is asleep: sessions spawn a **bare agent** with no overlay, the `relay persona` command and `/personas` routes are unavailable, `relay init` seeds no `~/.relay/personas/`, and the IDE shows no persona picker. Your sessions run `claude` exactly as you'd launch it yourself, with your native `~/.claude/` configuration intact.
 
-`relay init` scaffolded seven defaults at `~/.relay/personas/`. List them:
-
-```bash
-relay persona list
-```
-
-Each YAML carries a `schemaVersion`, a kebab-case `name` that must match the filename stem, a one-line `description`, and a multi-paragraph `systemPrompt`. The full schema lives in [`docs/prd/09-persona-schema.md`](../prd/09-persona-schema.md).
-
-Open one to see the shape — e.g. `~/.relay/personas/dev.yaml`. The defaults intentionally omit `skills`, `mcpServers`, and `model` so they degrade to "all your agent's native capabilities plus a behavior overlay."
-
-### Create your own
-
-```bash
-relay persona create my-debugger
-```
-
-This opens `$EDITOR` on a fresh `~/.relay/personas/my-debugger.yaml` pre-filled with the required fields. Edit the `systemPrompt` to taste, save, and Relay will pick it up on the next `relay persona list`.
-
-If you ship a typo (wrong `name`, mismatched filename, unknown top-level key, etc.) the loader will refuse it and surface the reason via the `persona-yaml-check` skill. Run a manual lint with:
-
-```bash
-# From the repo root with the skill available in your Claude Code session:
-# Invoke the persona-yaml-check skill on the file path.
-```
-
-Or just call the schema doc directly: [`docs/prd/09-persona-schema.md`](../prd/09-persona-schema.md) §1–§4.
-
-### Tenant vs project personas
-
-By default personas live in `~/.relay/personas/` and apply to every session ("tenant scope"). You can override a persona for a single project by placing a same-named file under `<project>/.relay/personas/`. Project-scope persona **fully replaces** the tenant version — there is no field-level merge. See [D-09 §3](../prd/09-persona-schema.md) for the composition rule.
+The design is preserved for the Phase 2 re-enable: the schema lives in [`docs/prd/09-persona-schema.md`](../prd/09-persona-schema.md), the application mechanism in [`docs/arch/persona-application.md`](../arch/persona-application.md), and the seven default YAMLs ship dormant in the package. When personas return, this chapter regains its "author your first persona" walkthrough.
 
 ---
 
@@ -187,13 +159,12 @@ The marker is how the extension knows which Relay project a workspace belongs to
 ### Start a session
 
 1. Command palette → **"Relay: Start session in current project"**.
-2. Pick a persona from the quick-pick (defaults from Chapter 3, or your own).
 
-The extension:
+That's it — at MVP there is no persona picker (personas are deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md)); the command goes straight to spawning a bare agent. The extension:
 
-1. Calls `POST /sessions` with the project ID and persona name; the server spawns `claude` with the persona's composed system prompt, the filtered MCP config, the persona's model selection, etc. (per [`docs/arch/persona-application.md`](../arch/persona-application.md) §4.1).
+1. Calls `POST /sessions` with the project ID (no `personaName` per [D-17](../decisions/D-17-personas-descoped-from-mvp.md)); the server spawns `claude` bare — no system-prompt overlay, model override, or MCP filter — so it runs with your native `~/.claude/` configuration.
 2. Opens a new VS Code terminal panel running `relay attach <sid>`. This is the **subprocess-of-attach** pattern: the extension never opens a WebSocket; the bundled `relay attach` owns the client-side state machine. See [`docs/arch/client-agnosticism.md`](../arch/client-agnosticism.md) §4.3.
-3. The status bar now shows the project + persona for the focused root.
+3. The status bar now shows the project + a running-session count for the focused root.
 
 You're now in a normal terminal pane talking to the agent. Type, hit enter, watch it respond. The session persists on the server independent of the terminal pane — close the pane and the agent keeps running.
 
@@ -312,7 +283,7 @@ Most "it doesn't work and I don't know why" failures have a one-command answer. 
 relay doctor
 ```
 
-It probes the whole local surface — `~/.relay/` is initialized and writable, `config.yaml` parses, a token store exists, the `claude` binary is on your `PATH`, Claude credentials are present (via `ANTHROPIC_API_KEY` or a `claude login` session), your tenant personas parse, and the server is reachable with a valid token (set `RELAY_TOKEN` first to probe that last one) — and prints a remediation line for every failing check. It is read-only: it never changes anything in `~/.relay/`. The sections below explain individual failures in more depth, but `relay doctor` is the fastest way to find which one you're hitting. Tracked by [ND-35](../decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) (resolved 2026-05-27).
+It probes the whole local surface — `~/.relay/` is initialized and writable, `config.yaml` parses, a token store exists, the `claude` binary is on your `PATH`, Claude credentials are present (via `ANTHROPIC_API_KEY` or a `claude login` session), and the server is reachable with a valid token (set `RELAY_TOKEN` first to probe that last one) — and prints a remediation line for every failing check. (The tenant-persona-parse probe is gone at MVP — personas are deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md).) It is read-only: it never changes anything in `~/.relay/`. The sections below explain individual failures in more depth, but `relay doctor` is the fastest way to find which one you're hitting. Tracked by [ND-35](../decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) (resolved 2026-05-27).
 
 ### `node-pty` install fails
 
@@ -345,7 +316,7 @@ The extension keys SecretStorage on a single `relay.serverUrl` + `relay.token` p
 
 ### Persona didn't load — what went wrong?
 
-If `relay session list` shows the session but the agent's behavior doesn't reflect the persona's `systemPrompt`, the persona file may have failed to load — persona-load failures are non-fatal (the session spawns without the persona applied; see [D-G1](../decisions/D-G1-persona-application-semantics.md)). Run `relay doctor`: its `personas` check lists any tenant persona file that didn't parse, with the reason. For deeper inspection, the spawn audit at `~/.relay/sessions/<sid>/spawn-record.json` ([ND-12](../decisions/ND-12-spawn-json-schema-location.md)) records the exact argv used and which persona file resolved. Surfaced by `relay doctor` per [ND-35](../decisions/ND-35-diagnostics-and-error-ux-deep-dive.md) (resolved 2026-05-27).
+> **Not applicable at MVP** — personas are deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md). Sessions spawn a bare agent with no persona, so there is no persona to fail to load. This section returns when personas do. For reference, the spawn audit at `~/.relay/sessions/<sid>/spawn-record.json` ([ND-12](../decisions/ND-12-spawn-json-schema-location.md)) still records the exact argv used (an empty argv at MVP).
 
 ### Server says "connection refused" from another device
 
@@ -379,8 +350,7 @@ You've done the A–Z. Pointers for going deeper:
 
 ### To use Relay more deeply
 
-- **Customize personas per project.** Place `<project>/.relay/personas/<name>.yaml` to override a tenant persona for one project. See [Chapter 3](#chapter-3--author-your-first-persona).
-- **Read the persona schema.** [`docs/prd/09-persona-schema.md`](../prd/09-persona-schema.md) is the full contract — schemaVersion, name, description, systemPrompt, skills, mcpServers, model, with composition rules.
+- **Personas (Phase 2).** Per-project persona customization is deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md); see [Chapter 3](#chapter-3--personas-deferred-to-phase-2). The Phase 2 schema is [`docs/prd/09-persona-schema.md`](../prd/09-persona-schema.md) (schemaVersion, name, description, systemPrompt, skills, mcpServers, model + composition rules).
 - **Read the threat model + deployment guide.** If you're going past localhost, [`docs/threat-model.md`](../threat-model.md) and [`docs/deployment.md`](../deployment.md) cover the network-shape decision tree, Caddy + Tailscale, and operator hardening.
 
 ### To contribute to Relay

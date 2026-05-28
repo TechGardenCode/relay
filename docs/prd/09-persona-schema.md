@@ -1,5 +1,7 @@
 # Relay PRD — Persona YAML Schema
 
+> **Deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) (2026-05-28).** Personas are descoped from the MVP. This schema still stands as the Phase 2 design — the dormant `persona/` module and the seven default YAMLs validate against it — but at MVP no persona is loaded: sessions spawn a bare agent, the `/personas` routes are unmounted, `relay init` seeds no defaults, and the IDE shows no persona picker. The body below is unchanged; read it as the Phase 2 contract, not current MVP behavior.
+
 **Status:** v0.4
 **Scope:** The on-disk file format for persona definitions, file naming and location, and the tenant-vs-project composition rule. Read `01-conceptual-model.md` for the conceptual entity and `03-server.md` §4 for the persona-application guarantees that this file's content drives.
 

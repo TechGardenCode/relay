@@ -11,8 +11,7 @@
  *     - PTY bytes fan out to every attached client regardless of claim state
  *       (D-G3)                                                                → describe("D-G3 universal output") > it("...all attached clients") + it("late attach sees post-attach only") + it("misbehaving client does not poison fan-out")
  *     - agentSessionId capture is fire-and-forget and non-fatal (ND-11)       → describe("agent-session-id capture (ND-11)") > it("resolves to UUID → column populated") + it("resolves to null → column stays NULL")
- *     - Persona resolved BEFORE row inserted; persona_not_found leaves
- *       no orphan running row                                                 → describe("create — error paths") > it("persona_not_found throws without inserting a row")
+ *     - Per D-17 bare-agent spawn: empty argv, personaName sentinel 'agent'   → describe("create happy path") > it("spawns a bare agent with empty argv")
  *     - Spawn failure after insert → row marked 'operator_kill'               → describe("create — error paths") > it("supervisor factory throws → row marked operator_kill")
  *   Does NOT own (deferred to composition):
  *     - The HTTP/REST surface (→ server/rest/, 6F)                           → enforced at e2e layer; 6F maps SessionCreateError codes to status
@@ -39,13 +38,7 @@ import {
 import type { CreateWriterArgs, TranscriptWriter } from '../transcript/index.js';
 
 import { createRegistry } from './registry.js';
-import {
-  createFakeSupervisor,
-  minimalPersonaYaml,
-  tick,
-  writePersonaFixture,
-  type FakeSupervisor,
-} from './test-fakes.js';
+import { createFakeSupervisor, tick, type FakeSupervisor } from './test-fakes.js';
 import {
   SessionCreateError,
   type AgentSessionIdCapture,
@@ -181,10 +174,6 @@ function buildDeps(h: Harness, overrides: DepsOverrides = {}): RegistryDeps {
   };
 }
 
-function seedPersona(h: Harness, name = 'tester'): void {
-  writePersonaFixture(h.homeOverride, name, minimalPersonaYaml(name));
-}
-
 function fakeClient(id: string): AttachedClient & {
   received: Buffer[];
   ended: SessionEndInfo[];
@@ -215,38 +204,36 @@ afterEach(() => {
 });
 
 describe('createRegistry — create happy path', () => {
-  it('inserts a running row, writes spawn.json, calls supervisor with persona argv', async () => {
-    seedPersona(h);
+  it('inserts a running row, writes spawn.json, spawns a bare agent with empty argv', async () => {
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
 
     expect(handle.row.status).toBe('running');
     expect(handle.row.terminatedReason).toBeNull();
     expect(handle.row.totalBytes).toBe(0);
+    // Per D-17: personaName is the server-stamped sentinel, never user-supplied.
+    expect(handle.row.personaName).toBe('agent');
 
     // spawn.json materialized under the homeOverride.
     const spawnJsonPath = join(sessionWorkDir(handle.id, h.homeOverride), 'spawn.json');
     expect(statSync(spawnJsonPath).isFile()).toBe(true);
 
-    // Supervisor factory was called with the persona-derived argv
-    // (--append-system-prompt 'be terse' from the minimal fixture).
+    // Per D-17: bare-agent spawn — no persona overlay, so the supervisor gets
+    // an empty argv (no --append-system-prompt / --model / --mcp-config).
     expect(h.supervisorFactoryCalls).toBe(1);
     expect(h.lastSupervisor?.spawnArgs.command).toBe('fake-claude');
-    expect(h.lastSupervisor?.spawnArgs.args).toEqual(['--append-system-prompt', 'be terse']);
+    expect(h.lastSupervisor?.spawnArgs.args).toEqual([]);
     expect(h.lastSupervisor?.spawnArgs.cwd).toBe(CANONICAL);
     await reg.shutdown();
   });
 
   it('stamps sessions.pty_pid with the supervisor pid after spawn (regression: vm-e2e found null)', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
     const expectedPid = (h.lastSupervisor as FakeSupervisor).pid;
@@ -259,11 +246,9 @@ describe('createRegistry — create happy path', () => {
 
 describe('createRegistry — shutdown discipline (Phase 0 §2)', () => {
   it('shutdown then onExit leaves the row as running (boot sweep owns the flip)', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
     const sup = h.lastSupervisor as FakeSupervisor;
@@ -282,7 +267,6 @@ describe('createRegistry — shutdown discipline (Phase 0 §2)', () => {
   });
 
   it('shuttingDown getter flips false → true', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     expect(reg.shuttingDown).toBe(false);
     await reg.shutdown();
@@ -292,11 +276,9 @@ describe('createRegistry — shutdown discipline (Phase 0 §2)', () => {
 
 describe('createRegistry — D-G3 universal output', () => {
   it('every attached client receives the same byte slice', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
     const sup = h.lastSupervisor as FakeSupervisor;
@@ -315,11 +297,9 @@ describe('createRegistry — D-G3 universal output', () => {
   });
 
   it('late-attached client only sees post-attach bytes (no replay; 6G owns replay)', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
     const sup = h.lastSupervisor as FakeSupervisor;
@@ -342,11 +322,9 @@ describe('createRegistry — D-G3 universal output', () => {
   });
 
   it('detached client stops receiving subsequent bytes', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
     const sup = h.lastSupervisor as FakeSupervisor;
@@ -366,11 +344,9 @@ describe('createRegistry — D-G3 universal output', () => {
   });
 
   it('a client whose onBytes throws does NOT poison the fan-out', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
     const sup = h.lastSupervisor as FakeSupervisor;
@@ -396,28 +372,7 @@ describe('createRegistry — D-G3 universal output', () => {
 });
 
 describe('createRegistry — create error paths', () => {
-  it('persona_not_found throws SessionCreateError and inserts NO session row', async () => {
-    // No persona seeded.
-    const reg = createRegistry(buildDeps(h));
-    await expect(
-      reg.create({
-        projectId: h.projectId,
-        personaName: 'missing',
-        canonicalProjectPath: CANONICAL,
-      }),
-    ).rejects.toMatchObject({
-      name: 'SessionCreateError',
-      code: 'persona_not_found',
-    });
-
-    // Per session/CLAUDE.md "Surprising constraints" §8: persona resolved
-    // BEFORE insert — a not-found throw never leaves an orphan running row.
-    expect(sessions.listByProject(h.db, h.projectId)).toEqual([]);
-    await reg.shutdown();
-  });
-
   it('supervisor factory throws → row marked operator_kill, error propagates', async () => {
-    seedPersona(h);
     const failingFactory: SupervisorFactory = () => {
       throw new Error('spawn failed');
     };
@@ -426,7 +381,6 @@ describe('createRegistry — create error paths', () => {
     await expect(
       reg.create({
         projectId: h.projectId,
-        personaName: 'tester',
         canonicalProjectPath: CANONICAL,
       }),
     ).rejects.toThrow(/spawn failed/);
@@ -445,11 +399,9 @@ describe('createRegistry — create error paths', () => {
 
 describe('createRegistry — natural exit / kill discipline', () => {
   it('natural onExit marks killed/agent_exit; subsequent get returns undefined', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
     const sup = h.lastSupervisor as FakeSupervisor;
@@ -468,11 +420,9 @@ describe('createRegistry — natural exit / kill discipline', () => {
   });
 
   it('kill then onExit does not overwrite operator_kill with agent_exit', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
     const sup = h.lastSupervisor as FakeSupervisor;
@@ -491,14 +441,12 @@ describe('createRegistry — natural exit / kill discipline', () => {
   });
 
   it('kill on an unknown sid returns { killed: false } without throwing', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     expect(reg.kill('does-not-exist', 'operator_kill')).toEqual({ killed: false });
     await reg.shutdown();
   });
 
   it('attach on an unknown sid throws SessionCreateError(session_not_found)', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     expect(() => reg.attach('does-not-exist', fakeClient('x'))).toThrow(SessionCreateError);
     try {
@@ -512,14 +460,12 @@ describe('createRegistry — natural exit / kill discipline', () => {
 
 describe('createRegistry — agent-session-id capture (ND-11)', () => {
   it('capture resolves to a UUID → sessions.agent_session_id is updated', async () => {
-    seedPersona(h);
     const known = '11111111-2222-4333-8444-555555555555';
     const captureResolved: AgentSessionIdCapture = () => Promise.resolve(known);
     const reg = createRegistry(buildDeps(h, { agentSessionIdCapture: captureResolved }));
 
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
 
@@ -534,13 +480,11 @@ describe('createRegistry — agent-session-id capture (ND-11)', () => {
   });
 
   it('capture resolves to null → agent_session_id stays NULL (non-fatal per ND-11 §5)', async () => {
-    seedPersona(h);
     const captureNull: AgentSessionIdCapture = () => Promise.resolve(null);
     const reg = createRegistry(buildDeps(h, { agentSessionIdCapture: captureNull }));
 
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
 
@@ -557,11 +501,9 @@ describe('createRegistry — agent-session-id capture (ND-11)', () => {
 
 describe('createRegistry — onSessionEnd notifications (ws-protocol.md §2.3)', () => {
   it('natural exit fires onSessionEnd with reason=agent_exit and the exitCode', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
     const sup = h.lastSupervisor as FakeSupervisor;
@@ -578,11 +520,9 @@ describe('createRegistry — onSessionEnd notifications (ws-protocol.md §2.3)',
   });
 
   it('operator kill fires onSessionEnd with reason=operator_kill and terminatedReason mirrored from the row', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
     const sup = h.lastSupervisor as FakeSupervisor;
@@ -601,11 +541,9 @@ describe('createRegistry — onSessionEnd notifications (ws-protocol.md §2.3)',
   });
 
   it('shutdown fires onSessionEnd with reason=server_shutdown (Phase 0 §2 — boot sweep owns the row flip)', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
 
@@ -624,11 +562,9 @@ describe('createRegistry — onSessionEnd notifications (ws-protocol.md §2.3)',
 
 describe('createRegistry — byte accounting integration (ND-13)', () => {
   it('shutdown drains pending byte deltas before returning', async () => {
-    seedPersona(h);
     const reg = createRegistry(buildDeps(h));
     const handle = await reg.create({
       projectId: h.projectId,
-      personaName: 'tester',
       canonicalProjectPath: CANONICAL,
     });
     const sup = h.lastSupervisor as FakeSupervisor;

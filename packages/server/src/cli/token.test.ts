@@ -1,18 +1,16 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runInit } from './init.js';
 import { runTokenCreate, runTokenList, runTokenRevoke } from './token.js';
 
-const DEFAULT_PERSONAS_DIR = resolve(import.meta.dirname, '..', '..', 'personas', 'defaults');
-
 let home: string;
 
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'relay-cli-token-'));
-  runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
+  runInit({ home });
 });
 
 afterEach(() => {

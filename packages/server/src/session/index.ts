@@ -1,7 +1,8 @@
-// session/ — orchestration glue for the four foundation modules (store,
-// persona, pty, transcript) plus the auth revocation bus. Owns the boot
-// orphan sweep (D-11), the shutdown discipline (Phase 0 surprise §2), and
-// the D-G3 universal-output fan-out. Build-plan task 6E.
+// session/ — orchestration glue for the foundation modules (store, pty,
+// transcript) plus the auth revocation bus. Owns the boot orphan sweep
+// (D-11), the shutdown discipline (Phase 0 surprise §2), and the D-G3
+// universal-output fan-out. Build-plan task 6E. Per D-17 the persona module
+// is dormant and no longer on the spawn path; sessions spawn a bare agent.
 
 export { bootOrphanSweep } from './boot.js';
 export {
@@ -19,13 +20,9 @@ export {
   type ByteAccountantOptions,
   type SessionByteHandle,
 } from './byte-accounting.js';
-export {
-  buildArgv,
-  hashPersonaFile,
-  writeTransientDir,
-  type BuildArgvResult,
-  type WriteTransientDirArgs,
-} from './spawn.js';
+// Per D-17: buildArgv/hashPersonaFile are removed (the persona bridge on the
+// spawn path). Only the persona-agnostic transient-dir writer remains.
+export { writeTransientDir, type WriteTransientDirArgs } from './spawn.js';
 export {
   createRegistry,
   initServer,

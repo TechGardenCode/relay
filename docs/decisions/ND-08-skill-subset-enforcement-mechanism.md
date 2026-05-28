@@ -1,7 +1,8 @@
 ---
 id: ND-08
-status: open
+status: deferred
 title: "Skill subset enforcement mechanism"
+deferred-until: "Phase 2 — persona re-enable per D-17"
 affects: "prd/09-persona-schema.md §2, docs/arch/persona-application.md §5"
 surfaced-by: "[[d-g1-persona-application-semantics]] resolution (specifically the implementation-pass arch doc docs/arch/persona-application.md §6.1 and §8, on 2026-05-15)"
 ---
@@ -9,9 +10,10 @@ surfaced-by: "[[d-g1-persona-application-semantics]] resolution (specifically th
 # ND-08 — Skill subset enforcement mechanism
 
 
-**Status:** open
+**Status:** deferred (until Phase 2 — persona re-enable per D-17)
 **Affects:** `prd/09-persona-schema.md` §2, `docs/arch/persona-application.md` §5
 **Surfaced by:** [[d-g1-persona-application-semantics]] resolution (specifically the implementation-pass arch doc `docs/arch/persona-application.md` §6.1 and §8, on 2026-05-15)
+**Superseded-for-MVP by:** [[d-17-personas-descoped-from-mvp]] — personas were descoped from the MVP on 2026-05-28. This question (how to enforce a persona's `skills:` list at spawn) is **moot at MVP**: sessions spawn a bare agent with an empty argv, so no `skills:` list is applied and there is nothing to enforce. It re-opens when personas return in Phase 2.
 
 ## Question
 How does Relay enforce a persona's non-empty `skills:` list at session spawn, given that Claude Code currently exposes no CLI primitive to restrict the agent to a named subset of installed skills?
@@ -36,4 +38,9 @@ This entry tracks whether "advisory at MVP" is a permanent posture (acceptable f
 Option A at MVP, with the enforcement gap explicitly documented in `docs/arch/persona-application.md` §6.1. The self-host single-user threat model in `prd/00-overview.md` G-7 does not need skill restriction as a security boundary; users edit their own persona files and run their own agents. Re-evaluate if (1) persona authors surface friction (e.g., a persona that genuinely depends on a narrow skill set for behavioral consistency), or (2) a multi-tenant deployment surfaces and skills become a permission-boundary concern. Option B is the natural follow-up when an upstream flag exists.
 
 ## Resolution
-*(unresolved)*
+
+Deferred to Phase 2 alongside the persona descope ([[d-17-personas-descoped-from-mvp]]).
+
+- **MVP behavior:** N/A. No persona is applied at MVP (bare-agent spawn, empty argv), so there is no `skills:` list to enforce and the enforcement gap does not exist on the live path.
+- **Default direction when picked up:** Option A (advisory at MVP) remains the lean — surface the `skills:` list into the systemPrompt narration, document the soft-constraint gap, and treat real enforcement (Option B's upstream `--skills-dir`) as the natural follow-up if/when an upstream primitive exists.
+- **Re-open trigger:** personas return in Phase 2 (persona re-enable per D-17), at which point the live persona-application path needs a decision on enforcing a non-empty `skills:` list.

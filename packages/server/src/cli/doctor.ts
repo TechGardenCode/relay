@@ -1,11 +1,12 @@
 // Per ND-35, `relay doctor` is the one P0 diagnostics deliverable: a read-only
 // probe set that turns the silent-failure class (no credentials, `claude` not
-// installed, a persona-YAML typo, an unreachable server, a bad token) into an
-// actionable remediation line, so a non-author can recover without DMing the
-// author. It is deliberately dependency-light — file-existence / writability /
-// parse / PATH / credential-presence / HTTP-reachability probes only, no
-// `better-sqlite3` open (per ND-18's thin-client posture) and no mutation of
-// ~/.relay/.
+// installed, an unreachable server, a bad token) into an actionable remediation
+// line, so a non-author can recover without DMing the author. It is
+// deliberately dependency-light — file-existence / writability / parse / PATH /
+// credential-presence / HTTP-reachability probes only, no `better-sqlite3` open
+// (per ND-18's thin-client posture) and no mutation of ~/.relay/.
+//
+// Per D-17: the persona-YAML probe was removed with the persona descope.
 
 import { accessSync, constants as fsConstants, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
@@ -13,8 +14,7 @@ import { join } from 'node:path';
 
 import { resolveAttachConfig, AttachConfigError } from '../attach/config.js';
 import { loadConfig } from '../config/loader.js';
-import { configPath, personasDir, relayHome, tokensPath } from '../config/paths.js';
-import { loadPersonasFromDirectory } from '../persona/loader.js';
+import { configPath, relayHome, tokensPath } from '../config/paths.js';
 
 export type DoctorStatus = 'ok' | 'warn' | 'fail';
 
@@ -198,28 +198,9 @@ export async function runDoctor(deps: DoctorDeps = {}): Promise<DoctorReport> {
     });
   }
 
-  // 5. personas: tenant persona files parse. A parse failure is a WARN, not a
-  //    FAIL — per D-G1/D-09 a bad persona is excluded, not server-fatal.
-  const personaResult = loadPersonasFromDirectory(personasDir(home), 'tenant');
-  if (personaResult.invalid.length === 0) {
-    checks.push({
-      name: 'personas',
-      status: 'ok',
-      detail: `${String(personaResult.valid.length)} tenant persona(s) parse cleanly`,
-    });
-  } else {
-    const offenders = personaResult.invalid
-      .map((e) => `${e.filePath.split('/').pop() ?? e.filePath} (${e.reason})`)
-      .join(', ');
-    checks.push({
-      name: 'personas',
-      status: 'warn',
-      detail: `${String(personaResult.invalid.length)} persona file(s) did not load: ${offenders}`,
-      remediation: 'fix the YAML, or run the `persona-yaml-check` skill on the file',
-    });
-  }
+  // Per D-17: the personas probe was removed with the persona descope.
 
-  // 6. storage: ~/.relay/ is writable (DB + transcripts + transient dirs live here).
+  // 5. storage: ~/.relay/ is writable (DB + transcripts + transient dirs live here).
   try {
     accessSync(relayHome(home), fsConstants.W_OK);
     checks.push({ name: 'storage', status: 'ok', detail: `${relayHome(home)} is writable` });
@@ -232,7 +213,7 @@ export async function runDoctor(deps: DoctorDeps = {}): Promise<DoctorReport> {
     });
   }
 
-  // 7. server: reachable with a valid token. WARN on unreachable (doctor is
+  // 6. server: reachable with a valid token. WARN on unreachable (doctor is
   //    usually run while the server is down) / no-token; FAIL only on 401.
   const serverResult = await probeServer(home);
   switch (serverResult) {

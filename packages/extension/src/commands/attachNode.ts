@@ -30,7 +30,6 @@ export function registerAttachNode(context: vscode.ExtensionContext, deps: Attac
       spawnAttachTerminal(
         {
           sessionId: node.session.id,
-          personaName: node.session.personaName,
           rootName: node.session.id.slice(0, 8),
           creds,
         },

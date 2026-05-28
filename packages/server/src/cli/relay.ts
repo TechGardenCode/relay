@@ -6,7 +6,7 @@
 // import(...)` inside the matching commander `.action()` callback. The
 // top-level imports below are restricted to:
 //   - commander (the dispatcher itself)
-//   - cli/attach.js + cli/http.js + cli/persona.js (no native deps)
+//   - cli/attach.js + cli/http.js (no native deps)
 //   - error-class values needed by the global catch
 //
 // Adding a new subcommand whose handler pulls a heavy dep MUST use the
@@ -16,7 +16,6 @@ import { Command } from 'commander';
 
 import { runAttach } from './attach.js';
 import { CliHttpError, CliHttpUnreachableError } from './http.js';
-import { PersonaCreateError, runPersonaCreate, runPersonaList } from './persona.js';
 import { runTokenCreate, runTokenList, runTokenRevoke } from './token.js';
 
 const program = new Command();
@@ -26,7 +25,7 @@ program.name('relay').description('Relay — multi-device agent harness CLI').ve
 program
   .command('init')
   .description(
-    'First-run setup: scaffold ~/.relay/, copy default personas, mint initial bearer token, emit pairing snippet.',
+    'First-run setup: scaffold ~/.relay/, mint initial bearer token, emit pairing snippet.',
   )
   .option('--url <url>', 'Server URL embedded in the pairing snippet')
   .option('--force', 'Overwrite an existing ~/.relay/ scaffold')
@@ -42,7 +41,7 @@ program
 program
   .command('doctor')
   .description(
-    'Diagnose a Relay install: probe credentials, `claude` on PATH, personas, storage, and server reachability. Read-only.',
+    'Diagnose a Relay install: probe credentials, `claude` on PATH, storage, and server reachability. Read-only.',
   )
   .action(async () => {
     // Per ND-35, the one P0 diagnostics deliverable. Lazy-load so the
@@ -163,38 +162,9 @@ project
     process.stdout.write(`Removed ${id}.\n`);
   });
 
-const persona = program.command('persona').description('List or scaffold persona YAML files.');
-
-persona
-  .command('list')
-  .description('List effective personas for the current tenant (+ project, if --project given).')
-  .option('--project <path>', 'Canonical path to a registered project for overrides')
-  .action((opts: { project?: string }) => {
-    const result = runPersonaList({ projectPath: opts.project });
-    if (result.rows.length === 0) {
-      process.stdout.write('No personas.\n');
-    } else {
-      for (const row of result.rows) {
-        const desc = row.description ?? '';
-        process.stdout.write(`${row.name}\t${row.source}\t${desc}\n`);
-      }
-    }
-    if (result.errors.length > 0) {
-      process.stderr.write(`\n${String(result.errors.length)} persona file(s) had errors:\n`);
-      for (const err of result.errors) {
-        process.stderr.write(`  ${err.filePath}: ${err.reason}\n`);
-      }
-    }
-  });
-
-persona
-  .command('create')
-  .description('Scaffold a new persona YAML under ~/.relay/personas/ and open in $EDITOR.')
-  .argument('<name>', 'Persona name (kebab-case, matches filename stem)')
-  .action(async (name: string) => {
-    const { filePath } = await runPersonaCreate({ name });
-    process.stdout.write(`Wrote ${filePath}.\n`);
-  });
+// Per D-17: personas are descoped from MVP. The `relay persona` command block
+// (list/create) is removed so no user-reachable path exercises personas; the
+// cli/persona.ts module stays dormant on disk for the Phase-2 re-enable.
 
 const session = program.command('session').description('Inspect or kill agent sessions.');
 
@@ -331,10 +301,6 @@ program.parseAsync(process.argv).catch((err: unknown) => {
   if (err instanceof CliHttpError) {
     process.stderr.write(`${err.message}\n`);
     process.exit(err.status >= 500 ? 4 : 2);
-  }
-  if (err instanceof PersonaCreateError) {
-    process.stderr.write(`relay persona create: ${err.message}\n`);
-    process.exit(err.code === 'already_exists' ? 2 : 1);
   }
   process.stderr.write(`${(err as Error).message}\n`);
   process.exit(1);

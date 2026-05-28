@@ -4,11 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  createFakeSupervisor,
-  minimalPersonaYaml,
-  writePersonaFixture,
-} from '../../../session/test-fakes.js';
+import { createFakeSupervisor } from '../../../session/test-fakes.js';
 import { makeTestRig, type TestRig } from '../test-helpers.js';
 
 describe('routes/sessions', () => {
@@ -52,13 +48,12 @@ describe('routes/sessions', () => {
 
   it('POST /sessions creates a session and returns 201 + Location + the row', async () => {
     const project = await createProject();
-    writePersonaFixture(rig.homeOverride, 'dev', minimalPersonaYaml('dev'));
 
     const res = await rig.app.inject({
       method: 'POST',
       url: '/sessions',
       headers: { Authorization: rig.authHeader },
-      payload: { projectId: project.id, personaName: 'dev' },
+      payload: { projectId: project.id },
     });
     expect(res.statusCode).toBe(201);
     expect(res.headers.location).toMatch(/^\/sessions\//);
@@ -70,46 +65,31 @@ describe('routes/sessions', () => {
       totalBytes: number;
     };
     expect(body.projectId).toBe(project.id);
-    expect(body.personaName).toBe('dev');
+    // Per D-17: bare-agent spawn stamps the personaName sentinel server-side.
+    expect(body.personaName).toBe('agent');
     expect(body.status).toBe('running');
     expect(body.totalBytes).toBe(0);
   });
 
   it('POST /sessions with unknown projectId → 404 project-not-found', async () => {
-    writePersonaFixture(rig.homeOverride, 'dev', minimalPersonaYaml('dev'));
     const res = await rig.app.inject({
       method: 'POST',
       url: '/sessions',
       headers: { Authorization: rig.authHeader },
-      payload: { projectId: '01J0000000000000000UNKNOWN', personaName: 'dev' },
+      payload: { projectId: '01J0000000000000000UNKNOWN' },
     });
     expect(res.statusCode).toBe(404);
     const body = res.json() as { type: string };
     expect(body.type).toMatch(/errors\/project-not-found/);
   });
 
-  it('POST /sessions with unknown personaName → 404 persona-not-found', async () => {
-    const project = await createProject();
-    // No persona seeded.
-    const res = await rig.app.inject({
-      method: 'POST',
-      url: '/sessions',
-      headers: { Authorization: rig.authHeader },
-      payload: { projectId: project.id, personaName: 'missing' },
-    });
-    expect(res.statusCode).toBe(404);
-    const body = res.json() as { type: string };
-    expect(body.type).toMatch(/errors\/persona-not-found/);
-  });
-
   it('GET /sessions defaults to ?status=running (per D-11)', async () => {
     const project = await createProject();
-    writePersonaFixture(rig.homeOverride, 'dev', minimalPersonaYaml('dev'));
     await rig.app.inject({
       method: 'POST',
       url: '/sessions',
       headers: { Authorization: rig.authHeader },
-      payload: { projectId: project.id, personaName: 'dev' },
+      payload: { projectId: project.id },
     });
 
     const res = await rig.app.inject({
@@ -125,12 +105,11 @@ describe('routes/sessions', () => {
 
   it('GET /sessions?status=killed filters to terminated sessions', async () => {
     const project = await createProject();
-    writePersonaFixture(rig.homeOverride, 'dev', minimalPersonaYaml('dev'));
     const created = await rig.app.inject({
       method: 'POST',
       url: '/sessions',
       headers: { Authorization: rig.authHeader },
-      payload: { projectId: project.id, personaName: 'dev' },
+      payload: { projectId: project.id },
     });
     const sid = (created.json() as { id: string }).id;
 
@@ -162,12 +141,11 @@ describe('routes/sessions', () => {
 
   it('DELETE /sessions/:id is idempotent per D-11 — second DELETE on a killed session is 204', async () => {
     const project = await createProject();
-    writePersonaFixture(rig.homeOverride, 'dev', minimalPersonaYaml('dev'));
     const created = await rig.app.inject({
       method: 'POST',
       url: '/sessions',
       headers: { Authorization: rig.authHeader },
-      payload: { projectId: project.id, personaName: 'dev' },
+      payload: { projectId: project.id },
     });
     const sid = (created.json() as { id: string }).id;
 
@@ -199,12 +177,11 @@ describe('routes/sessions', () => {
 
   it('GET /sessions/:id returns the session row', async () => {
     const project = await createProject();
-    writePersonaFixture(rig.homeOverride, 'dev', minimalPersonaYaml('dev'));
     const created = await rig.app.inject({
       method: 'POST',
       url: '/sessions',
       headers: { Authorization: rig.authHeader },
-      payload: { projectId: project.id, personaName: 'dev' },
+      payload: { projectId: project.id },
     });
     const sid = (created.json() as { id: string }).id;
 
@@ -216,6 +193,17 @@ describe('routes/sessions', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json() as { id: string; personaName: string };
     expect(body.id).toBe(sid);
-    expect(body.personaName).toBe('dev');
+    expect(body.personaName).toBe('agent');
+  });
+
+  // Per D-17: the /personas routes are left unmounted. This guards against a
+  // silent re-registration of registerPersonasRoutes in rest/index.ts.
+  it('GET /personas is unmounted → 404 (D-17)', async () => {
+    const res = await rig.app.inject({
+      method: 'GET',
+      url: '/personas',
+      headers: { Authorization: rig.authHeader },
+    });
+    expect(res.statusCode).toBe(404);
   });
 });

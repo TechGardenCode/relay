@@ -1,7 +1,9 @@
-// "Relay: Start session in current project" — picks a persona, calls
-// POST /sessions, opens a terminal pane running `relay attach <id>` per D-08
-// (single binary on PATH) + arch/client-agnosticism.md §4.3 (subprocess-of-
-// attach pattern).
+// "Relay: Start session in current project" — calls POST /sessions, opens a
+// terminal pane running `relay attach <id>` per D-08 (single binary on PATH) +
+// arch/client-agnosticism.md §4.3 (subprocess-of-attach pattern).
+//
+// Per D-17: personas are descoped from MVP, so there is no persona picker — the
+// command goes straight from root resolution to a bare-agent session.
 //
 // Target root resolution per ND-05: active editor's containing root, falling
 // back to a quick-pick over multiple roots. cwd per D-01: workspace root, no
@@ -9,11 +11,8 @@
 
 import * as vscode from 'vscode';
 
-import { type PersonaResource, type PersonaSource } from '@relay/protocol';
-
 import { pickTargetRoot, renderResolveFailure, resolveRootForCommand } from '../discovery.js';
 import { loadCredentials } from '../pairing.js';
-import { groupQuickPickItems } from '../quickPickGroups.js';
 import {
   RelayHttpError,
   RelayNetworkError,
@@ -40,16 +39,13 @@ export function registerStartSession(context: vscode.ExtensionContext): void {
         renderResolveFailure(outcome);
         return;
       }
-      const persona = await pickPersona(client);
-      if (persona === undefined) return;
       try {
+        // Per D-17: no personaName is sent — the server spawns a bare agent.
         const session = await client.createSession({
           projectId: outcome.bound.projectId,
-          personaName: persona,
         });
         spawnAttachTerminal({
           sessionId: session.id,
-          personaName: persona,
           rootName: root.name,
           creds,
         });
@@ -60,61 +56,8 @@ export function registerStartSession(context: vscode.ExtensionContext): void {
   );
 }
 
-async function pickPersona(client: RelayRestClient): Promise<string | undefined> {
-  let response;
-  try {
-    response = await client.listPersonas();
-  } catch (err) {
-    renderSessionError(err);
-    return undefined;
-  }
-  if (response.items.length === 0) {
-    void vscode.window.showErrorMessage(
-      'No personas available on this Relay server. Use `relay persona create` or add one to ~/.relay/personas/.',
-    );
-    return undefined;
-  }
-  // Per ND-33 (b): grouped by source + matchOnDescription/matchOnDetail so a
-  // long persona list (post `personas/` growth) stays searchable and readable.
-  const items = buildPersonaQuickPickItems(response.items);
-  const picked = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Pick a persona',
-    matchOnDescription: true,
-    matchOnDetail: true,
-  });
-  return picked?.label;
-}
-
-// Group header per persona source. The detail line carries the same source +
-// path the headers group by, so matchOnDetail makes both searchable.
-const PERSONA_GROUP_LABELS: Record<PersonaSource, string> = {
-  tenant: 'Tenant personas',
-  project: 'Project personas',
-};
-
-interface PersonaQuickPickItem extends vscode.QuickPickItem {
-  label: string;
-  source: PersonaSource;
-}
-
-// Per ND-33 (b): build the persona quick-pick items grouped under per-source
-// separator headers (tenant before project, first-seen order). Exported so the
-// item shape + grouping is unit-testable without driving the whole command.
-export function buildPersonaQuickPickItems(
-  personas: readonly PersonaResource[],
-): (PersonaQuickPickItem | vscode.QuickPickItem)[] {
-  const items: PersonaQuickPickItem[] = personas.map((p) => ({
-    label: p.name,
-    description: p.description,
-    detail: `${p.source} · ${p.filePath}`,
-    source: p.source,
-  }));
-  return groupQuickPickItems(items, (item) => PERSONA_GROUP_LABELS[item.source]);
-}
-
 interface SpawnArgs {
   sessionId: string;
-  personaName: string;
   rootName: string;
   creds: RelayCredentials;
 }
@@ -129,7 +72,7 @@ interface SpawnArgs {
 // the WS-close performs the actual claim release inside `relay attach`).
 function spawnAttachTerminal(args: SpawnArgs, registry?: AttachTerminalRegistry): vscode.Terminal {
   const terminal = vscode.window.createTerminal({
-    name: `Relay: ${args.personaName} · ${args.rootName}`,
+    name: `Relay: ${args.rootName}`,
     shellPath: 'relay',
     shellArgs: ['attach', args.sessionId, '--url', args.creds.serverUrl],
     env: { RELAY_TOKEN: args.creds.token },

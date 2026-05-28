@@ -71,7 +71,8 @@ Each module below names what it **owns**, what it explicitly **does not own** (s
 - **Does not own.** Persona YAML content (lives on disk per D-09). Transcript bytes (lives in `transcript/`). Bearer-token storage (`auth/`'s `tokens.json` per `prd/03-server.md` §6). Any application logic on top of CRUD.
 - **Test isolation.** Fresh in-memory SQLite per test, fixture seed data from `test/fixtures/db/`.
 
-### `persona/`
+### `persona/` — **dormant at MVP per [D-17](../decisions/D-17-personas-descoped-from-mvp.md)**
+> Personas are descoped from the MVP. This module stays in the tree and its unit tests keep running against it, but **nothing on the live path imports it**: `session/` no longer resolves a persona, and `create()` spawns a bare agent. The ownership below is the Phase 2 design.
 - **Owns.** Reading `~/.relay/personas/*.yaml` and `<project>/.relay/personas/*.yaml`. Validating against the D-09 schema with Zod. Applying the composition rule (project file replaces tenant file by name, per `prd/09-persona-schema.md` §3). Surfacing the persona-application input that `session/` consumes (systemPrompt, skills, mcpServers, model).
 - **Does not own.** Spawning the agent or threading the persona into the PTY — that's the persona-application mechanism (D-G1, separate doc 2A).
 - **Test isolation.** Fixture YAML directories under `test/fixtures/personas/`, including invalid YAMLs covering each validation rule.
@@ -92,7 +93,7 @@ Each module below names what it **owns**, what it explicitly **does not own** (s
 - **Test isolation.** Pure crypto functions + tmpfile fixtures for the JSON store.
 
 ### `session/`
-- **Owns.** Session lifecycle coordinator. Resolves persona via `persona/`. Spawns under `pty/`. Wires `transcript/` as the writer. Maintains the attached-client registry. Implements the per-session claim-lock state (D-G2).
+- **Owns.** Session lifecycle coordinator. ~~Resolves persona via `persona/`~~ (descoped per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) — spawns a bare agent with an empty argv and stamps the `persona_name` sentinel). Spawns under `pty/`. Wires `transcript/` as the writer. Maintains the attached-client registry. Implements the per-session claim-lock state (D-G2).
 - **Does not own.** The transport (HTTP/WS). The persistence (`store/`). Domain primitives live in the modules above; `session/` is the wiring.
 - **Test isolation.** Fake PTY + fake store, drive the lifecycle and assert event emissions.
 
@@ -126,7 +127,7 @@ Each module below names what it **owns**, what it explicitly **does not own** (s
 
 ## 4. Inter-module flow
 
-`POST /sessions` arrives carrying `{ projectId, personaName }`:
+`POST /sessions` arrives carrying `{ projectId }` (per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) — no `personaName`; the `persona/` step below is dormant Phase 2 design):
 
 ```
 HTTP request
@@ -135,14 +136,16 @@ HTTP request
 server/rest/   validates payload via @relay/protocol Zod schema
     │
     ▼
-session/       creates session row in store/
+session/       creates session row in store/ (persona_name = 'agent' sentinel, D-17)
     │
-    ├──── persona/    reads ~/.relay/personas/<name>.yaml and
-    │                 <project>/.relay/personas/<name>.yaml,
-    │                 validates, composes, returns PersonaInput
+    ├──── persona/    [DORMANT at MVP per D-17 — not on the live path]
+    │                 Phase 2: reads ~/.relay/personas/<name>.yaml +
+    │                 <project>/.relay/personas/<name>.yaml, validates,
+    │                 composes, returns PersonaInput
     │
-    ├──── pty/        spawns agent CLI with persona threaded in;
-    │                 returns PtySupervisor (event source + kill handle)
+    ├──── pty/        spawns agent CLI with an empty argv (bare agent, D-17;
+    │                 Phase 2: persona threaded in). Returns PtySupervisor
+    │                 (event source + kill handle)
     │
     └──── transcript/ opens append-only writer for this session-id;
                       subscribes to PtySupervisor's byte events
@@ -197,7 +200,7 @@ Reserved as a top-level workspace package. Empty at v0.1. The Phase 2 mobile PWA
 
 Test layout convention: unit tests co-located with source as `*.test.ts`; end-to-end specs and shared fixtures under `packages/server/test/{e2e,fixtures}/`.
 
-Default persona YAMLs live at `packages/server/personas/defaults/*.yaml`, ship inside the npm tarball, and are copied to `~/.relay/personas/` by `relay init`.
+Default persona YAMLs live at `packages/server/personas/defaults/*.yaml` and ship inside the npm tarball. At MVP they stay dormant — `relay init` does **not** copy them to `~/.relay/personas/` (personas are descoped per [D-17](../decisions/D-17-personas-descoped-from-mvp.md)); the Phase 2 persona re-enable restores the seeding.
 
 ## 9. Decision: AI-first development foundations
 

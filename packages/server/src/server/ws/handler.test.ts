@@ -36,12 +36,7 @@ import type { ClientFrame, ServerFrame } from '@relay/protocol';
 import { RevocationBus, TokenStore } from '../../auth/index.js';
 import { tokensPath } from '../../config/paths.js';
 import { createRegistry, type SessionRegistry } from '../../session/index.js';
-import {
-  createFakeSupervisor,
-  minimalPersonaYaml,
-  writePersonaFixture,
-  type FakeSupervisor,
-} from '../../session/test-fakes.js';
+import { createFakeSupervisor, type FakeSupervisor } from '../../session/test-fakes.js';
 import {
   openDatabase,
   projects,
@@ -81,10 +76,8 @@ async function seedSession(rig: WsRig): Promise<SessionFixture> {
     },
     Date.now(),
   );
-  writePersonaFixture(rig.homeOverride, 'tester', minimalPersonaYaml('tester'));
   const handle = await rig.registry.create({
     projectId: project.id,
-    personaName: 'tester',
     canonicalProjectPath: ws,
   });
   // The FakeSupervisor is captured by the tracking factory inside the rig;

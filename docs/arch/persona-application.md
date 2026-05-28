@@ -1,5 +1,7 @@
 # Relay Arch — Persona Application Mechanism
 
+> **Deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) (2026-05-28).** Personas are descoped from the MVP. The mechanism below (Claude Code flags + transient `~/.relay/sessions/<sid>/` artifacts) is **not on the MVP spawn path**: `SessionRegistry.create()` takes no persona and spawns a bare agent with an empty argv — no `--append-system-prompt`, `--model`, `--mcp-config`, `--strict-mcp-config`, or `--disable-slash-commands`. `buildArgv`/`hashPersonaFile` were removed from `session/spawn.ts`. Read the body as the Phase 2 design, not current MVP behavior.
+
 **Status:** v0.1
 **Scope:** Picks the concrete mechanism Relay uses to apply a persona to a spawned agent session, subject to the three D-G1 guarantees (lifetime, isolation, invisibility). Closes build-plan task 2A.
 

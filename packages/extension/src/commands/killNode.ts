@@ -27,7 +27,7 @@ export function registerKillNode(context: vscode.ExtensionContext, deps: KillNod
       }
       // Kill terminates the agent process (D-11) — confirm before the irreversible step.
       const choice = await vscode.window.showWarningMessage(
-        `Kill session ${node.session.id.slice(0, 8)} (${node.session.personaName})? This terminates the agent process.`,
+        `Kill session ${node.session.id.slice(0, 8)}? This terminates the agent process.`,
         { modal: true },
         'Kill',
       );

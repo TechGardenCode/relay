@@ -10,14 +10,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { runInit } from './init.js';
 import { runServer } from './server.js';
 
-const DEFAULT_PERSONAS_DIR = join(import.meta.dirname, '..', '..', 'personas', 'defaults');
 const MIGRATIONS_DIR = join(import.meta.dirname, '..', 'store', 'migrations');
 
 let home: string;
 
 beforeEach(() => {
   home = realpathSync(mkdtempSync(join(tmpdir(), 'relay-cli-server-')));
-  runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
+  runInit({ home });
 });
 
 afterEach(() => {

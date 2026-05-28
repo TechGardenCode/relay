@@ -1,7 +1,7 @@
 # Relay PRD — Phase 1 Definition of Done
 
 **Status:** v0.4
-**Scope:** The acceptance bar for Phase 1 (MVP). Phase 1 ships when all eight scenarios below pass on a single shared installation, without regressing one another. Phase roadmap context lives in `07-phasing.md`.
+**Scope:** The acceptance bar for Phase 1 (MVP). Phase 1 ships when scenarios **A, C–G** below pass on a single shared installation, without regressing one another. Scenario B (personas) is deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md); scenario H (distribution) is deferred to post-2.0 per [D-16](../decisions/D-16-phase-1-ships-without-distribution.md). Phase roadmap context lives in `07-phasing.md`.
 
 ---
 
@@ -24,15 +24,19 @@ The eight scenarios below cover both headline pains (cross-device continuity, mu
 
 *Server-restart session handling resolved by [D-11](../decisions/D-11-server-restart-and-session-orphaning.md) on 2026-05-15. Project registration semantics resolved by [D-12](../decisions/D-12-project-record-storage-and-relay-project-add-semantics.md) on 2026-05-15.*
 
-### B — Persona × project composition is real
+### B — Persona × project composition is real — **deferred to Phase 2**
+
+> **Deferred to Phase 2** per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) (2026-05-28). Personas are descoped from the MVP — sessions spawn a bare agent with no persona overlay. This scenario is preserved here as the Phase 2 bar (it re-walks when the dormant `persona/` module is re-enabled). The Phase 1 gate ([`docs/build-plan.md`](../build-plan.md) 6Z) requires A, C–G only.
 
 - The default persona set ships and is enumerable via CLI and REST
 - A project-level persona override resolves correctly when listed for that project
 - A session spawned with persona X exhibits behavior attributable to that persona — verifiable by inspecting the session's first agent response or the transcript artifact, not just by trusting that a config file was read
 
+*Deferred from Phase 1 by [D-17](../decisions/D-17-personas-descoped-from-mvp.md) on 2026-05-28.*
+
 ### C — Single-client session lifecycle
 
-- IDE extension installs in a Remote-SSH'd Cursor, auto-binds the open workspace to a registered project, starts a session with a chosen persona, and the agent is interactive in the editor terminal
+- IDE extension installs in a Remote-SSH'd Cursor, auto-binds the open workspace to a registered project, starts a session, and the agent is interactive in the editor terminal
 
 ### D — Session survives client disconnect
 
@@ -60,10 +64,10 @@ The eight scenarios below cover both headline pains (cross-device continuity, mu
 
 *Resolved by [D-G2](../decisions/D-G2-multi-client-input-arbitration.md) on 2026-05-14.*
 
-### G — Multiple concurrent sessions across personas/projects (headline pain B)
+### G — Multiple concurrent sessions across different projects (headline pain B)
 
-- Two sessions running simultaneously in different (project, persona) pairs operate independently — separate working directories, separate transcripts, no cross-contamination of persona context
-- `relay session list` and the IDE status bar correctly distinguish them
+- Two sessions running simultaneously in different projects operate independently — separate working directories, separate transcripts, no cross-contamination of context
+- `relay session list` and the IDE status bar correctly distinguish them (by project + short session id; the per-session persona label is deferred with personas per [D-17](../decisions/D-17-personas-descoped-from-mvp.md))
 
 ### H — Distribution paths actually work — **deferred to post-2.0**
 
@@ -81,6 +85,7 @@ The eight scenarios below cover both headline pains (cross-device continuity, mu
 
 The following capabilities are not part of the Phase 1 acceptance bar. They are listed here so a tester does not flag their absence as a regression.
 
+- **Personas (scenario B).** The persona module is dormant and off every user-reachable path per [D-17](../decisions/D-17-personas-descoped-from-mvp.md): sessions spawn a bare agent, `/personas` is unmounted, `relay persona` is unwired, `relay init` seeds no defaults, and the IDE shows no persona picker. Scenario B above is preserved as the Phase 2 bar. A tester should not flag the absent persona picker or empty `~/.relay/personas/` as a regression.
 - **Distribution surface (scenario H).** `npm install -g`, the published Docker image, and Docker Compose with Caddy + Tailscale sidecar are deferred to post-2.0 / Track 8 per [D-16](../decisions/D-16-phase-1-ships-without-distribution.md). Phase 1 ships on dev/source-install; scenario H above is preserved as the future bar Track 8 will re-walk.
 - **Structured logging and observability.** Phase 1 emits whatever Node's default logger produces; there is no metrics endpoint, no tracing instrumentation, and no log-aggregation guidance beyond "run it under your service manager and collect stdout." Observability landing is a Phase 3 hardening concern.
 - **Token rotation.** Per-device tokens are valid indefinitely until revoked; automatic rotation is deferred per [D-05](../decisions/D-05-per-device-token-rotation.md).

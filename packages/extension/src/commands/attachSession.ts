@@ -60,7 +60,6 @@ export function registerAttachSession(context: vscode.ExtensionContext): void {
       if (picked === undefined || !('session' in picked)) return;
       spawnAttachTerminal({
         sessionId: picked.session.id,
-        personaName: picked.session.personaName,
         rootName: picked.session.id.slice(0, 8),
         creds,
       });
@@ -81,7 +80,8 @@ export function buildSessionQuickPickItems(
   projectLabelOf: (projectId: string) => string,
 ): (SessionQuickPickItem | vscode.QuickPickItem)[] {
   const items: SessionQuickPickItem[] = sessions.map((s) => ({
-    label: s.personaName,
+    // Per D-17: no persona to label with — the short session id disambiguates.
+    label: s.id.slice(0, 8),
     description: s.id,
     detail: `${projectLabelOf(s.projectId)} · ${s.agentSessionId ?? '(agent session id pending)'}`,
     session: s,

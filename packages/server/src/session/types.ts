@@ -40,7 +40,9 @@ export interface RegistryDeps {
 
 export interface SessionCreateInput {
   projectId: string;
-  personaName: string;
+  // Per D-17: personas are descoped from MVP, so create() takes no persona —
+  // it spawns a bare agent. No personaName field exists here precisely so no
+  // caller can route a client-supplied value back onto the spawn path.
   // Canonical project path resolved by 6F (per D-12) before calling create().
   canonicalProjectPath: string;
 }
@@ -90,7 +92,9 @@ export interface SessionRegistry {
   readonly shuttingDown: boolean;
 }
 
-export type SessionCreateErrorCode = 'persona_not_found' | 'session_not_found';
+// Per D-17 the 'persona_not_found' code is removed (no persona on the spawn
+// path). 'session_not_found' remains for the project-resolution failure 6F maps.
+export type SessionCreateErrorCode = 'session_not_found';
 
 export class SessionCreateError extends Error {
   readonly code: SessionCreateErrorCode;

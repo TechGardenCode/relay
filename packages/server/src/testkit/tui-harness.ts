@@ -42,7 +42,6 @@ import { createSupervisor, type PtySupervisor, type SpawnArgs } from '../pty/ind
 import { buildServer } from '../server/index.js';
 import { migrationsDirForTests } from '../server/rest/test-helpers.js';
 import { createRegistry, type SessionRegistry } from '../session/index.js';
-import { minimalPersonaYaml, writePersonaFixture } from '../session/test-fakes.js';
 import {
   openDatabase,
   projects,
@@ -124,10 +123,9 @@ export async function bootHarnessServer(opts: { fixture?: string } = {}): Promis
     },
     Date.now(),
   );
-  writePersonaFixture(homeOverride, 'tui', minimalPersonaYaml('tui'));
+  // Per D-17: bare-agent spawn — no persona fixture needed.
   const handle = await registry.create({
     projectId: project.id,
-    personaName: 'tui',
     canonicalProjectPath: projectDir,
   });
 

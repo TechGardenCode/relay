@@ -14,8 +14,6 @@ import { CliHttpError, CliHttpUnreachableError } from './http.js';
 import { dbPath } from '../config/paths.js';
 import { openDatabase, projects, sessions, tenants } from '../store/index.js';
 
-const DEFAULT_PERSONAS_DIR = join(import.meta.dirname, '..', '..', 'personas', 'defaults');
-
 let home: string;
 let server: Awaited<ReturnType<typeof runServer>> | undefined;
 let savedHome: string | undefined;
@@ -27,7 +25,7 @@ beforeEach(async () => {
   savedRelayToken = process.env['RELAY_TOKEN'];
   process.env['HOME'] = home;
 
-  const result = runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
+  const result = runInit({ home });
   process.env['RELAY_TOKEN'] = result.tokenPlaintext;
 
   writeFileSync(

@@ -1,8 +1,8 @@
 ---
 id: D-06
-status: resolved
+status: deferred
 title: "Persona inheritance"
-resolved-on: 2026-05-14
+deferred-until: "Phase 2 — persona re-enable per D-17"
 affects: "prd/01-conceptual-model.md"
 surfaced-by: "Original PRD §15 Q6"
 ---
@@ -10,9 +10,10 @@ surfaced-by: "Original PRD §15 Q6"
 # D-06 — Persona inheritance
 
 
-**Status:** resolved (2026-05-14)
+**Status:** deferred (until Phase 2 — persona re-enable per D-17)
 **Affects:** `prd/01-conceptual-model.md`
 **Surfaced by:** Original PRD §15 Q6
+**Superseded-for-MVP by:** [[d-17-personas-descoped-from-mvp]] — personas were descoped from the MVP on 2026-05-28 (originally resolved 2026-05-14). The "no inheritance, flat YAML" design below still stands but is **not in force at MVP**, because no persona is loaded. It re-enters force when personas return in Phase 2.
 
 ## Question
 Should personas support inheritance (one persona extends another)?

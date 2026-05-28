@@ -110,13 +110,19 @@ export class SessionsTreeProvider
     }
     if (node.kind === 'session') {
       const { session } = node;
-      const item = new vscode.TreeItem(session.personaName, vscode.TreeItemCollapsibleState.None);
+      // Per D-17: personas are descoped, so a session has no persona to label
+      // with. The short session id is the disambiguator between two sessions in
+      // one project (the project name is the group header above).
+      const item = new vscode.TreeItem(
+        session.id.slice(0, 8),
+        vscode.TreeItemCollapsibleState.None,
+      );
       item.id = `session:${session.id}`;
       // contextValue drives the per-status menu when-clauses in package.json.
       item.contextValue = `relaySession.${session.status}`;
       item.iconPath = statusIcon(session.status);
-      item.description = `${session.status} · ${session.id.slice(0, 8)}`;
-      item.tooltip = `${session.personaName}\nSession ${session.id}\nStatus: ${session.status}`;
+      item.description = session.status;
+      item.tooltip = `Session ${session.id}\nStatus: ${session.status}`;
       // Per D-11: a killed session is dead — no attach affordance. The default
       // click target on a live session is attach.
       if (session.status !== 'killed') {

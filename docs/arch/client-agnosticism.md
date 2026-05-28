@@ -62,7 +62,7 @@ opts.registry.attach(sessionId, {
 
 ### 2.3 Session lifecycle (`packages/server/src/session/`, `docs/arch/persona-application.md`)
 
-The session `create` input is `{ projectId, personaName, canonicalProjectPath }` ([`packages/server/src/session/types.ts`](../../packages/server/src/session/types.ts) `SessionCreateInput`). There is no `clientType` field. The `AttachedClient` interface is opaque — `id`, `onBytes`, optional `onSessionEnd` — and the registry never asks who is attaching. The persona-application mechanism ([`persona-application.md`](./persona-application.md) §1) composes a Claude Code argv and a transient `~/.relay/sessions/<sid>/` directory; nothing in the spawn path depends on the originating client.
+The session `create` input is `{ projectId, canonicalProjectPath }` ([`packages/server/src/session/types.ts`](../../packages/server/src/session/types.ts) `SessionCreateInput`). There is no `clientType` field, and — per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) — no `personaName` field: the agent spawns bare with an empty argv, and the server stamps the `persona_name` sentinel itself. There is no parameter through which a client could route a persona. The `AttachedClient` interface is opaque — `id`, `onBytes`, optional `onSessionEnd` — and the registry never asks who is attaching. (The persona-application mechanism in [`persona-application.md`](./persona-application.md) §1 is the dormant Phase 2 design.) Nothing in the spawn path depends on the originating client.
 
 ### 2.4 `relay attach` is a reference client, not part of the protocol
 

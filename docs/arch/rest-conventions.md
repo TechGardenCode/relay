@@ -57,7 +57,7 @@ Rules:
 | `404 Not Found` | Resource does not exist for the supplied identifier | `GET /projects/:id` for unknown id |
 | `409 Conflict` | State conflict: action would violate a uniqueness or state invariant. Per [D-12](../decisions/D-12-project-record-storage-and-relay-project-add-semantics.md) | `POST /projects` with an already-registered canonical path |
 | `410 Gone` | **Not used at MVP.** Killed sessions remain queryable per [D-11](../decisions/D-11-server-restart-and-session-orphaning.md), so no resource has a was-deleted state on the API surface | — |
-| `422 Unprocessable Entity` | Request is well-formed (Zod passed) but semantically invalid — a business rule rejects it | `POST /personas` where the YAML `name` does not match the filename stem per [D-09](../decisions/D-09-persona-yaml-schema.md) |
+| `422 Unprocessable Entity` | Request is well-formed (Zod passed) but semantically invalid — a business rule rejects it | _(Phase 2 example, deferred with personas per [D-17](../decisions/D-17-personas-descoped-from-mvp.md))_ `POST /personas` where the YAML `name` does not match the filename stem per [D-09](../decisions/D-09-persona-yaml-schema.md) |
 | `500 Internal Server Error` | Unhandled exception, programmer error. `detail` is a generic string; the real cause goes to server logs only | — |
 
 `400` vs `422` rule: **`400` = schema rejected the request**, **`422` = business rule rejected the request**. Both are client errors, but the distinction tells the client whether to fix the payload shape or change its intent.
@@ -100,7 +100,7 @@ Every `type` code documents a **recovery path** — the next action a user takes
 |---|---|
 | `project-path-taken` | A project is already registered at that canonical path. Use the existing project (`existingProjectId` rides on the payload), or pass a different path. |
 | `project-slug-undeducible` | The slug could not be derived from the path basename. Re-run with an explicit `--name <kebab-slug>` (CLI) / `slug` field (REST). |
-| `persona-not-found` | The named persona did not resolve in the tenant or project persona dirs. Run `relay persona list` to see valid names, or `relay doctor` to surface persona files that failed to parse. |
+| `persona-not-found` _(Phase 2)_ | _Deferred with personas per [D-17](../decisions/D-17-personas-descoped-from-mvp.md): at MVP `POST /sessions` takes `{ projectId }` only and never raises this code, and `/personas` is unmounted. Re-enters force in Phase 2._ The named persona did not resolve in the tenant or project persona dirs. Run `relay persona list` to see valid names, or `relay doctor` to surface persona files that failed to parse. |
 | `session-not-found` | No session row for that id. Run `relay session list --all`; a killed session is still queryable, a never-created one is not. |
 | validation error (`validationErrors` present) | One or more request fields are malformed; each entry's `path` + `message` names the field to fix. |
 | `401` (auth) | The bearer token is missing, expired, or revoked. Re-pair the device, or mint a fresh token with `relay token create`. `relay doctor`'s server probe distinguishes unreachable-server from rejected-token. |

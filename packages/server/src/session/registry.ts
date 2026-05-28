@@ -6,10 +6,8 @@ import {
   tenants,
   type SessionRow,
 } from '../store/index.js';
-import { loadAll as loadPersonas } from '../persona/index.js';
 import { createSupervisor, type PtySupervisor } from '../pty/index.js';
 import { createWriter, transcriptPath, type TranscriptWriter } from '../transcript/index.js';
-import { personasDir, projectPersonasDir } from '../config/paths.js';
 
 import { bootOrphanSweep } from './boot.js';
 import { captureAgentSessionId } from './agent-session-id.js';
@@ -18,7 +16,7 @@ import {
   type ByteAccountant,
   type SessionByteHandle,
 } from './byte-accounting.js';
-import { buildArgv, hashPersonaFile, writeTransientDir } from './spawn.js';
+import { writeTransientDir } from './spawn.js';
 import {
   SessionCreateError,
   type AttachedClient,
@@ -30,6 +28,13 @@ import {
 } from './types.js';
 
 const DEFAULT_AGENT_CLI = 'claude';
+
+// Per D-17: personas are descoped from MVP. Sessions spawn a bare agent, but
+// the `sessions.persona_name` column + wire field are retained (sentinel-backed)
+// so the store row, CLI, and IDE displays are unchanged for the Phase-2 re-enable.
+// This value is server-stamped and NEVER user-supplied — SessionCreateInput has
+// no personaName field, so there is no path to route a client value here.
+const PERSONA_SENTINEL = 'agent';
 
 interface InternalRecord {
   handle: SessionHandle;
@@ -68,38 +73,22 @@ export function createRegistry(deps: RegistryDeps): SessionRegistry {
   let shuttingDown = false;
 
   async function create(input: SessionCreateInput): Promise<SessionHandle> {
-    // Resolve the persona BEFORE inserting the row so a persona-not-found
-    // error returns cleanly without leaving an orphan session row behind.
-    const { personas } = loadPersonas({
-      tenantDir: personasDir(homeOverride),
-      projectDir: projectPersonasDir(input.canonicalProjectPath),
-    });
-    const personaInput = personas.get(input.personaName);
-    if (personaInput === undefined) {
-      throw new SessionCreateError(
-        'persona_not_found',
-        `persona '${input.personaName}' not found (looked in tenant dir and project dir)`,
-      );
-    }
-
+    // Per D-17: bare-agent spawn. No persona is resolved; the row carries the
+    // server-stamped PERSONA_SENTINEL and the agent runs with an empty argv
+    // (no --model / --append-system-prompt / --mcp-config / --disable-slash-commands).
     const insertNow = Date.now();
     const row = sessions.insert(
       db,
       {
         projectId: input.projectId,
-        personaName: input.personaName,
+        personaName: PERSONA_SENTINEL,
         agentCli,
       },
       insertNow,
     );
     const sid = row.id;
 
-    const { argv, mcpJsonPath, mcpJsonPayload } = buildArgv(
-      personaInput.persona,
-      sid,
-      homeOverride,
-    );
-    const personaContentHash = hashPersonaFile(personaInput.filePath);
+    const argv: string[] = [];
     writeTransientDir({
       sid,
       homeOverride,
@@ -107,19 +96,14 @@ export function createRegistry(deps: RegistryDeps): SessionRegistry {
         schemaVersion: 1,
         sessionId: sid,
         projectId: input.projectId,
-        personaName: input.personaName,
-        personaSource: personaInput.source,
-        personaFilePath: personaInput.filePath,
-        personaContentHash,
+        // Per D-17 the persona fields are omitted (optional in SpawnRecordSchema).
         argv: [agentCli, ...argv],
         envNames: Object.keys(env).sort(),
         cwd: input.canonicalProjectPath,
         agentCli,
-        mcpJsonPath,
+        mcpJsonPath: null,
         spawnedAt: new Date(insertNow).toISOString(),
       },
-      mcpJsonPath,
-      mcpJsonPayload,
     });
 
     let supervisor: PtySupervisor;

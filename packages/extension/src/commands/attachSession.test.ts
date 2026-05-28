@@ -1,6 +1,6 @@
 // Spec for buildSessionQuickPickItems (ND-33 (f)): the attach picker maps each
-// Session to an item (label=personaName, description=id, detail="<project> ·
-// <agentSessionId|placeholder>") and groups them under per-project separator
+// Session to an item (label=short session id per D-17, description=id,
+// detail="<project> · <agentSessionId|placeholder>") and groups them under per-project separator
 // headers built from the injected projectLabelOf callback — a display name when
 // the labeller resolves one, the raw projectId on fallback. Exported builder is
 // tested directly; the full relay.attachSession command needs creds/REST mocking
@@ -48,14 +48,15 @@ function makeSession(
 }
 
 describe('item shape', () => {
-  it('maps a session to label=personaName, description=id, detail="<project> · <agentSessionId>"', () => {
+  it('maps a session to label=short session id, description=id, detail="<project> · <agentSessionId>"', () => {
     const items = buildSessionQuickPickItems(
       [makeSession(SESSION_1, PROJECT_A, 'running', 'agent-abc')],
       () => 'Alpha',
     );
     // [0] is the separator header; [1] is the session item.
     const item = items[1];
-    expect(item?.label).toBe('reviewer');
+    // Per D-17: label is the short session id, not a persona name.
+    expect(item?.label).toBe(SESSION_1.slice(0, 8));
     expect(item?.description).toBe(SESSION_1);
     expect(item?.detail).toBe('Alpha · agent-abc');
   });

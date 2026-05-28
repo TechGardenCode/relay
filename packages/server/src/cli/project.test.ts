@@ -22,8 +22,6 @@ import { dbPath } from '../config/paths.js';
 import { openDatabase, projects, tenants } from '../store/index.js';
 import { CliHttpError, CliHttpUnreachableError } from './http.js';
 
-const DEFAULT_PERSONAS_DIR = join(import.meta.dirname, '..', '..', 'personas', 'defaults');
-
 let home: string;
 let projectDir: string;
 let server: Awaited<ReturnType<typeof runServer>> | undefined;
@@ -42,7 +40,7 @@ beforeEach(async () => {
   savedPort = process.env['PORT'];
   process.env['HOME'] = home;
 
-  const result = runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
+  const result = runInit({ home });
   process.env['RELAY_TOKEN'] = result.tokenPlaintext;
 
   // Boot the server on an ephemeral port. The handlers under test resolve

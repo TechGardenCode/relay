@@ -25,18 +25,18 @@ If this works in a weekend, the architecture is sound and Phase 1 begins.
 Deliverables:
 
 - Relay server with REST + WebSocket API, SQLite state, node-pty session management
-- `relay` CLI for tenant/project/persona/session/token management
+- `relay` CLI for tenant/project/session/token management
 - VS Code-family extension (.vsix sideloaded from a workspace build; GitHub Releases attachment deferred to post-2.0 per [D-16](../decisions/D-16-phase-1-ships-without-distribution.md)): connect-to-server config, start-session command, attach-to-session command, status bar
-- Single CLI integration: Claude Code
-- Default persona set shipped as YAML defaults (`product`, `design`, `dev`, `test`, `infra`, `architect`, `review`)
-- ~~npm and Docker distribution~~ — **deferred to post-2.0 / Track 8** per [D-16](../decisions/D-16-phase-1-ships-without-distribution.md). Phase 1 ships on the dev/source-install path that scenarios A–G already exercise; `npm install -g`, the Docker image, and Docker Compose with Caddy + Tailscale sidecar move to Track 8.
-- Documentation: README, deployment guide, persona authoring guide
+- Single CLI integration: Claude Code (bare-agent spawn — no persona overlay per [D-17](../decisions/D-17-personas-descoped-from-mvp.md))
+- ~~Default persona set shipped as YAML defaults~~ — **deferred to Phase 2** per [D-17](../decisions/D-17-personas-descoped-from-mvp.md). The seven default YAMLs (`product`, `design`, `dev`, `test`, `infra`, `architect`, `review`) stay dormant in the package but `relay init` seeds none.
+- ~~npm and Docker distribution~~ — **deferred to post-2.0 / Track 8** per [D-16](../decisions/D-16-phase-1-ships-without-distribution.md). Phase 1 ships on the dev/source-install path that scenarios A, C–G already exercise; `npm install -g`, the Docker image, and Docker Compose with Caddy + Tailscale sidecar move to Track 8.
+- Documentation: README, deployment guide ~~persona authoring guide~~ (persona authoring deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md))
 
-Phase 1 ships when the seven acceptance scenarios A–G in `08-acceptance.md` all pass. Scenario H (distribution paths) is deferred to post-2.0 per [D-16](../decisions/D-16-phase-1-ships-without-distribution.md).
+Phase 1 ships when the acceptance scenarios **A, C–G** in `08-acceptance.md` all pass. Scenario B (personas) is deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md); scenario H (distribution paths) is deferred to post-2.0 per [D-16](../decisions/D-16-phase-1-ships-without-distribution.md).
 
-*Phase 1 distribution scope re-scoped by [D-16](../decisions/D-16-phase-1-ships-without-distribution.md) on 2026-05-22.*
+*Phase 1 distribution scope re-scoped by [D-16](../decisions/D-16-phase-1-ships-without-distribution.md) on 2026-05-22. Personas descoped from Phase 1 by [D-17](../decisions/D-17-personas-descoped-from-mvp.md) on 2026-05-28.*
 
-## Phase 2 — Mobile PWA MVP (3–4 weekends)
+## Phase 2 — Mobile PWA MVP + persona re-enable (3–4 weekends)
 
 Deliverables:
 
@@ -44,6 +44,7 @@ Deliverables:
 - Sessions list, session view, compose, file viewer, diff approval (per the separate Phase 2 mobile design doc referenced in `05-mobile-pwa.md`)
 - QR-code device pairing
 - Push notifications via PWA Push (where supported) and webhook fallback
+- **Persona re-enable** (descoped from Phase 1 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md)): re-wire the dormant `persona/` module onto the spawn path, re-mount the `/personas` routes, restore the `relay persona list/create` CLI and `relay init` default-persona seeding, restore the IDE persona picker, and ship the default persona set + persona authoring guide. The Phase 2 design lives in `09-persona-schema.md`, `03-server.md` §4, and `arch/persona-application.md`; the superseded-for-MVP decisions are D-06, D-09, D-G1, and ND-08.
 
 ## Phase 3 — Multi-CLI, persona switching, IntelliJ, Helm (open-ended)
 

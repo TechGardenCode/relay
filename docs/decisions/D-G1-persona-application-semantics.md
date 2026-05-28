@@ -1,8 +1,8 @@
 ---
 id: D-G1
-status: resolved
+status: deferred
 title: "Persona application semantics"
-resolved-on: 2026-05-14
+deferred-until: "Phase 2 — persona re-enable per D-17"
 affects: "prd/03-server.md §4"
 surfaced-by: "Deep-dive analysis G1 (the v0.3 PRD §11 prescribed CLAUDE.md mutation as the persona-injection mechanism, which has race conditions with /compact re-reads and pollutes concurrent sessions in the same project)"
 ---
@@ -10,9 +10,10 @@ surfaced-by: "Deep-dive analysis G1 (the v0.3 PRD §11 prescribed CLAUDE.md muta
 # D-G1 — Persona application semantics
 
 
-**Status:** resolved (2026-05-14)
+**Status:** deferred (until Phase 2 — persona re-enable per D-17)
 **Affects:** `prd/03-server.md` §4
 **Surfaced by:** Deep-dive analysis G1 (the v0.3 PRD §11 prescribed CLAUDE.md mutation as the persona-injection mechanism, which has race conditions with `/compact` re-reads and pollutes concurrent sessions in the same project)
+**Superseded-for-MVP by:** [[d-17-personas-descoped-from-mvp]] — personas were descoped from the MVP on 2026-05-28 (originally resolved 2026-05-14). The three application guarantees below still stand as the Phase 2 design, but are **not in force at MVP**: sessions spawn a bare agent with an empty argv, so no persona is applied. They re-enter force when personas return in Phase 2.
 
 ## Question
 What guarantees must Relay uphold when applying a persona to a spawned session, and how should the PRD describe persona application?

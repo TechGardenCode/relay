@@ -1,8 +1,8 @@
 ---
 id: D-09
-status: resolved
+status: deferred
 title: "Persona YAML schema"
-resolved-on: 2026-05-15
+deferred-until: "Phase 2 — persona re-enable per D-17"
 affects: "prd/09-persona-schema.md (new), prd/03-server.md §3, prd/01-conceptual-model.md, prd/07-phasing.md"
 surfaced-by: "Doc audit (2026-05-15)"
 ---
@@ -10,9 +10,10 @@ surfaced-by: "Doc audit (2026-05-15)"
 # D-09 — Persona YAML schema
 
 
-**Status:** resolved (2026-05-15)
+**Status:** deferred (until Phase 2 — persona re-enable per D-17)
 **Affects:** `prd/09-persona-schema.md` (new), `prd/03-server.md` §3, `prd/01-conceptual-model.md`, `prd/07-phasing.md`
 **Surfaced by:** Doc audit (2026-05-15)
+**Superseded-for-MVP by:** [[d-17-personas-descoped-from-mvp]] — personas were descoped from the MVP on 2026-05-28 (originally resolved 2026-05-15). The flat-YAML schema below still stands as the Phase 2 design (the `persona/` module and the default YAMLs validate against it while dormant) but is **not in force at MVP**, because no persona is loaded, no `/personas` route is mounted, and `relay init` seeds no defaults. It re-enters force when personas return in Phase 2.
 
 ## Question
 What fields does a persona YAML file contain, where do those files live on disk, and how do tenant- and project-level definitions compose?

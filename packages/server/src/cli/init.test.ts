@@ -1,12 +1,10 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { configPath, lastPairingPath, personasDir, tokensPath } from '../config/paths.js';
 import { runInit } from './init.js';
-
-const DEFAULT_PERSONAS_DIR = resolve(import.meta.dirname, '..', '..', 'personas', 'defaults');
 
 let home: string;
 
@@ -19,38 +17,25 @@ afterEach(() => {
 });
 
 describe('runInit', () => {
-  it('scaffolds config.yaml, tokens.json, personas/, last-pairing.txt under ~/.relay/', () => {
-    const result = runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
+  it('scaffolds config.yaml, tokens.json, last-pairing.txt under ~/.relay/', () => {
+    const result = runInit({ home });
 
     expect(existsSync(configPath(home))).toBe(true);
     expect(existsSync(tokensPath(home))).toBe(true);
-    expect(existsSync(personasDir(home))).toBe(true);
     expect(existsSync(lastPairingPath(home))).toBe(true);
     expect(result.tokenPlaintext).toMatch(/^[0123456789ABCDEFGHJKMNPQRSTVWXYZ]{26}$/);
   });
 
-  it('copies the seven default personas from packages/server/personas/defaults/', () => {
-    runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
-
-    const dir = personasDir(home);
-    const expected = [
-      'architect.yaml',
-      'design.yaml',
-      'dev.yaml',
-      'infra.yaml',
-      'product.yaml',
-      'review.yaml',
-      'test.yaml',
-    ];
-    for (const name of expected) {
-      expect(existsSync(join(dir, name))).toBe(true);
-    }
+  // Per D-17: `relay init` no longer seeds default personas — the persona descope
+  // means no user-reachable path exercises personas. The dir stays uncreated.
+  it('does NOT create ~/.relay/personas/ or seed any default personas (D-17)', () => {
+    runInit({ home });
+    expect(existsSync(personasDir(home))).toBe(false);
   });
 
   it('emits the pairing snippet with relay:// deep link + URL + token (per D-13)', () => {
     const result = runInit({
       home,
-      defaultPersonasDir: DEFAULT_PERSONAS_DIR,
       url: 'https://relay.example',
     });
 
@@ -65,7 +50,6 @@ describe('runInit', () => {
   it('writes the pairing snippet verbatim into ~/.relay/last-pairing.txt', () => {
     const result = runInit({
       home,
-      defaultPersonasDir: DEFAULT_PERSONAS_DIR,
       url: 'https://relay.example',
     });
 
@@ -74,7 +58,7 @@ describe('runInit', () => {
   });
 
   it('emits a next-steps narrative bridge naming login, server start, pair, register, session (per ND-32)', () => {
-    const result = runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
+    const result = runInit({ home });
 
     // Step 1 must say `claude auth login`, NOT bare `claude login` (the TUI
     // parses the latter as a prompt) — per ND-19's validation-pass fix.
@@ -91,7 +75,7 @@ describe('runInit', () => {
   });
 
   it('does NOT persist the next-steps bridge into last-pairing.txt (snippet stays pure pairing payload)', () => {
-    const result = runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
+    const result = runInit({ home });
 
     const onDisk = readFileSync(lastPairingPath(home), 'utf8');
     expect(onDisk).not.toContain('Next steps:');
@@ -101,24 +85,21 @@ describe('runInit', () => {
   });
 
   it('writes config.yaml and last-pairing.txt with 0600 mode (sensitive — contains pairing token)', () => {
-    runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
+    runInit({ home });
 
     expect(statSync(configPath(home)).mode & 0o777).toBe(0o600);
     expect(statSync(lastPairingPath(home)).mode & 0o777).toBe(0o600);
   });
 
   it('refuses to clobber an existing ~/.relay/ on second run', () => {
-    runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
-    expect(() => runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR })).toThrow(
-      /already initialized/,
-    );
+    runInit({ home });
+    expect(() => runInit({ home })).toThrow(/already initialized/);
   });
 
   it('overwrites when force: true is supplied', () => {
-    const first = runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
+    const first = runInit({ home });
     const second = runInit({
       home,
-      defaultPersonasDir: DEFAULT_PERSONAS_DIR,
       force: true,
     });
 

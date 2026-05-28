@@ -7,11 +7,7 @@
 // exposes controllable emitBytes/emitExit hooks plus visibility into the
 // listener Sets so attach/detach race assertions can introspect.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import type { ExitInfo, PtySupervisor, SpawnArgs, Unsubscribe } from '../pty/index.js';
-import { personasDir } from '../config/paths.js';
 
 export interface FakeSupervisor extends PtySupervisor {
   // Test seam: drive a byte event as if the PTY had emitted bytes.
@@ -109,23 +105,10 @@ export function createFakeSupervisor(args: SpawnArgs): FakeSupervisor {
   return supervisor;
 }
 
-// Materialize a minimal valid persona YAML inside a temp homeOverride's
-// `personas/` dir so registry.create() can resolve it via persona/loader.
-// Returns the absolute path written.
-export function writePersonaFixture(homeOverride: string, name: string, body: string): string {
-  const dir = personasDir(homeOverride);
-  mkdirSync(dir, { recursive: true });
-  const filePath = join(dir, `${name}.yaml`);
-  writeFileSync(filePath, body);
-  return filePath;
-}
-
-// The minimal persona YAML body for a `name` — only schemaVersion + name + a
-// short description. Sufficient for hashPersonaFile to read and persona/loader
-// to accept.
-export function minimalPersonaYaml(name: string): string {
-  return `schemaVersion: 1\nname: ${name}\ndescription: test fixture\nsystemPrompt: be terse\n`;
-}
+// Per D-17: writePersonaFixture()/minimalPersonaYaml() were removed — they
+// seeded a persona YAML so registry.create() could resolve it, but create() no
+// longer takes a persona (bare-agent spawn). Restore from git history for the
+// Phase-2 persona re-enable.
 
 // Per ND-13 §5: registry.ts chains writer.close() → drain() → markKilled() as
 // Promises behind pty.onExit so the fsync precedes the SQL UPDATE. Tests that

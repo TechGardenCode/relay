@@ -23,6 +23,8 @@ Today, a developer using a CLI coding agent is bound to the machine that started
 
 A developer managing multiple simultaneous coding-agent sessions across projects and roles (architecture review, implementation, testing, infra) spends real time hand-editing `CLAUDE.md`, `.mcp.json`, and skill folders to swap mental modes — and tracking which terminal holds which context. There is no UX today for switching between structured roles inside an agent.
 
+> **The persona/role half of Pain B is deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) (2026-05-28).** The MVP centers on Pain A (cross-device session continuity) and the per-project half of this pain — sessions are bound to a project, not a `(project, persona)` pair. Structured *role* switching (personas) re-enters scope in Phase 2.
+
 ### One backbone, two pains
 
 These pains are not in tension. They share an architectural solution: **server-owned sessions with a structured project/persona model on top**. The same backbone — sessions persisted off the client, addressable by structured identity rather than terminal window — enables both.

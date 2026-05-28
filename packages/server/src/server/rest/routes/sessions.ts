@@ -103,9 +103,10 @@ export async function registerSessionsRoutes(
     }
 
     try {
+      // Per D-17: no personaName is forwarded — the registry spawns a bare
+      // agent and stamps the personaName sentinel itself.
       const handle = await opts.registry.create({
         projectId: body.projectId,
-        personaName: body.personaName,
         canonicalProjectPath: project.canonicalPath,
       });
       const row = handle.row;
@@ -113,13 +114,12 @@ export async function registerSessionsRoutes(
       return toWire(row);
     } catch (err) {
       if (err instanceof SessionCreateError) {
-        // Per session/types.ts: 'persona_not_found' | 'session_not_found'
-        // both map to 404 (create() never raises session_not_found, but
-        // the type narrowing stays exhaustive).
+        // Per D-17 the only remaining code is 'session_not_found' (the
+        // persona_not_found path was removed with the persona spawn path).
         throw new HttpProblemError({
           status: 404,
-          typeSlug: err.code === 'persona_not_found' ? 'persona-not-found' : 'session-not-found',
-          title: err.code === 'persona_not_found' ? 'Persona not found' : 'Session not found',
+          typeSlug: 'session-not-found',
+          title: 'Session not found',
           detail: err.message,
         });
       }

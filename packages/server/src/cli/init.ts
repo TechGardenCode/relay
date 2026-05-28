@@ -1,17 +1,8 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 
 import { dump as yamlDump } from 'js-yaml';
 
-import {
-  configPath,
-  dbPath,
-  lastPairingPath,
-  personasDir,
-  relayHome,
-  tokensPath,
-} from '../config/paths.js';
+import { configPath, dbPath, lastPairingPath, relayHome, tokensPath } from '../config/paths.js';
 import { TokenStore } from '../auth/store.js';
 import { openDatabase, runMigrations, tenants } from '../store/index.js';
 
@@ -28,13 +19,9 @@ const DEFAULT_CLAIM_LOCK_TIMEOUT_SECONDS = 30;
 const DEFAULT_REPLAY_BUFFER_BYTES = 32768;
 const INITIAL_TOKEN_LABEL = 'initial';
 
-const cliDir = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_PERSONAS_DIR = resolve(cliDir, '..', '..', 'personas', 'defaults');
-
 export interface InitOptions {
   home?: string;
   url?: string;
-  defaultPersonasDir?: string;
   /** Test seam: override the migrations directory. Production resolves it next to dist/cli/. */
   migrationsDir?: string;
   /** When false, abort if ~/.relay/ already contains config/tokens. Defaults to false. */
@@ -59,7 +46,6 @@ export interface InitResult {
 
 export function runInit(opts: InitOptions = {}): InitResult {
   const home = opts.home;
-  const sourcePersonasDir = opts.defaultPersonasDir ?? DEFAULT_PERSONAS_DIR;
   const serverUrl = opts.url ?? `http://${DEFAULT_LISTEN_HOST}:${String(DEFAULT_LISTEN_PORT)}`;
 
   const home_ = relayHome(home);
@@ -72,7 +58,9 @@ export function runInit(opts: InitOptions = {}): InitResult {
 
   mkdirSync(home_, { recursive: true });
   writeConfig(home);
-  copyDefaultPersonas(sourcePersonasDir, personasDir(home));
+  // Per D-17: `relay init` no longer seeds default personas — personas are
+  // descoped from MVP. ~/.relay/personas/ is left uncreated; the default YAMLs
+  // stay dormant in the package for the Phase-2 re-enable.
 
   // Migrate the DB so direct-read CLIs (`relay project list`, `relay session
   // list`) work immediately after init, without requiring a prior `relay
@@ -114,22 +102,6 @@ function writeConfig(home: string | undefined): void {
   writeFileSync(configPath(home), yamlDump(config), { mode: 0o600 });
 }
 
-function copyDefaultPersonas(sourceDir: string, targetDir: string): void {
-  mkdirSync(targetDir, { recursive: true });
-  let entries: string[];
-  try {
-    entries = readdirSync(sourceDir);
-  } catch (err) {
-    throw new Error(
-      `relay init: default personas dir not found at ${sourceDir}: ${(err as Error).message}`,
-    );
-  }
-  for (const filename of entries) {
-    if (!filename.endsWith('.yaml')) continue;
-    copyFileSync(join(sourceDir, filename), join(targetDir, filename));
-  }
-}
-
 function buildPairingSnippet(serverUrl: string, tokenPlaintext: string): string {
   return [
     'Relay is ready. Pair your IDE extension by pasting this:',
@@ -157,7 +129,7 @@ function buildNextSteps(): string {
     '  3. In your IDE, run "Relay: Connect to server" and paste the snippet above.',
     '  4. Register a project: open it in your IDE → "Relay: Register this workspace',
     '     as a project" (or from the CLI: relay project add <path>).',
-    '  5. Start a session: "Relay: Start session in current project", pick a persona.',
+    '  5. Start a session: "Relay: Start session in current project".',
     '',
     'Full walkthrough: docs/guides/getting-started.md',
   ].join('\n');

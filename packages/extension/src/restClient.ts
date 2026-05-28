@@ -9,13 +9,11 @@
 // double-fetch risk, no double-claim risk. CLAIM is WS-only.
 
 import {
-  PersonaListResponseSchema,
   ProblemDetailsSchema,
   ProjectSchema,
   SessionListResponseSchema,
   SessionSchema,
   TenantSchema,
-  type PersonaListResponse,
   type Project,
   type ProjectCreateRequest,
   type Session,
@@ -135,10 +133,6 @@ export class RelayRestClient {
   // 200 + Tenant when the bearer is valid; 401 otherwise.
   async getTenantsSelf(): Promise<Tenant> {
     return TenantSchema.parse(await this.request('GET', '/tenants/self'));
-  }
-
-  async listPersonas(): Promise<PersonaListResponse> {
-    return PersonaListResponseSchema.parse(await this.request('GET', '/personas'));
   }
 
   async listProjects(): Promise<Project[]> {

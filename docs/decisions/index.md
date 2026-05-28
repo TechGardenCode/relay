@@ -4,11 +4,10 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 47 · Open: 7 · Deferred: 4.
+**Counts.** Resolved: 46 · Open: 6 · Deferred: 8.
 
 ## Open / in-deliberation
 
-- [`ND-08` — Skill subset enforcement mechanism](ND-08-skill-subset-enforcement-mechanism.md)
 - [`ND-26` — Publish `@relay/protocol` package to npm as a third-party surface](ND-26-publish-relay-protocol-package-to-npm-as-a-third-party-surface.md)
 - [`ND-27` — Stability commitment for the WS endpoint as a third-party surface](ND-27-stability-commitment-for-the-ws-endpoint-as-a-third-party-surface.md)
 - [`ND-28` — Programmatic / machine-to-machine credential flow](ND-28-programmatic-machine-to-machine-credential-flow.md)
@@ -23,10 +22,18 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 - [`D-05` — Per-device token rotation](D-05-per-device-token-rotation.md) _(deferred: Phase 3 hardening)_
 - [`D-14` — Product name](D-14-product-name.md) _(deferred: pre-launch naming review)_
 
+_Superseded-for-MVP by [`D-17` — Personas descoped from MVP](D-17-personas-descoped-from-mvp.md); re-enter force when personas return in Phase 2:_
+
+- [`D-G1` — Persona application semantics](D-G1-persona-application-semantics.md) _(deferred: Phase 2 — persona re-enable per D-17)_
+- [`D-06` — Persona inheritance](D-06-persona-inheritance.md) _(deferred: Phase 2 — persona re-enable per D-17)_
+- [`D-09` — Persona YAML schema](D-09-persona-yaml-schema.md) _(deferred: Phase 2 — persona re-enable per D-17)_
+- [`ND-08` — Skill subset enforcement mechanism](ND-08-skill-subset-enforcement-mechanism.md) _(deferred: Phase 2 — persona re-enable per D-17)_
+
 ## Resolved
 
 _Newest first._
 
+- [`D-17` — Personas descoped from MVP (deferred to Phase 2)](D-17-personas-descoped-from-mvp.md) _(2026-05-28)_
 - [`ND-38` — `relay attach` process hangs after a clean ^D detach in raw mode](ND-38-relay-attach-process-hangs-after-clean-ctrl-d-detach-in-raw-mode.md) _(2026-05-28)_
 - [`ND-40` — `relay attach` drops replayed screen bytes in the connect()→subscribe() gap](ND-40-relay-attach-drops-replayed-bytes-in-connect-subscribe-gap.md) _(2026-05-28)_
 - [`ND-16` — CLI ↔ data-plane boundary rule](ND-16-cli-data-plane-boundary-rule.md) _(2026-05-27)_
@@ -52,7 +59,6 @@ _Newest first._
 - [`ND-12` — `spawn.json` schema location](ND-12-spawn-json-schema-location.md) _(2026-05-17)_
 - [`ND-13` — Byte-accounting cadence for `sessions.total_bytes`](ND-13-byte-accounting-cadence-for-sessions-total-bytes.md) _(2026-05-17)_
 - [`ND-14` — Transcript response field naming (camelCase)](ND-14-transcript-response-field-naming-camelcase.md) _(2026-05-17)_
-- [`D-09` — Persona YAML schema](D-09-persona-yaml-schema.md) _(2026-05-15)_
 - [`D-10` — Agent model credentials handling](D-10-agent-model-credentials-handling.md) _(2026-05-15)_
 - [`D-11` — Server restart and session orphaning](D-11-server-restart-and-session-orphaning.md) _(2026-05-15)_
 - [`D-12` — Project record storage and `relay project add` semantics](D-12-project-record-storage-and-relay-project-add-semantics.md) _(2026-05-15)_
@@ -64,13 +70,11 @@ _Newest first._
 - [`ND-05` — Multi-root workspace marker file precedence](ND-05-multi-root-workspace-marker-file-precedence.md) _(2026-05-15)_
 - [`ND-06` — Worktree project identity](ND-06-worktree-project-identity.md) _(2026-05-15)_
 - [`ND-07` — Marker file schema](ND-07-marker-file-schema.md) _(2026-05-15)_
-- [`D-G1` — Persona application semantics](D-G1-persona-application-semantics.md) _(2026-05-14)_
 - [`D-G2` — Multi-client input arbitration](D-G2-multi-client-input-arbitration.md) _(2026-05-14)_
 - [`D-G3` — Reattach semantics](D-G3-reattach-semantics.md) _(2026-05-14)_
 - [`D-G6` — Project discovery / workspace-to-project binding](D-G6-project-discovery-workspace-to-project-binding.md) _(2026-05-14)_
 - [`D-01` — Workspace root vs. subdirectory for start-session](D-01-workspace-root-vs-subdirectory-for-start-session.md) _(2026-05-14)_
 - [`D-03` — MCP set changes mid-session](D-03-mcp-set-changes-mid-session.md) _(2026-05-14)_
 - [`D-04` — Transcript export endpoint](D-04-transcript-export-endpoint.md) _(2026-05-14)_
-- [`D-06` — Persona inheritance](D-06-persona-inheritance.md) _(2026-05-14)_
 - [`D-07` — Transcript stream capture layer](D-07-transcript-stream-capture-layer.md) _(2026-05-14)_
 - [`D-08` — Single binary vs. separate packages](D-08-single-binary-vs-separate-packages.md) _(2026-05-14)_

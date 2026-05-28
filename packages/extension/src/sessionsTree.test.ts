@@ -278,12 +278,12 @@ describe('getTreeItem', () => {
     const node: SessionNode = { kind: 'session', session };
     const provider = makeProvider(() => Promise.resolve({ kind: 'unpaired' }));
     const item = provider.getTreeItem(node);
-    expect(item.label).toBe(session.personaName);
+    // Per D-17: the session leaf is labelled by its short id, not a persona.
+    expect(item.label).toBe(session.id.slice(0, 8));
     expect(item.collapsibleState).toBe(vscode.TreeItemCollapsibleState.None);
     expect(item.contextValue).toBe('relaySession.running');
     expect(item.iconPath).toBeInstanceOf(vscode.ThemeIcon);
     expect(String(item.description)).toContain('running');
-    expect(String(item.description)).toContain(session.id.slice(0, 8));
     expect(item.command?.command).toBe('relay.sessions.attachNode');
     expect(item.command?.arguments).toEqual([node]);
   });

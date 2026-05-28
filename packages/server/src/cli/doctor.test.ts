@@ -1,13 +1,10 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { personasDir } from '../config/paths.js';
 import { runInit } from './init.js';
 import { type DoctorDeps, runDoctor } from './doctor.js';
-
-const DEFAULT_PERSONAS_DIR = resolve(import.meta.dirname, '..', '..', 'personas', 'defaults');
 
 let home: string;
 
@@ -21,8 +18,8 @@ afterEach(() => {
 
 // All probe seams that would touch the host (PATH, Keychain, network) are
 // injected so the suite is deterministic and offline. The default `home` is a
-// freshly `runInit`'d scaffold so the relay-home/config/tokens/personas/storage
-// probes hit real (tmp) files.
+// freshly `runInit`'d scaffold so the relay-home/config/tokens/storage probes
+// hit real (tmp) files.
 function goodDeps(overrides: Partial<DoctorDeps> = {}): DoctorDeps {
   return {
     home,
@@ -36,7 +33,7 @@ function goodDeps(overrides: Partial<DoctorDeps> = {}): DoctorDeps {
 }
 
 function seedHome(): void {
-  runInit({ home, defaultPersonasDir: DEFAULT_PERSONAS_DIR });
+  runInit({ home });
 }
 
 function findCheck(checks: { name: string }[], name: string) {
@@ -56,17 +53,18 @@ describe('runDoctor', () => {
     }
     // The probe set the bar names must all be present.
     const names = report.checks.map((c) => c.name);
+    // Per D-17: the 'personas' probe was removed with the persona descope.
     expect(names).toEqual(
       expect.arrayContaining([
         'relay-home',
         'tokens',
         'claude-binary',
         'credentials',
-        'personas',
         'storage',
         'server',
       ]),
     );
+    expect(names).not.toContain('personas');
   });
 
   it('FAILs relay-home with a `relay init` remediation when ~/.relay is missing', async () => {
@@ -117,18 +115,6 @@ describe('runDoctor', () => {
     const check = findCheck(report.checks, 'claude-binary');
     expect(check.status).toBe('fail');
     expect(report.ok).toBe(false);
-  });
-
-  it('WARNs (not fails) personas when a persona file does not parse, listing the file', async () => {
-    seedHome();
-    writeFileSync(join(personasDir(home), 'broken.yaml'), 'name: : not valid yaml :');
-    const report = await runDoctor(goodDeps());
-
-    const check = findCheck(report.checks, 'personas');
-    expect(check.status).toBe('warn');
-    expect(check.detail).toContain('broken.yaml');
-    // A parse warning alone does not make the whole run fail.
-    expect(report.ok).toBe(true);
   });
 
   it('WARNs (not fails) server when the server is unreachable', async () => {

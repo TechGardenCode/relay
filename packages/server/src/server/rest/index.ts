@@ -13,7 +13,6 @@ import { registerAuthPlugin } from './plugins/auth.js';
 import { registerErrorMapper } from './plugins/error-mapper.js';
 import { registerTenantsRoutes } from './routes/tenants.js';
 import { registerProjectsRoutes } from './routes/projects.js';
-import { registerPersonasRoutes } from './routes/personas.js';
 import { registerSessionsRoutes } from './routes/sessions.js';
 import { registerTranscriptRoutes } from './routes/transcript.js';
 
@@ -30,7 +29,8 @@ export async function registerRest(app: FastifyInstance, opts: RestPluginOptions
 
   await registerTenantsRoutes(app, { db: opts.db });
   await registerProjectsRoutes(app, { db: opts.db });
-  await registerPersonasRoutes(app, { homeOverride: opts.homeOverride });
+  // Per D-17: personas are descoped from MVP. registerPersonasRoutes is left
+  // unmounted, so GET/POST /personas return 404 and the route module is dormant.
   await registerSessionsRoutes(app, { db: opts.db, registry: opts.registry });
   await registerTranscriptRoutes(app, { db: opts.db, homeOverride: opts.homeOverride });
 }
