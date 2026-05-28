@@ -4,7 +4,7 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 46 · Open: 6 · Deferred: 8.
+**Counts.** Resolved: 45 · Open: 6 · Deferred: 8.
 
 ## Open / in-deliberation
 
