@@ -4,7 +4,7 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 46 · Open: 5 · Deferred: 8.
+**Counts.** Resolved: 47 · Open: 5 · Deferred: 8.
 
 ## Open / in-deliberation
 
@@ -32,6 +32,7 @@ _Superseded-for-MVP by [`D-17` — Personas descoped from MVP](D-17-personas-des
 
 _Newest first._
 
+- [`D-18` — Relay PWA Phase 2 — terminal-style substrate and MVP product scope](D-18-pwa-terminal-substrate-and-mvp-scope.md) _(2026-05-28)_
 - [`ND-39` — Concurrent multi-client attach to a TUI agent renders corrupted](ND-39-concurrent-multi-client-attach-tui-rendering-corruption.md) _(2026-05-28)_
 - [`D-17` — Personas descoped from MVP (deferred to Phase 2)](D-17-personas-descoped-from-mvp.md) _(2026-05-28)_
 - [`ND-38` — `relay attach` process hangs after a clean ^D detach in raw mode](ND-38-relay-attach-process-hangs-after-clean-ctrl-d-detach-in-raw-mode.md) _(2026-05-28)_

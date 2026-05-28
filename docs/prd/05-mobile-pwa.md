@@ -14,9 +14,11 @@
 
 ## 2. Capabilities (intent only — detailed UX in a separate design doc)
 
-The mobile client is one instance of the generic client contract. Its core behaviors — render the session's output stream, accept user input, surface session-level controls — are determined by the server's client contract (input arbitration, reattach semantics, transcript access), not by mobile-specific PRD prescription. Concretely, the Phase 2 design doc will cover sessions list, live session view, compose, file viewer, and diff approval; the rendering substrate (terminal vs. chat-style) and gesture/interaction model are UX choices that belong in that doc, not here.
+The mobile client is one instance of the generic client contract. Its core behaviors — render the session's output stream, accept user input, surface session-level controls — are determined by the server's client contract (input arbitration, reattach semantics, transcript access), not by mobile-specific PRD prescription.
 
-This deferral is deliberate. Locking mobile UX into the PRD before the client contract is fully resolved (see `../decisions/index.md` decisions D-G2 and D-G3) would be premature.
+The **rendering substrate is resolved: terminal-style** (xterm.js), not chat-style — the PWA renders the live PTY of the real server-side agent, so plan mode, interactive prompts, skills, agents, and diff approval all happen in the TUI exactly as on the laptop (no reimplementation). The substrate question was deliberately deferred until the client contract (D-G2 input arbitration, D-G3 reattach) was stable; it now is. The interaction model (compose-first with a keyless control rail), the information architecture (Projects + Scratch groups), the spawn/scratch flows, and the full functional + non-functional requirements are owned by the design spec at [`../design/pwa/`](../design/pwa/README.md). A read-only file tree + light text viewer is in scope (conditional); file editing, a diff-approval GUI, OS push notifications, and a custom voice-transcription engine are out of MVP scope (voice is covered by OS keyboard dictation into the compose buffer).
+
+*Rendering substrate + MVP scope resolved by [D-18](../decisions/D-18-pwa-terminal-substrate-and-mvp-scope.md) on 2026-05-28; full design at [`../design/pwa/`](../design/pwa/README.md).*
 
 ## 3. Constraint
 
@@ -28,13 +30,22 @@ When the user submits a message and the server rejects the `CLAIM` with `BUSY` (
 
 *BUSY UX resolved by [ND-02](../decisions/ND-02-rejection-ux-for-busy-response.md) on 2026-05-15.*
 
-## 4. Reference: separate Phase 2 design doc
+## 4. Reference: the PWA design spec
 
-A standalone mobile design document (TBD; not yet authored) will own:
-- Rendering substrate decision (terminal-style vs. chat-style)
-- Gesture/touch model
-- Notification flows (PWA Push vs. webhook fallback)
-- Offline behavior
-- View-by-view screen specifications
+The standalone design doc is now authored at [`../design/pwa/`](../design/pwa/README.md) (a new
+`docs/design/` category for product/UX/interaction design). It owns:
 
-That document will be written when Phase 2 begins, after the Phase 1 client contract is stable.
+- Rendering substrate — **resolved: terminal-style** (D-18).
+- Interaction model (compose-first + control rail), information architecture, spawn/scratch flows —
+  [`../design/pwa/interaction-model.md`](../design/pwa/interaction-model.md).
+- Functional + non-functional requirements — [`../design/pwa/requirements.md`](../design/pwa/requirements.md).
+- The minimal additive server touch points — [`../design/pwa/server-touchpoints.md`](../design/pwa/server-touchpoints.md).
+
+Deferred to the PWA **tech-architecture phase** (resolved after the product/UX design, per the
+product → design → tech ordering): framework choice (graduate `packages/spike-pwa/` vs. rebuild
+`packages/pwa/`), voice transcription engine, terminal-on-mobile rendering specifics, notification
+flows (PWA Push vs. webhook fallback — MVP ships in-app status only), offline behavior (none at
+MVP), and PWA infrastructure (manifest / service worker / installability).
+
+*The deferral precondition named here — "after the Phase 1 client contract is stable" — was met by
+D-G2/D-G3/ND-39; the product + UX design was authored 2026-05-28 per [D-18](../decisions/D-18-pwa-terminal-substrate-and-mvp-scope.md).*

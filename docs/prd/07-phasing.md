@@ -38,12 +38,14 @@ Phase 1 ships when the acceptance scenarios **A, C–G** in `08-acceptance.md` a
 
 ## Phase 2 — Mobile PWA MVP + persona re-enable (3–4 weekends)
 
-Deliverables:
+Deliverables (PWA scope resolved by [D-18](../decisions/D-18-pwa-terminal-substrate-and-mvp-scope.md); full design at [`../design/pwa/`](../design/pwa/README.md)):
 
-- PWA scaffold served by the Relay server
-- Sessions list, session view, compose, file viewer, diff approval (per the separate Phase 2 mobile design doc referenced in `05-mobile-pwa.md`)
-- QR-code device pairing
-- Push notifications via PWA Push (where supported) and webhook fallback
+- **Terminal-style PWA** served by the Relay server — renders the live PTY of the real server-side agent (xterm.js), not a chat reskin
+- Sessions home grouped into **Projects + Scratch** (running/idle status); live session view; compose-and-send with a keyless control rail and a raw-input toggle; spawn against a project or into a scratch sandbox under `~/.relay/scratch/`; create-project-from-client
+- **Read-only** file tree + light text viewer (conditional/separable) — file editing and a dedicated diff-approval GUI are out of MVP (approve in the TUI; remote VS Code covers editing)
+- QR-code / `relay://pair` device pairing
+- In-app session status for MVP; OS push notifications (PWA Push / webhook fallback) deferred post-MVP
+- Voice input via the device's OS keyboard dictation into the edit-before-send compose buffer; a custom in-app transcription engine is deferred to the PWA tech phase
 - **Persona re-enable** (descoped from Phase 1 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md)): re-wire the dormant `persona/` module onto the spawn path, re-mount the `/personas` routes, restore the `relay persona list/create` CLI and `relay init` default-persona seeding, restore the IDE persona picker, and ship the default persona set + persona authoring guide. The Phase 2 design lives in `09-persona-schema.md`, `03-server.md` §4, and `arch/persona-application.md`; the superseded-for-MVP decisions are D-06, D-09, D-G1, and ND-08.
 
 ## Phase 3 — Multi-CLI, persona switching, IntelliJ, Helm (open-ended)
