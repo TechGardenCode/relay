@@ -1,0 +1,21 @@
+[Unit]
+# Relay server (dev deploy from locally built source — relay-deploy skill).
+# Placeholders __NODE_BIN__ and __CODE_DIR__ are substituted at bootstrap time.
+Description=Relay server (dev deploy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=__NODE_BIN__ __CODE_DIR__/packages/server/dist/cli/relay.js server
+Restart=on-failure
+RestartSec=2
+# Runs as a systemd --user unit, so $HOME is the VM user's home:
+#   ~/.relay/config.yaml provides host/port; ~/.claude/.credentials.json provides
+#   the agent OAuth state inherited by spawned sessions (per ND-19).
+# Headless alternative (no 'claude login' on the VM): comment out nothing above,
+# just add the API key here instead — never set both (the env var silently wins):
+#   Environment=ANTHROPIC_API_KEY=sk-ant-...
+
+[Install]
+WantedBy=default.target
