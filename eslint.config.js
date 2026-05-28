@@ -43,6 +43,24 @@ export default tseslint.config(
     },
   },
   {
+    // The deterministic TUI fixture is plain ESM run by `node` inside the
+    // visual-testing harness; declare the Node globals it touches (the default
+    // flat env doesn't add them for a bare .mjs the way typescript-eslint does
+    // for .ts).
+    files: ['packages/server/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+        Buffer: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+      },
+    },
+  },
+  {
     // Per Track 8 spike: spike-pwa is browser code; default ESLint env
     // expects Node globals. Declare the browser globals it touches so
     // the lint surface is honest rather than awash in no-undef errors.

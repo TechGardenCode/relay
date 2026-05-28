@@ -84,14 +84,67 @@ export function runTty(opts: RunTtyOptions): RunTtyResult {
   // that actually ended.
   let localDetach = false;
 
+  // Per ND-24: forward each stdin chunk as one `submitInput` call. ^D mid-chunk
+  // slices the prefix (if any) and then closes; ^C and Enter are regular bytes
+  // (the PTY handles ^C as SIGINT; the server detects the newline in the payload
+  // to release the claim). Named (not inline) so cleanup() can detach it from
+  // stdin per ND-38 (stdin release on close).
+  const onStdinData = (chunk: Buffer): void => {
+    const ctrlDIndex = chunk.indexOf(CTRL_D);
+    if (ctrlDIndex === -1) {
+      if (chunk.length > 0) client.submitInput(chunk);
+      return;
+    }
+    const prefix = chunk.subarray(0, ctrlDIndex);
+    if (prefix.length > 0) client.submitInput(prefix);
+    // Per prd/03-server.md §7: ^D is a clean detach; the session keeps running,
+    // the socket closes 1000, and any bytes after the ^D in the same chunk are
+    // dropped (the user's intent was to detach).
+    localDetach = true;
+    client.close();
+  };
+
+  // Per ND-25(b): defense-in-depth for single-press ^D. If raw mode was silently
+  // no-op'd on the host (macOS Terminal.app under Node 24 was the repro), the TTY
+  // stays canonical and the first ^D on an empty line is an EOF Node delivers as
+  // 'end' — never a 'data' chunk containing 0x04 — so onStdinData misses it and
+  // the operator must press ^D twice. Closing on 'end' too makes single-press
+  // detach work in both regimes; `client.close()` is idempotent so the raw-mode
+  // 'data' path is unaffected.
+  const onStdinEnd = (): void => {
+    localDetach = true;
+    client.close();
+  };
+
   let cleanedUp = false;
   function cleanup(): void {
     if (cleanedUp) return;
     cleanedUp = true;
     enableRaw(false);
+    // Per ND-38: the agent may have entered the alternate-screen buffer via PTY
+    // passthrough (a full-screen TUI like claude). Reverting raw mode is not
+    // enough — leave the alt screen, reset SGR, and restore the cursor so the
+    // [relay] line lands on the restored primary screen instead of being painted
+    // into the agent's frozen frame. \x1b[?1049l is a no-op when no alt screen
+    // was entered, so a non-TUI / line-oriented agent is unharmed. Emitted on
+    // EVERY close path (^D, session_ended, error), per the ND-38 live findings.
+    stdout.write('\x1b[?1049l\x1b[0m\x1b[?25h');
     if (typeof stdout.off === 'function') {
       stdout.off('resize', onStdoutResize);
     }
+    // Per ND-38: release stdin so a clean raw-mode ^D detach lets the event loop
+    // drain and the process exits on its own. In raw mode ^D is a 0x04 DATA byte
+    // (not EOF), so stdin never closes itself; a flowing, ref'd TTY stdin handle
+    // would keep the loop alive and hang the process (the operator must ^C out).
+    // Detaching the listeners + pausing + unref'ing lets a natural drain exit
+    // while preserving process.exitCode semantics — no process.exit, so the
+    // screen-reset bytes above and the [relay] line still flush.
+    if (typeof stdin.off === 'function') {
+      stdin.off('data', onStdinData);
+      stdin.off('end', onStdinEnd);
+    }
+    if (typeof stdin.pause === 'function') stdin.pause();
+    (stdin as RawStdinLike & { unref?: () => void }).unref?.();
   }
 
   enableRaw(true);
@@ -148,36 +201,8 @@ export function runTty(opts: RunTtyOptions): RunTtyResult {
       },
     });
 
-    stdin.on('data', (chunk: Buffer): void => {
-      // Per ND-24: forward each stdin chunk as one `submitInput` call. ^D
-      // mid-chunk slices the prefix (if any) and then closes; ^C and Enter
-      // are regular bytes (the PTY handles ^C as SIGINT; the server detects
-      // the newline in the payload to release the claim).
-      const ctrlDIndex = chunk.indexOf(CTRL_D);
-      if (ctrlDIndex === -1) {
-        if (chunk.length > 0) client.submitInput(chunk);
-        return;
-      }
-      const prefix = chunk.subarray(0, ctrlDIndex);
-      if (prefix.length > 0) client.submitInput(prefix);
-      // Per prd/03-server.md §7: ^D is a clean detach; the session keeps
-      // running, the socket closes 1000, and any bytes after the ^D in the
-      // same chunk are dropped (the user's intent was to detach).
-      localDetach = true;
-      client.close();
-    });
-
-    // Per ND-25(b): defense-in-depth for single-press ^D. If raw mode was
-    // silently no-op'd on the host (macOS Terminal.app under Node 24 was the
-    // repro), the TTY stays canonical and the first ^D on an empty line is an
-    // EOF Node delivers as 'end' — never a 'data' chunk containing 0x04 — so
-    // the handler above misses it and the operator must press ^D twice.
-    // Closing on 'end' too makes single-press detach work in both regimes;
-    // `client.close()` is idempotent so the raw-mode 'data' path is unaffected.
-    stdin.on('end', (): void => {
-      localDetach = true;
-      client.close();
-    });
+    stdin.on('data', onStdinData);
+    stdin.on('end', onStdinEnd);
   });
 
   return { done };

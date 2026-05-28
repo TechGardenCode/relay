@@ -44,6 +44,12 @@ export type ClientState = 'idle' | 'claiming' | 'streaming' | 'backoff' | 'close
 
 const BACKOFF_DISMISS_MS = 4_000;
 
+// Per ND-40: defensive cap for the inbound-binary buffer used only when `hello`
+// (which carries the real replayBufferBytes) has not been seen yet. In the
+// protocol `hello` always precedes the binary snapshot, so this fallback only
+// matters if a binary frame somehow arrives first.
+const DEFAULT_INBOUND_BUFFER_CAP = 1024 * 1024;
+
 let nextCorrelation = 0;
 function makeCorrelationId(): string {
   nextCorrelation = (nextCorrelation + 1) % 1_000_000;
@@ -104,6 +110,13 @@ export class AttachClient {
   private callbacks: ClientCallbacks;
   private readonly opts: AttachClientOptions;
   private hello: HelloFrame | undefined;
+  // Per ND-40: binary frames that arrive before an `onBytes` subscriber exists
+  // (the connect()→subscribe() gap, when replay frames coalesce with the 101 +
+  // open in one socket read) are buffered here in arrival order, then flushed
+  // exactly once when `onBytes` transitions undefined→defined. Once a subscriber
+  // exists, binary is delivered directly and this stays empty.
+  private inboundBinaryBuffer: Buffer[] = [];
+  private inboundBufferedBytes = 0;
 
   constructor(opts: AttachClientOptions, callbacks: ClientCallbacks = {}) {
     this.opts = opts;
@@ -117,6 +130,7 @@ export class AttachClient {
    * without taking ownership of the handler map.
    */
   subscribe(extras: ClientCallbacks): void {
+    const hadOnBytes = this.callbacks.onBytes !== undefined;
     const merged: ClientCallbacks = { ...this.callbacks };
     type CbKey = keyof ClientCallbacks;
     for (const key of Object.keys(extras) as CbKey[]) {
@@ -133,6 +147,12 @@ export class AttachClient {
       }
     }
     this.callbacks = merged;
+    // Per ND-40: flush binary buffered during the connect()→subscribe() gap,
+    // in arrival order, exactly once — only on the undefined→defined transition
+    // of onBytes (so a second subscribe() never re-flushes).
+    if (!hadOnBytes && this.callbacks.onBytes !== undefined) {
+      this.flushInboundBinary();
+    }
   }
 
   get currentState(): ClientState {
@@ -161,7 +181,14 @@ export class AttachClient {
     socket.on('message', (data: RawData, isBinary: boolean): void => {
       if (isBinary) {
         const buf = rawDataToBuffer(data);
-        this.callbacks.onBytes?.(buf);
+        // Per ND-40: if no subscriber has registered `onBytes` yet (replay
+        // frames coalesced with the 101/open before subscribe() ran), buffer
+        // in arrival order rather than dropping; otherwise deliver directly.
+        if (this.callbacks.onBytes === undefined) {
+          this.bufferInboundBinary(buf);
+        } else {
+          this.callbacks.onBytes(buf);
+        }
         return;
       }
       this.handleTextFrame(rawDataToBuffer(data).toString('utf8'));
@@ -241,6 +268,32 @@ export class AttachClient {
     if (this.socket !== undefined && this.socket.readyState === WebSocket.OPEN) {
       this.socket.close(WsCloseCode.Normal);
     }
+  }
+
+  // Per ND-40: append a binary frame to the pre-subscribe buffer, bounded by
+  // the session's replayBufferBytes (read from `hello`). On overflow drop the
+  // oldest, mirroring the server's ring buffer — so a caller that never
+  // subscribes cannot grow this without bound.
+  private bufferInboundBinary(buf: Buffer): void {
+    const cap = this.hello?.replayBufferBytes ?? DEFAULT_INBOUND_BUFFER_CAP;
+    this.inboundBinaryBuffer.push(buf);
+    this.inboundBufferedBytes += buf.length;
+    while (this.inboundBufferedBytes > cap && this.inboundBinaryBuffer.length > 1) {
+      const dropped = this.inboundBinaryBuffer.shift();
+      if (dropped !== undefined) this.inboundBufferedBytes -= dropped.length;
+    }
+  }
+
+  // Per ND-40: deliver buffered binary to the freshly-registered onBytes in
+  // arrival order, then clear. Called once, on the undefined→defined transition.
+  private flushInboundBinary(): void {
+    if (this.inboundBinaryBuffer.length === 0) return;
+    const buffered = this.inboundBinaryBuffer;
+    this.inboundBinaryBuffer = [];
+    this.inboundBufferedBytes = 0;
+    const onBytes = this.callbacks.onBytes;
+    if (onBytes === undefined) return;
+    for (const chunk of buffered) onBytes(chunk);
   }
 
   private sendFrame(frame: ClientFrame): void {

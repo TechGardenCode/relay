@@ -319,6 +319,50 @@ describe('runTty detach confirmation (ND-34 item i)', () => {
   });
 });
 
+describe('runTty screen restore on close (ND-38)', () => {
+  it('writes the alt-screen-leave (\\x1b[?1049l) to stdout on a ^D detach, before the [relay] line', async () => {
+    const rig = await newRig();
+    const outChunks: Buffer[] = [];
+    const errChunks: Buffer[] = [];
+    rig.stdout.on('data', (b: Buffer) => outChunks.push(Buffer.from(b)));
+    rig.stderr.on('data', (b: Buffer) => errChunks.push(Buffer.from(b)));
+    runTty({
+      client: rig.client,
+      stdin: rig.stdin,
+      stdout: rig.stdout,
+      stderr: rig.stderr,
+      setRawMode: () => {},
+      installExitHook: () => {},
+    });
+    rig.stdin.write(Buffer.from([0x04]));
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const out = Buffer.concat(outChunks).toString('binary');
+    const err = Buffer.concat(errChunks).toString('binary');
+    // Per ND-38: cleanup() emits the alt-screen-leave to stdout so the [relay]
+    // line (stderr) lands on the restored primary screen, not the frozen frame.
+    expect(out).toContain('\x1b[?1049l');
+    expect(err).toContain('[relay]');
+  });
+
+  it('emits the reset on a session_ended close too (every close path), not only ^D', async () => {
+    const rig = await newRig();
+    const outChunks: Buffer[] = [];
+    rig.stdout.on('data', (b: Buffer) => outChunks.push(Buffer.from(b)));
+    runTty({
+      client: rig.client,
+      stdin: rig.stdin,
+      stdout: rig.stdout,
+      stderr: rig.stderr,
+      setRawMode: () => {},
+      installExitHook: () => {},
+    });
+    rig.socket.receiveText({ type: 'session_ended', reason: 'agent_exit' });
+    rig.socket.close(1000);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(Buffer.concat(outChunks).toString('binary')).toContain('\x1b[?1049l');
+  });
+});
+
 describe('runTty resize forwarding (ND-23)', () => {
   it('emits resize on startup with current stdout dimensions', async () => {
     const rig = await newRig();

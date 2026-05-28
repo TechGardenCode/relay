@@ -1,40 +1,9 @@
-import { globSync, statSync } from 'node:fs';
-import { platform, arch } from 'node:os';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
+
+import { spawnHelperReady } from '../testkit/spawn-helper-ready.js';
 
 import { createSupervisor } from './supervisor.js';
 import { DEFAULT_RING_BUFFER_BYTES } from './types.js';
-
-// Per phase-0-report.md §1: pnpm's content-addressable hardlinks can drop the
-// executable bit on node-pty's macOS spawn-helper. If that happens, every test
-// here would fail with an opaque `posix_spawnp failed.` Probe the prebuild and
-// skip with a clear diagnostic so a contributor knows to run
-// `pnpm --filter @relay/spike fix-pty`. On Linux/Windows there is no
-// spawn-helper to chmod — node-pty uses different code paths.
-function spawnHelperReady(): { ok: boolean; reason: string } {
-  if (platform() !== 'darwin') return { ok: true, reason: 'non-macOS' };
-  const here = dirname(fileURLToPath(import.meta.url));
-  // Walk up to repo root from packages/server/src/pty/.
-  const repoRoot = resolve(here, '../../../../');
-  const pattern = `node_modules/.pnpm/node-pty@*/node_modules/node-pty/prebuilds/darwin-${arch()}/spawn-helper`;
-  const matches = globSync(pattern, { cwd: repoRoot });
-  if (matches.length === 0) {
-    return { ok: false, reason: `spawn-helper not found under ${repoRoot} (pattern: ${pattern})` };
-  }
-  for (const rel of matches) {
-    const mode = statSync(resolve(repoRoot, rel)).mode & 0o111;
-    if (mode === 0) {
-      return {
-        ok: false,
-        reason: `spawn-helper missing exec bit at ${rel} — run \`pnpm --filter @relay/spike fix-pty\``,
-      };
-    }
-  }
-  return { ok: true, reason: 'ready' };
-}
 
 const helper = spawnHelperReady();
 const describePty = helper.ok ? describe : describe.skip;

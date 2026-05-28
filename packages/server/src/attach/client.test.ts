@@ -454,3 +454,247 @@ describe('AttachClient resize() — ND-23 side-channel', () => {
     expect(rig.client.currentState).toBe('claiming');
   });
 });
+
+// ---------------------------------------------------------------------------
+// ND-40: replay-drop race. The 101 handshake and the server's coalesced reply
+// (hello → replay_start → binary screen snapshot → replay_end) can arrive in a
+// SINGLE socket read, so `ws` emits 'open' then synchronously emits 'message'
+// for each buffered frame — all before the awaiting `connect()` continuation
+// runs `subscribe()`. This fake reproduces that exactly: it emits 'open' and
+// then, in the SAME callback, synchronously fires the configured frames.
+// ---------------------------------------------------------------------------
+
+type GapFrame = { binary: Buffer } | { text: unknown };
+
+class CoalescingFakeWebSocket {
+  static instances: CoalescingFakeWebSocket[] = [];
+  static framesOnOpen: GapFrame[] = [];
+  static OPEN = 1;
+  readyState: number = CoalescingFakeWebSocket.OPEN;
+  sent: unknown[] = [];
+  closeCode: number | undefined;
+  private messageListeners: ((data: Buffer, isBinary: boolean) => void)[] = [];
+  private closeListeners: ((code: number, reason: Buffer) => void)[] = [];
+  private errorListeners: ((err: Error) => void)[] = [];
+  private openListeners: (() => void)[] = [];
+
+  constructor(
+    readonly url: string,
+    readonly headers: Record<string, string>,
+  ) {
+    CoalescingFakeWebSocket.instances.push(this);
+    const frames = CoalescingFakeWebSocket.framesOnOpen;
+    queueMicrotask(() => {
+      // Fire 'open', then — synchronously, in the SAME callback, before the
+      // awaiting connect() continuation can run subscribe() — replay the
+      // coalesced frames. This is the ND-40 race window.
+      this.fireOpen();
+      for (const f of frames) {
+        if ('binary' in f) this.receiveBinary(f.binary);
+        else this.receiveText(f.text);
+      }
+    });
+  }
+  on(event: string, cb: (...a: never[]) => void): this {
+    if (event === 'message') this.messageListeners.push(cb as never);
+    else if (event === 'close') this.closeListeners.push(cb as never);
+    else if (event === 'error') this.errorListeners.push(cb as never);
+    else if (event === 'open') this.openListeners.push(cb as never);
+    return this;
+  }
+  once(event: string, cb: (...a: never[]) => void): this {
+    const wrapper = (...a: never[]): void => {
+      this.removeListener(event, wrapper);
+      (cb as (...args: never[]) => void)(...a);
+    };
+    return this.on(event, wrapper);
+  }
+  removeListener(event: string, cb: (...a: never[]) => void): this {
+    const remove = <T>(list: T[]): T[] => list.filter((c) => c !== (cb as unknown as T));
+    if (event === 'message') this.messageListeners = remove(this.messageListeners);
+    else if (event === 'close') this.closeListeners = remove(this.closeListeners);
+    else if (event === 'error') this.errorListeners = remove(this.errorListeners);
+    else if (event === 'open') this.openListeners = remove(this.openListeners);
+    return this;
+  }
+  send(data: string | Buffer): void {
+    this.sent.push(typeof data === 'string' ? JSON.parse(data) : data);
+  }
+  close(code?: number): void {
+    this.readyState = 3;
+    this.closeCode = code;
+    for (const cb of this.closeListeners) cb(code ?? 1006, Buffer.alloc(0));
+  }
+  receiveBinary(bytes: Buffer): void {
+    for (const cb of this.messageListeners) cb(bytes, true);
+  }
+  receiveText(frame: unknown): void {
+    const buf = Buffer.from(JSON.stringify(frame), 'utf8');
+    for (const cb of this.messageListeners) cb(buf, false);
+  }
+  fireOpen(): void {
+    for (const cb of this.openListeners) cb();
+  }
+}
+
+describe('AttachClient replay-drop race (ND-40)', () => {
+  beforeEach(() => {
+    CoalescingFakeWebSocket.instances = [];
+    CoalescingFakeWebSocket.framesOnOpen = [];
+  });
+
+  function makeClient(callbacks = {}): AttachClient {
+    return new AttachClient(
+      {
+        wsUrl: 'ws://test',
+        sessionId: '01J7ZXY9PQ2K0M4B6F3HV8C5R7',
+        token: 'T',
+        wsFactory: (url, headers) => new CoalescingFakeWebSocket(url, headers) as never,
+      },
+      callbacks,
+    );
+  }
+  function lastSocket(): CoalescingFakeWebSocket {
+    const s = CoalescingFakeWebSocket.instances.at(-1);
+    if (s === undefined) throw new Error('no socket');
+    return s;
+  }
+
+  it('delivers replayed binary buffered in the connect→subscribe gap (was dropped pre-ND-40)', async () => {
+    const payload = Buffer.from('\x1b[?1049hREPLAYED-FRAME-BYTES');
+    CoalescingFakeWebSocket.framesOnOpen = [{ binary: payload }];
+    const received: Buffer[] = [];
+    const client = makeClient();
+    // Production order, exactly as cli/attach.ts: connect FIRST, subscribe AFTER.
+    await client.connect();
+    client.subscribe({ onBytes: (b) => received.push(b) });
+    await Promise.resolve();
+    expect(Buffer.concat(received).toString('binary')).toBe(payload.toString('binary'));
+  });
+
+  it('preserves arrival order across ≥2 binary frames buffered in the gap', async () => {
+    CoalescingFakeWebSocket.framesOnOpen = [
+      { binary: Buffer.from('FIRST-') },
+      { binary: Buffer.from('SECOND-') },
+      { binary: Buffer.from('THIRD') },
+    ];
+    const received: Buffer[] = [];
+    const client = makeClient();
+    await client.connect();
+    client.subscribe({ onBytes: (b) => received.push(b) });
+    await Promise.resolve();
+    expect(Buffer.concat(received).toString('binary')).toBe('FIRST-SECOND-THIRD');
+  });
+
+  it('does NOT double-deliver: a frame buffered in the gap flushes once; a frame after subscribe delivers once', async () => {
+    CoalescingFakeWebSocket.framesOnOpen = [{ binary: Buffer.from('GAP') }];
+    const received: Buffer[] = [];
+    const client = makeClient();
+    await client.connect();
+    client.subscribe({ onBytes: (b) => received.push(b) });
+    await Promise.resolve();
+    // A live frame after a subscriber exists must go straight through, not buffer.
+    lastSocket().receiveBinary(Buffer.from('LIVE'));
+    expect(received.map((b) => b.toString('binary'))).toEqual(['GAP', 'LIVE']);
+  });
+
+  it('onBytes set at construction: binary delivered directly, never buffered (no regression)', async () => {
+    const payload = Buffer.from('CONSTRUCT-TIME');
+    CoalescingFakeWebSocket.framesOnOpen = [{ binary: payload }];
+    const received: Buffer[] = [];
+    const client = makeClient({ onBytes: (b: Buffer) => received.push(b) });
+    await client.connect();
+    await Promise.resolve();
+    expect(Buffer.concat(received).toString('binary')).toBe(payload.toString('binary'));
+  });
+
+  it('idempotent subscribe: flushes the gap buffer exactly once (only on the undefined→defined transition)', async () => {
+    CoalescingFakeWebSocket.framesOnOpen = [{ binary: Buffer.from('ONCE') }];
+    const received: Buffer[] = [];
+    const client = makeClient();
+    await client.connect();
+    client.subscribe({ onBytes: (b) => received.push(b) });
+    client.subscribe({ onBytes: () => {} }); // second subscribe must NOT re-flush
+    await Promise.resolve();
+    expect(received.map((b) => b.toString('binary'))).toEqual(['ONCE']);
+  });
+
+  it('text frames in the gap still process (hello sets helloFrame) — only onBytes-bound binary buffers', async () => {
+    const snapshot = Buffer.from('\x1b[?1049hSNAP');
+    CoalescingFakeWebSocket.framesOnOpen = [
+      {
+        text: {
+          type: 'hello',
+          sessionId: '01J7ZXY9PQ2K0M4B6F3HV8C5R7',
+          status: 'running',
+          replayBufferBytes: 65536,
+          claimLockTimeoutSeconds: 30,
+          serverTime: '2026-05-28T10:00:00Z',
+        },
+      },
+      { text: { type: 'replay_start', bytes: snapshot.length } },
+      { binary: snapshot },
+      { text: { type: 'replay_end' } },
+    ];
+    const received: Buffer[] = [];
+    const client = makeClient();
+    await client.connect();
+    // hello/replay_start/replay_end were processed during the gap.
+    expect(client.helloFrame?.replayBufferBytes).toBe(65536);
+    client.subscribe({ onBytes: (b) => received.push(b) });
+    await Promise.resolve();
+    expect(Buffer.concat(received).toString('binary')).toBe(snapshot.toString('binary'));
+  });
+
+  it('bounds the buffer at replayBufferBytes (from hello), dropping oldest, if a caller never subscribes in time', async () => {
+    CoalescingFakeWebSocket.framesOnOpen = [
+      {
+        text: {
+          type: 'hello',
+          sessionId: '01J7ZXY9PQ2K0M4B6F3HV8C5R7',
+          status: 'running',
+          replayBufferBytes: 4,
+          claimLockTimeoutSeconds: 30,
+          serverTime: '2026-05-28T10:00:00Z',
+        },
+      },
+      { binary: Buffer.from('AA') },
+      { binary: Buffer.from('BB') },
+      { binary: Buffer.from('CC') },
+    ];
+    const received: Buffer[] = [];
+    const client = makeClient();
+    await client.connect();
+    client.subscribe({ onBytes: (b) => received.push(b) });
+    await Promise.resolve();
+    // cap=4: AA+BB fills to 4; CC overflows → drop oldest (AA). Order preserved.
+    expect(Buffer.concat(received).toString('binary')).toBe('BBCC');
+  });
+
+  it('live bytes arriving after replay_end but before subscribe use the same buffer + ordering', async () => {
+    const snap = Buffer.from('SNAPSHOT-');
+    const live = Buffer.from('LIVE-BYTE');
+    CoalescingFakeWebSocket.framesOnOpen = [
+      {
+        text: {
+          type: 'hello',
+          sessionId: '01J7ZXY9PQ2K0M4B6F3HV8C5R7',
+          status: 'running',
+          replayBufferBytes: 65536,
+          claimLockTimeoutSeconds: 30,
+          serverTime: '2026-05-28T10:00:00Z',
+        },
+      },
+      { text: { type: 'replay_start', bytes: snap.length } },
+      { binary: snap },
+      { text: { type: 'replay_end' } },
+      { binary: live },
+    ];
+    const received: Buffer[] = [];
+    const client = makeClient();
+    await client.connect();
+    client.subscribe({ onBytes: (b) => received.push(b) });
+    await Promise.resolve();
+    expect(Buffer.concat(received).toString('binary')).toBe('SNAPSHOT-LIVE-BYTE');
+  });
+});

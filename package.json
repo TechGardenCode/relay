@@ -15,6 +15,7 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "tui:capture": "vitest run packages/server/src/attach/tty-visual.test.ts packages/server/src/server/ws/multiclient-resize-visual.test.ts",
     "build": "pnpm -r --if-present run build",
     "prepare": "lefthook install"
   },
