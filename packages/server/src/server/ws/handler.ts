@@ -3,6 +3,12 @@
 // contract. This file owns the wiring: Fastify route registration, per-
 // connection state, the session-keyed claim-lock map, the auth-revocation
 // subscription, and the bracketed-replay sequence on attach.
+//
+// Per ND-39 this file also owns the multi-client PTY-size clamp: it records
+// each attached connection's last-reported viewport and computes the effective
+// size (min across attached clients while ≥2 are attached). pty/supervisor.ts
+// stays session-id- and connection-agnostic — the per-connection bookkeeping
+// lives here, in the layer that owns the attached-connection set.
 
 import { randomUUID } from 'node:crypto';
 
@@ -49,6 +55,11 @@ interface ConnectionContext {
   // Set once the connection is registered against the session map. Used by
   // `claim_released` broadcast to find peers.
   alive: boolean;
+  // Per ND-23/ND-39: this connection's last-reported terminal viewport, from
+  // its `resize` frames. `undefined` until the client emits its first resize.
+  // The multi-client clamp takes min() across the attached connections that
+  // have reported a size.
+  size?: { cols: number; rows: number };
 }
 
 interface SessionWsState {
@@ -57,6 +68,10 @@ interface SessionWsState {
   // broadcast `claim_released` and `session_ended`. Distinct from the
   // session/ module's `attached` Set, which is by-byte fan-out only.
   connections: Set<ConnectionContext>;
+  // Per ND-39: the effective PTY size last forwarded to the supervisor. Lets
+  // the clamp recompute skip redundant `supervisor.resize()` calls (no SIGWINCH
+  // churn on a no-op recompute). `undefined` until the first size is applied.
+  lastEffectiveSize?: { cols: number; rows: number };
 }
 
 // Per @fastify/websocket: the `socket` argument is a `ws.WebSocket` even
@@ -324,6 +339,13 @@ export async function registerWs(app: FastifyInstance, opts: WsPluginOptions): P
         // is a no-op when ctx is not the holder.
         state.lock.releaseOnDisconnect(ctx.id);
         state.connections.delete(ctx);
+        // Per ND-39: a detach shrinks the attached set — recompute the clamp so
+        // the PTY reverts UP to the remaining client's full size on the 2→1
+        // transition. Skip when the session is gone (don't resize a dead PTY);
+        // the onSessionEnd path has already closed every socket in that case.
+        if (opts.registry.get(sessionId) !== undefined) {
+          recomputeEffectiveSize(state, handle);
+        }
         try {
           attachment.unsubscribe();
         } catch {
@@ -370,11 +392,41 @@ function dispatchClientFrame(
     return;
   }
   if (frame.type === 'resize') {
-    // Per ND-23: resize is a side-channel; independent of claim state,
-    // multi-client last-writer-wins. Schema caps cols/rows at 1000.
-    handle.resize(frame.cols, frame.rows);
+    // Per ND-23: resize is a side-channel — independent of claim state and
+    // accepted from any attached connection. Record this connection's viewport
+    // (ResizeFrameSchema already caps cols/rows at 1000) and recompute the
+    // effective PTY size per the ND-39 multi-client clamp.
+    ctx.size = { cols: frame.cols, rows: frame.rows };
+    recomputeEffectiveSize(state, handle);
     return;
   }
+}
+
+// Per ND-39 (amending ND-23 §2.2 multi-client policy): while ≥2 clients are
+// attached, the single shared PTY is clamped to the smallest viewport —
+// min(cols), min(rows) across every attached connection's last-reported size —
+// so a full-screen TUI agent never paints cursor-positioning escapes outside a
+// client's viewport (the corruption from the 7F screenshots). While exactly one
+// client is attached this reduces to that client's size (ND-23 last-writer-wins,
+// unchanged); on the 2→1 transition the PTY resizes back UP to the remaining
+// client's full size. supervisor.resize() is called only when the computed
+// effective size actually changes, to avoid redundant SIGWINCH churn.
+function recomputeEffectiveSize(state: SessionWsState, handle: SessionHandle): void {
+  let cols: number | undefined;
+  let rows: number | undefined;
+  for (const conn of state.connections) {
+    if (conn.size === undefined) continue;
+    cols = cols === undefined ? conn.size.cols : Math.min(cols, conn.size.cols);
+    rows = rows === undefined ? conn.size.rows : Math.min(rows, conn.size.rows);
+  }
+  // No attached connection has reported a size yet — leave the PTY at its
+  // spawn default; there is nothing to apply.
+  if (cols === undefined || rows === undefined) return;
+  if (state.lastEffectiveSize?.cols === cols && state.lastEffectiveSize.rows === rows) {
+    return;
+  }
+  state.lastEffectiveSize = { cols, rows };
+  handle.resize(cols, rows);
 }
 
 function handleClaim(

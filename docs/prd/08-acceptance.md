@@ -61,8 +61,9 @@ The eight scenarios below cover both headline pains (cross-device continuity, mu
 - When both clients send input simultaneously, exactly one `CLAIM` wins; the other receives `BUSY`, retains its local input buffer, and surfaces a brief notice to the user
 - The held claim auto-releases when the message is delivered to the PTY or when the claiming client disconnects mid-message; the previously-rejected client can then claim and send
 - Either client can be the "winner" on any given message — there is no persistent control holder; contention is per-message per the contract in `03-server.md` §5.1
+- When the agent is a full-screen TUI (e.g. claude) and two clients are attached at different terminal sizes, both render **legibly** — not just both *receive* bytes. While ≥2 clients are attached the server clamps the single shared PTY to the smallest viewport (`min(cols)`, `min(rows)`) so neither client renders cursor-positioning escapes written outside its viewport; the larger client sees blank margins (the documented residual), and the PTY reverts to the remaining client's full size when one detaches. "Both observe live agent output" is satisfied for a TUI agent only when both render legibly under this clamp.
 
-*Resolved by [D-G2](../decisions/D-G2-multi-client-input-arbitration.md) on 2026-05-14.*
+*Resolved by [D-G2](../decisions/D-G2-multi-client-input-arbitration.md) on 2026-05-14. Concurrent-attach TUI rendering (clamp-to-smallest-while-multi-attached) resolved by [ND-39](../decisions/ND-39-concurrent-multi-client-attach-tui-rendering-corruption.md) on 2026-05-28.*
 
 ### G — Multiple concurrent sessions across different projects (headline pain B)
 

@@ -4,7 +4,7 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 45 · Open: 6 · Deferred: 8.
+**Counts.** Resolved: 46 · Open: 5 · Deferred: 8.
 
 ## Open / in-deliberation
 
@@ -13,7 +13,6 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 - [`ND-28` — Programmatic / machine-to-machine credential flow](ND-28-programmatic-machine-to-machine-credential-flow.md)
 - [`ND-30` — `relay attach` stderr event-stream protocol for subprocess-of-attach consumers](ND-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers.md)
 - [`ND-31` — SecretStorage key namespace for multi-server IDE pairing](ND-31-secretstorage-key-namespace-for-multi-server-ide-pairing.md)
-- [`ND-39` — Concurrent multi-client attach to a TUI agent renders corrupted](ND-39-concurrent-multi-client-attach-tui-rendering-corruption.md) _(last-writer-wins viewport conflict vs ND-23; surfaced + confirmed live by 7F walk; fix deferred)_
 
 ## Deferred
 
@@ -33,6 +32,7 @@ _Superseded-for-MVP by [`D-17` — Personas descoped from MVP](D-17-personas-des
 
 _Newest first._
 
+- [`ND-39` — Concurrent multi-client attach to a TUI agent renders corrupted](ND-39-concurrent-multi-client-attach-tui-rendering-corruption.md) _(2026-05-28)_
 - [`D-17` — Personas descoped from MVP (deferred to Phase 2)](D-17-personas-descoped-from-mvp.md) _(2026-05-28)_
 - [`ND-38` — `relay attach` process hangs after a clean ^D detach in raw mode](ND-38-relay-attach-process-hangs-after-clean-ctrl-d-detach-in-raw-mode.md) _(2026-05-28)_
 - [`ND-40` — `relay attach` drops replayed screen bytes in the connect()→subscribe() gap](ND-40-relay-attach-drops-replayed-bytes-in-connect-subscribe-gap.md) _(2026-05-28)_

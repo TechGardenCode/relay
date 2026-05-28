@@ -244,6 +244,24 @@ async function connect(rig: WsRig, path: string): Promise<Collector> {
   };
 }
 
+// Poll until the FakeSupervisor has recorded at least `count` resize() calls.
+// resize is fire-and-forget (no server→client ack per ND-23), so tests observe
+// it through the supervisor's recorded calls rather than a wire frame.
+async function waitForResizes(
+  session: SessionFixture,
+  count: number,
+  timeoutMs = 1500,
+): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (session.supervisor.resizes.length >= count) return;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  throw new Error(
+    `waitForResizes(${count}) timed out; got ${JSON.stringify(session.supervisor.resizes)}`,
+  );
+}
+
 let rig: WsRig;
 
 beforeEach(async () => {
@@ -794,20 +812,15 @@ describe('GET /sessions/:id/stream — session_ended after live attach (ws-proto
   });
 });
 
-describe('GET /sessions/:id/stream — resize side-channel (ND-23)', () => {
-  it('resize frame forwards cols/rows to supervisor.resize()', async () => {
+describe('GET /sessions/:id/stream — resize side-channel + multi-client clamp (ND-23 + ND-39)', () => {
+  it('single-client resize forwards cols/rows to supervisor.resize() (ND-23)', async () => {
     const session = await seedSession(rig);
     const a = await connect(rig, `/sessions/${session.sessionId}/stream`);
     await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'replay_end');
 
     a.send({ type: 'resize', cols: 100, rows: 40 });
-    // Wait until the supervisor records the call. No server-side ack frame is
-    // defined — resize is fire-and-forget per ND-23.
-    const start = Date.now();
-    while (Date.now() - start < 1500) {
-      if (session.supervisor.resizes.length > 0) break;
-      await new Promise((r) => setTimeout(r, 5));
-    }
+    // No server-side ack frame is defined — resize is fire-and-forget per ND-23.
+    await waitForResizes(session, 1);
     expect(session.supervisor.resizes).toEqual([{ cols: 100, rows: 40 }]);
   });
 
@@ -818,38 +831,86 @@ describe('GET /sessions/:id/stream — resize side-channel (ND-23)', () => {
     await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'A replay_end');
     await b.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'B replay_end');
 
-    // A holds the claim; B sends resize without claiming.
+    // A holds the claim; B sends resize without claiming. Only B has reported a
+    // size, so the effective (clamped) size is simply B's 80x24.
     a.send({ type: 'claim', id: 'a-claim' });
     await a.waitFor(({ text }) => text.some((f) => f.type === 'claim_ack'), 'A claim_ack');
 
     b.send({ type: 'resize', cols: 80, rows: 24 });
-    const start = Date.now();
-    while (Date.now() - start < 1500) {
-      if (session.supervisor.resizes.length > 0) break;
-      await new Promise((r) => setTimeout(r, 5));
-    }
+    await waitForResizes(session, 1);
     expect(session.supervisor.resizes).toEqual([{ cols: 80, rows: 24 }]);
     // No error frame emitted on B (the non-holder) — resize is universal.
     expect(b.textFrames.filter((f) => f.type === 'error')).toEqual([]);
   });
 
-  it('resize with last-writer-wins across multiple clients', async () => {
+  it('single client: last-writer-wins — each successive resize forwards the new size (ND-23, exactly 1 attached)', async () => {
     const session = await seedSession(rig);
     const a = await connect(rig, `/sessions/${session.sessionId}/stream`);
-    const b = await connect(rig, `/sessions/${session.sessionId}/stream`);
-    await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'A replay_end');
-    await b.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'B replay_end');
+    await a.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'replay_end');
 
     a.send({ type: 'resize', cols: 100, rows: 40 });
-    b.send({ type: 'resize', cols: 80, rows: 24 });
-    const start = Date.now();
-    while (Date.now() - start < 1500) {
-      if (session.supervisor.resizes.length >= 2) break;
-      await new Promise((r) => setTimeout(r, 5));
-    }
+    await waitForResizes(session, 1);
+    a.send({ type: 'resize', cols: 80, rows: 24 });
+    await waitForResizes(session, 2);
     expect(session.supervisor.resizes).toEqual([
       { cols: 100, rows: 40 },
       { cols: 80, rows: 24 },
+    ]);
+  });
+
+  it('≥2 attached: PTY clamps to the smallest viewport; a wider client never enlarges it (ND-39)', async () => {
+    const session = await seedSession(rig);
+    const narrow = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    const wide = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    await narrow.waitFor(
+      ({ text }) => text.some((f) => f.type === 'replay_end'),
+      'narrow replay_end',
+    );
+    await wide.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'wide replay_end');
+
+    narrow.send({ type: 'resize', cols: 80, rows: 24 });
+    await waitForResizes(session, 1);
+    // The wider client reports LAST. Under ND-23 last-writer-wins this would
+    // jump the shared PTY to 120x40 and shred the narrow client; the ND-39
+    // clamp must keep min(cols),min(rows) = 80x24 and emit no resize for it.
+    wide.send({ type: 'resize', cols: 120, rows: 40 });
+    // Narrow then shrinks further — this proves wide's frame was consumed in
+    // arrival order AND that 120x40 never reached the PTY (the clamp held):
+    // the only second resize is the new minimum, 70x20.
+    narrow.send({ type: 'resize', cols: 70, rows: 20 });
+    await waitForResizes(session, 2);
+    expect(session.supervisor.resizes).toEqual([
+      { cols: 80, rows: 24 },
+      { cols: 70, rows: 20 },
+    ]);
+  });
+
+  it('2→1 detach reverts the PTY up to the remaining client’s full size (ND-39 revert; D-G2/D-G3 unregressed)', async () => {
+    const session = await seedSession(rig);
+    const narrow = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    const wide = await connect(rig, `/sessions/${session.sessionId}/stream`);
+    await narrow.waitFor(
+      ({ text }) => text.some((f) => f.type === 'replay_end'),
+      'narrow replay_end',
+    );
+    await wide.waitFor(({ text }) => text.some((f) => f.type === 'replay_end'), 'wide replay_end');
+
+    narrow.send({ type: 'resize', cols: 80, rows: 24 });
+    await waitForResizes(session, 1);
+    // Wide reports 120x40 — recorded but clamped away while both are attached.
+    wide.send({ type: 'resize', cols: 120, rows: 40 });
+    // Let the wide resize be processed (no-op against the clamp).
+    await new Promise((r) => setTimeout(r, 100));
+    expect(session.supervisor.resizes).toEqual([{ cols: 80, rows: 24 }]);
+
+    // The narrow client leaves → the wider client is alone → the PTY reverts UP
+    // to 120x40 (ND-23 last-writer-wins for a single attached client). This is
+    // only possible if wide's size was recorded while it was clamped away.
+    narrow.socket.terminate();
+    await waitForResizes(session, 2);
+    expect(session.supervisor.resizes).toEqual([
+      { cols: 80, rows: 24 },
+      { cols: 120, rows: 40 },
     ]);
   });
 

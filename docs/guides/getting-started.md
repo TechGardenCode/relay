@@ -220,6 +220,8 @@ Multiple clients can be attached to the same session at once. All attached clien
 
 This is the headline feature: start a session on your laptop, walk away, attach from your desktop, continue the conversation, walk over to a third machine, attach in a `tmux` pane — same session, no state loss.
 
+**Terminal size while two clients are attached.** A session has one shared PTY, so it can only be one size. While **two or more** clients are attached at the same time, Relay sizes that PTY to the **smallest** attached terminal (the smaller of the column counts and the smaller of the row counts), so a full-screen agent like Claude Code never draws outside any client's viewport — both clients render a clean, legible frame. The trade-off is that the **larger** terminal shows blank margins on the right and bottom: the agent's frame is the size of the smaller window. This is expected, not a bug (per [ND-39](../decisions/ND-39-concurrent-multi-client-attach-tui-rendering-corruption.md)). To reclaim your full window size, detach the smaller client — the PTY immediately resizes back up to your terminal and the agent redraws. With only one client attached, the session always uses that client's full size.
+
 ### Through your IDE on machine B
 
 If you have VS Code on machine B too, install the `.vsix` there (Chapter 1 build step on machine B), then **"Relay: Connect to server"** pointed at machine A's URL with the same token. Command palette → **"Relay: Attach to session"** to pick from the list of running sessions. You get the IDE terminal panel instead of a plain SSH terminal.

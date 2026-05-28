@@ -1,24 +1,31 @@
-// Visual regression guard for ND-39 — concurrent multi-client attach to a
-// full-screen TUI agent renders corrupted on the mismatched client.
+// Visual regression test for ND-39 — concurrent multi-client attach to a
+// full-screen TUI agent, after the clamp-to-smallest fix.
 //
 // Root cause (docs/decisions/ND-39-*.md): one shared PTY can only be one size.
-// ND-23's resize policy is last-writer-wins, and D-G2 universal output sends
-// every PTY byte to every client. So when two clients of different sizes attach,
-// the TUI redraws for whichever client resized last and those width-specific
-// cursor/redraw bytes are broadcast to BOTH — the client whose terminal differs
-// re-wraps them into a shredded frame, and the other client's input bleeds in.
+// ND-23's resize policy WAS last-writer-wins, and D-G2 universal output sends
+// every PTY byte to every client — so when two differently-sized clients stayed
+// attached, the TUI redrew for whichever client resized last and those
+// width-specific cursor/redraw bytes were broadcast to BOTH, re-wrapping into a
+// shredded frame on the mismatched client.
 //
-// Byte-level WS tests (handler.test.ts) confirm both clients RECEIVE the bytes
-// (the functional contract holds); only the *rendering* breaks, which is exactly
-// what a cell-grid can see and a frame-assertion cannot.
+// ND-39 (resolved 2026-05-28) clamps the shared PTY to the smallest viewport —
+// min(cols),min(rows) — while ≥2 clients are attached, reverting to
+// last-writer-wins at a single client. So both clients now render the SAME
+// coherent (smallest) frame: the smaller client renders it exactly, the larger
+// client renders it in the top-left with blank margins (the documented
+// residual). These tests are the permanent regression guard for that fix — they
+// were the `it.fails` guard before the clamp landed.
+//
+// Byte-level WS tests (handler.test.ts) cover the size-recompute math; this file
+// proves the *rendering* the recompute produces, which a frame-assertion cannot.
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { gridCount } from '../../testkit/headless-grid.js';
 import { spawnHelperReady } from '../../testkit/spawn-helper-ready.js';
 import {
   bootHarnessServer,
   spawnHarnessClient,
-  waitFor,
   waitForCapture,
   writeArtifact,
   type HarnessClient,
@@ -36,59 +43,64 @@ afterEach(async () => {
   server = undefined;
 });
 
-// Drive two clients to a known last-writer state: WIDE (120x40) resizes last, so
-// the shared PTY is 120x40 and the NARROW (80x24) client is the mismatched one.
+// Attach a mismatched pair: WIDE (120x40) first, then NARROW (80x24). Per ND-39,
+// while BOTH are attached the server clamps the single shared PTY to the smallest
+// viewport — min(cols),min(rows) = 80x24 — so the fixture draws an 80x24 frame and
+// BOTH clients receive it (D-G2 universal output). Settle on that clamped state.
 async function attachMismatchedPair(): Promise<{ wide: HarnessClient; narrow: HarnessClient }> {
   server = await bootHarnessServer();
   const wide = await spawnHarnessClient(server, { cols: 120, rows: 40 });
   const narrow = await spawnHarnessClient(server, { cols: 80, rows: 24 });
 
-  // Settle last-writer-wins deterministically: narrow first, then wide last.
-  narrow.resize(80, 24);
-  await waitForCapture(narrow, (c) => c.grid.includes('80x24'));
-  wide.resize(120, 40);
-  await waitForCapture(wide, (c) => c.grid.includes('120x40'));
-  // Both clients have now received the 120x40 redraw (universal output).
-  await waitFor(async () => (await narrow.capture()).grid.includes('120x40'));
+  // spawnHarnessClient emits each client's resize on creation; the second attach
+  // trips the clamp. Wait until BOTH clients have rendered the clamped 80x24
+  // frame the fixture redraws on the resulting SIGWINCH.
+  await waitForCapture(narrow, (c) => c.grid.includes('[ 80x24 ]'));
+  await waitForCapture(wide, (c) => c.grid.includes('[ 80x24 ]'));
   return { wide, narrow };
 }
 
-d('ND-39 — concurrent multi-client attach to a TUI agent', () => {
-  it('control: the last writer (wide) renders its own size cleanly', async () => {
+d('ND-39 — concurrent multi-client attach to a TUI agent (clamp-to-smallest)', () => {
+  it('the larger client renders the clamped 80x24 frame legibly, with blank margins (documented residual)', async () => {
     const { wide } = await attachMismatchedPair();
     const cap = await wide.capture();
     writeArtifact(
       'nd39-wide-clean.txt',
       cap,
-      'ND-39: wide client (last writer) — renders the shared 120x40 PTY correctly.',
+      'ND-39 post-clamp: the wider 120x40 client renders the SHARED 80x24 frame in the top-left with blank right/bottom margins — the documented residual (correct rendering, not the pre-fix shred). It no longer shows its own 120x40 size.',
     );
-    expect(cap.grid).toContain('[ 120x40 ]');
-    // Its top border is one contiguous full-width run (no tear).
-    expect(cap.grid.split('\n')[0]).toMatch(/^\+-+\+$/);
+    // The clamp drives the shared frame to 80x24 — the wide client sees that
+    // exact label once, NOT its own 120x40 (which last-writer-wins would keep).
+    expect(gridCount(cap.grid, '[ 80x24 ]')).toBe(1);
+    expect(gridCount(cap.grid, '[ 120x40 ]')).toBe(0);
+    // The 80x24 frame's top border is one contiguous run in the first 80 cols
+    // (no tear); the remaining columns are blank margin (the residual).
+    const firstLine = cap.grid.split('\n')[0] ?? '';
+    expect(firstLine.slice(0, 80)).toMatch(/^\+-+\+$/);
+    expect(firstLine.slice(80).trim()).toBe('');
   }, 25000);
 
-  it.fails(
-    'guard: the other client SHOULD render its OWN size — currently shows the wide frame, shredded (ND-39)',
-    async () => {
-      const { wide, narrow } = await attachMismatchedPair();
+  it('the formerly-shredded narrow client now renders its OWN contiguous 80x24 frame; typed input lands in-frame, not bled into a tear (ND-39 fix)', async () => {
+    const { wide, narrow } = await attachMismatchedPair();
 
-      // Type on the wide client to show input bleed into the narrow frame.
-      wide.type('ZZZZ');
-      await waitForCapture(wide, (c) => c.grid.includes('ZZZZ'));
-      await waitFor(async () => (await narrow.capture()).grid.includes('ZZZZ'));
+    // Type on the wide client. Under the clamp both clients render the SAME
+    // coherent 80x24 frame, so the echo lands on row 3 of the narrow client's
+    // OWN frame (universal output, D-G2) — not bled into a torn wide frame.
+    wide.type('ZZZZ');
+    await waitForCapture(wide, (c) => c.grid.includes('ZZZZ'));
+    const narrowCap = await waitForCapture(narrow, (c) => c.grid.includes('ZZZZ'));
 
-      const narrowCap = await narrow.capture();
-      writeArtifact(
-        'nd39-narrow-shredded.txt',
-        narrowCap,
-        'ND-39: narrow 80x24 client rendering the wide 120x40 frame — torn border, wrong size label, wide client\'s "ZZZZ" input bled in.',
-      );
+    writeArtifact(
+      'nd39-narrow-shredded.txt',
+      narrowCap,
+      'ND-39 post-clamp: the narrow 80x24 client renders its OWN frame — correct [ 80x24 ] label, one contiguous border, "> ZZZZ" echoed on row 3. The pre-fix shred (the wide 120x40 frame re-wrapped into 80 cols) is gone.',
+    );
 
-      // Desired post-fix (e.g. clamp-to-smallest while multi-attached): the
-      // narrow client renders its own 80x24 frame. Today it shows 120x40.
-      // Remove the `.fails` marker when ND-39 lands.
-      expect(narrowCap.grid).toContain('[ 80x24 ]');
-    },
-    25000,
-  );
+    // Its own size, intact — exactly one label, not scattered by a re-wrap.
+    expect(gridCount(narrowCap.grid, '[ 80x24 ]')).toBe(1);
+    // Contiguous top border across the full 80-col width — no tear.
+    expect(narrowCap.grid.split('\n')[0]).toMatch(/^\+-+\+$/);
+    // The typed input lands inside the frame on row 3 — coherent, not bled.
+    expect(narrowCap.grid.split('\n')[2]).toContain('> ZZZZ');
+  }, 25000);
 });

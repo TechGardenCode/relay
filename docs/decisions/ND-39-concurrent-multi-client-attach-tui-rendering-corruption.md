@@ -1,6 +1,7 @@
 ---
 id: ND-39
-status: open
+status: resolved
+resolved-on: 2026-05-28
 title: "Concurrent multi-client attach to a TUI agent renders corrupted (last-writer-wins viewport conflict)"
 affects: "docs/decisions/ND-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients.md (the last-writer-wins resize policy this surfaces against); docs/arch/ws-protocol.md §2.2 (resize frame) + §5.1 (universal output); packages/server/src/pty/supervisor.ts (single shared PTY, one size); packages/server/src/server/ws/handler.ts (resize dispatch, no clamp); docs/prd/08-acceptance.md scenario F (concurrent multi-client attach); docs/prd/04-ide-extension.md / ND-30 (BUSY notice painted into the frame)."
 surfaced-by: "7F rollout-readiness walk (docs/rollout-readiness-walk.md) Finding F-3, 2026-05-27 — operator screenshots of two `relay attach` clients on one session."
@@ -8,7 +9,7 @@ surfaced-by: "7F rollout-readiness walk (docs/rollout-readiness-walk.md) Finding
 
 # ND-39 — Concurrent multi-client attach to a TUI agent renders corrupted (last-writer-wins viewport conflict)
 
-**Status:** open
+**Status:** resolved (2026-05-28)
 **Affects:** [[nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients]] (the last-writer-wins resize policy this surfaces against); `docs/arch/ws-protocol.md` §2.2 (resize frame) + §5.1 (universal output); `packages/server/src/pty/supervisor.ts` (single shared PTY, one size); `packages/server/src/server/ws/handler.ts` (resize dispatch, no clamp); `docs/prd/08-acceptance.md` scenario F (concurrent multi-client attach); `docs/prd/04-ide-extension.md` / [[nd-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers]] (BUSY notice painted into the frame).
 **Surfaced by:** 7F rollout-readiness walk ([`docs/rollout-readiness-walk.md`](../rollout-readiness-walk.md) Finding F-3, 2026-05-27) — operator screenshots of two `relay attach` clients on one session.
 
@@ -41,4 +42,23 @@ The 7F walk recorded this as a finding and did **not** change ND-23 inline (per 
 
 ## Resolution
 
-*(unresolved)*
+**Option (b) clamp-to-smallest-while-multi-attached, with the residual documented (Option a).** While more than one client is attached to a session, the server sizes the single shared PTY to the smallest viewport — `min(cols)`, `min(rows)` — across all currently-attached connections; when attachment drops back to a single client, the policy reverts to [[nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients]]'s last-writer-wins. The remaining cost (blank margins on the larger client) is documented in the handbook rather than engineered away.
+
+**Contract:**
+
+1. **Per-connection size tracking.** The supervisor (or the session's WS-connection set) records each attached connection's last-reported `(cols, rows)` from its `resize` frames. The *effective* PTY size is recomputed on every **attach**, **detach**, and **resize** frame.
+2. **Multi-attach clamp.** While **≥2** connections are attached, effective size = `(min(cols), min(rows))` over all attached connections. The supervisor calls `.resize()` only when the computed minimum actually changes — no redundant SIGWINCH churn on a no-op recompute.
+3. **Single-attach revert.** While **exactly 1** connection is attached, effective size = that connection's last-reported size (ND-23 last-writer-wins, unchanged). On the 2→1 transition the PTY resizes **up** to the remaining client's full size, and the TUI redraws via the resulting SIGWINCH.
+4. **Universal output preserved (D-G2).** The clamp changes only PTY *dimensions*; every attached connection still receives the full PTY byte stream. The `resize` frame stays client→server only and ungated by claim state ([[d-g2-multi-client-input-arbitration]] universal output, ND-23 §2.2 / §5.1 unchanged).
+5. **Cross-device reattach preserved (D-G3).** Heterogeneous viewports clamp to the smaller while both are attached and revert when one leaves — [[d-g3-reattach-semantics]] reattach across device shapes still works; it now renders *correctly* (margins) instead of *corrupting* while co-attached.
+6. **Cap before min.** ND-23's per-dimension cap (≤1000) still applies to each reported size before the minimum is taken.
+7. **Documented residual.** The larger client sees blank margins (unused rows/cols) while a smaller client is co-attached — correct rendering, not the shredded frame from the 7F screenshots. The handbook documents this and the "detach the extra client to reclaim full size" behavior.
+8. **Scenario F honesty.** Implemented in build-plan **7H** (2026-05-28): the per-connection size map + `min`-recompute on attach/detach/resize lives in `server/ws/handler.ts`; `pty/supervisor.ts` stays connection-agnostic and only applies `supervisor.resize()`. [`docs/prd/08-acceptance.md`](../prd/08-acceptance.md) scenario F's "both observe live agent output" still passes, and F's TUI intent now means *both render legibly*, not just *both receive bytes*.
+
+**Out of scope of this resolution:** the BUSY / advisory line painted into the live frame (F-3's third symptom, the ND-30 interim + ND-38-class frame-isolation defect) is **not** fixed here — it remains under [[nd-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers]] / frame-isolation work. This entry fixes the *size-mismatch corruption* only.
+
+**Why this and not (a)/(c)/(d):** Option (a) document-only was rejected as the sole fix — the corruption is high-visual-impact and was hit live by the operator, and the clamp fixes it with bounded supervisor complexity; the blank-margin cost ND-23 feared is strictly better than a shredded frame (so (a) is retained only as the residual-documentation tail). Option (c) per-client rendering / multiplexing is the heaviest, overlaps the Phase 2 PWA xterm.js surface, and stays out of scope for Phase 1.5. Option (d) advisory-only warns but doesn't fix the rendering and depends on the still-open [[nd-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers]] event stream to render cleanly — (a)'s documentation covers the residual without that dependency.
+
+**Amends:** [[nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients]] — its last-writer-wins multi-client clause now applies only while **exactly one** client is attached; the ≥2-attached case adopts the smallest-common-rectangle behavior ND-23 had declined (its Option B), scoped to the multi-attach window. Propagation will annotate ND-23's spec surfaces accordingly.
+
+**Propagated to:** [[nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients]] Resolution (Amended-by note, 2026-05-28), `docs/arch/ws-protocol.md` §2.2 (resize-frame multi-client policy) + §8 row 8 (2026-05-28), `docs/prd/08-acceptance.md` scenario F (TUI-rendering clause, 2026-05-28). `docs/arch/ws-protocol.md` §2.4 / §5.1 universal output preserved unchanged per contract item 4 — no edit. `docs/prd/04-ide-extension.md` §4 BUSY-on-input UX **not edited** — the in-frame BUSY/advisory line is out of scope of this resolution (remains under [[nd-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers]] / frame-isolation). Code-side clamp **landed in 7H** (2026-05-28): the per-connection size map + recompute-on-attach/detach/resize (min while ≥2 attached, revert-up at a single client, `supervisor.resize()` only when the effective size changes) lives in `packages/server/src/server/ws/handler.ts`; `packages/server/src/pty/supervisor.ts` stays session-id- and connection-agnostic (unchanged). The `nd39-*` tui-visual `it.fails` guards were inverted to passing regression tests.
