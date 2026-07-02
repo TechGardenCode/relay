@@ -8,10 +8,10 @@
   },
   "scripts": {
     "typecheck": "tsc -b --pretty",
-    "build": "tsc -b --force"
+    "build": "tsc -b --force",
+    "fix-pty": "node scripts/fix-pty.mjs"
   },
   "dependencies": {
-    "@fastify/static": "^9.1.3",
     "@fastify/websocket": "^11.2.0",
     "@relay/protocol": "workspace:*",
     "@types/ws": "^8.18.1",

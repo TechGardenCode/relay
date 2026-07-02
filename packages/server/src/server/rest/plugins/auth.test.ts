@@ -68,41 +68,6 @@ describe('plugins/auth', () => {
     expect(body.type).toMatch(/errors\/auth-missing/);
   });
 
-  // Per ND-36: the /app/* static bundle is public-by-design. The preHandler
-  // skips it; everything the bundle calls back into (REST + WS) is still
-  // gated by the rest of this suite.
-  it('skips auth for the /app/* prefix (Track 8 spike static bundle)', async () => {
-    // No token in headers — would normally 401. The path goes through the
-    // preHandler skip, then 404s downstream because no static route is
-    // registered in this test rig (registerStatic no-ops without a dist).
-    const res = await rig.app.inject({ method: 'GET', url: '/app/anything' });
-    expect(res.statusCode).toBe(404);
-    // Crucially: NOT 401, NOT WWW-Authenticate.
-    expect(res.headers['www-authenticate']).toBeUndefined();
-  });
-
-  // Regression: the SPA prefix must skip auth for the *bare* `/app` URL too
-  // (no trailing slash). `@fastify/static` registers under prefix `/app`, so
-  // a browser hitting `http://host:port/app` without a slash MUST reach the
-  // static plugin — not get 401'd by the preHandler. Surfaced during the
-  // Track 8 desktop validation walk, 2026-05-22.
-  it.each(['/app', '/app?ref=x', '/app#frag'])(
-    'skips auth for bare `%s` (no trailing slash)',
-    async (url) => {
-      const res = await rig.app.inject({ method: 'GET', url });
-      expect(res.statusCode).not.toBe(401);
-      expect(res.headers['www-authenticate']).toBeUndefined();
-    },
-  );
-
-  // Negative case: `/app` is the boundary — `/applicant` (no slash after `app`)
-  // must NOT skip auth. Catches the obvious-but-wrong `startsWith('/app')` fix.
-  it('does NOT skip auth for paths that merely begin with /app (e.g. /applicant)', async () => {
-    const res = await rig.app.inject({ method: 'GET', url: '/applicant' });
-    expect(res.statusCode).toBe(401);
-    expect(res.headers['www-authenticate']).toBe('Bearer');
-  });
-
   // Per ND-36: browsers can't set Authorization on `new WebSocket(...)`,
   // so the PWA sends `Sec-WebSocket-Protocol: relay.bearer, <token>`. The
   // preHandler falls back to that header when Authorization is absent.

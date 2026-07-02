@@ -140,7 +140,6 @@ export async function bootHarnessServer(opts: { fixture?: string } = {}): Promis
       replayBufferBytes: 32 * 1024,
     },
     homeOverride,
-    spikePwaDist: null,
   });
   await app.listen({ host: '127.0.0.1', port: 0 });
   const address = app.server.address();

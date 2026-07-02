@@ -7,7 +7,7 @@
 // executable bit on node-pty's macOS spawn-helper. If that happens, every
 // PTY spawn fails with an opaque `posix_spawnp failed.`. Probe the prebuild and
 // let callers `describe.skip` with a clear diagnostic so a contributor knows to
-// run `pnpm --filter @relay/spike fix-pty`. On Linux/Windows there is no
+// run `pnpm --filter @relay/relay fix-pty`. On Linux/Windows there is no
 // spawn-helper to chmod — node-pty uses different code paths.
 
 import { globSync, statSync } from 'node:fs';
@@ -30,7 +30,7 @@ export function spawnHelperReady(): { ok: boolean; reason: string } {
     if (mode === 0) {
       return {
         ok: false,
-        reason: `spawn-helper missing exec bit at ${rel} — run \`pnpm --filter @relay/spike fix-pty\``,
+        reason: `spawn-helper missing exec bit at ${rel} — run \`pnpm --filter @relay/relay fix-pty\``,
       };
     }
   }
