@@ -4,7 +4,7 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 47 · Open: 9 · Deferred: 8.
+**Counts.** Resolved: 48 · Open: 10 · Deferred: 8.
 
 ## Open / in-deliberation
 
@@ -17,6 +17,7 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 - [`ND-42` — Control-key claim/release semantics for keyless control affordances](ND-42-control-key-claim-release-semantics.md) _(surfaced by D-18 §5 / PWA tech-arch — L5 §1.2)_
 - [`ND-43` — Session running/idle status on the sessions-list payload](ND-43-session-running-idle-status-field.md) _(surfaced by D-18 §5 / PWA tech-arch — L5 §1.3)_
 - [`ND-44` — File-viewer server surface — read-only working-dir listing + file read](ND-44-file-viewer-server-surface.md) _(surfaced by PWA tech-arch L4 — L5 §2.1)_
+- [`ND-46` — Control-rail arrow-key escape sequences (normal vs application cursor mode / DECCKM)](ND-46-control-rail-arrow-key-escape-sequences.md) _(surfaced by P2-PWA-build architect review; ships normal-mode stopgap, verify on device)_
 
 ## Deferred
 
@@ -36,6 +37,7 @@ _Superseded-for-MVP by [`D-17` — Personas descoped from MVP](D-17-personas-des
 
 _Newest first._
 
+- [`ND-45` — PWA API-base / server-URL model (same-origin vs pair-link-sourced)](ND-45-pwa-api-base-and-server-url-model.md) _(2026-07-02)_
 - [`D-18` — Relay PWA Phase 2 — terminal-style substrate and MVP product scope](D-18-pwa-terminal-substrate-and-mvp-scope.md) _(2026-05-28)_
 - [`ND-39` — Concurrent multi-client attach to a TUI agent renders corrupted](ND-39-concurrent-multi-client-attach-tui-rendering-corruption.md) _(2026-05-28)_
 - [`D-17` — Personas descoped from MVP (deferred to Phase 2)](D-17-personas-descoped-from-mvp.md) _(2026-05-28)_
