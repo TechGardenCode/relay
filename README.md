@@ -4,7 +4,7 @@
 
 > 👉 **New to Relay? Start with the [Getting Started handbook](docs/guides/getting-started.md)** — an A–Z walkthrough from install through your first cross-device session.
 
-> ⚠️ **Implementation status — Phase 1 in flight.** The `relay` binary is not yet published. Track 6 (tasks 6A–6J) of [`docs/build-plan.md`](docs/build-plan.md) is the path to a runnable MVP. To exercise the cross-device attach architecture today, see [`spike/`](spike/) — the Phase 0 proof-of-concept that runs the wire protocol end-to-end. The "Quick install" snippet below describes the eventual Phase 1 UX; the [handbook](docs/guides/getting-started.md) covers the source-install path that works today.
+> ⚠️ **Implementation status — Phase 1 complete, distribution pending.** Acceptance scenarios A, C–G pass ([`docs/history/phase-1-acceptance-walk.md`](docs/history/phase-1-acceptance-walk.md)), but the `relay` binary is not yet published to npm — distribution is Track 8 work per [D-16](docs/decisions/D-16-phase-1-ships-without-distribution.md). The "Quick install" snippet below describes that eventual UX; the [handbook](docs/guides/getting-started.md) covers the source-install path that works today.
 
 ---
 
@@ -12,7 +12,7 @@
 
 Relay is a lightweight orchestration service that makes AI-assisted coding sessions portable, persistent, and structured. The server owns long-running CLI agent sessions (Claude Code at MVP) and exposes them to whatever client is convenient — IDE extension on the desktop, plain `relay attach` from an SSH terminal, mobile PWA later.
 
-A structured **persona × project** model sits on top of the agent's own configuration: switch from `architect` to `dev` to `review` without hand-editing `CLAUDE.md`, `.mcp.json`, or skill folders.
+A structured **persona × project** model sits on top of the agent's own configuration: switch from `architect` to `dev` to `review` without hand-editing `CLAUDE.md`, `.mcp.json`, or skill folders. (Personas are deferred to Phase 2 per [D-17](docs/decisions/D-17-personas-descoped-from-mvp.md) — at MVP sessions spawn a bare agent.)
 
 Relay is **not** an editor, **not** an agent, and **not** a mobile coding tool — it's the glue between the editor you already use and the agent you already trust.
 
@@ -59,7 +59,7 @@ This walks acceptance scenario E ([`docs/prd/08-acceptance.md`](docs/prd/08-acce
    relay init
    ```
 
-   `relay init` generates a bearer token (printed once on stdout, also written to `~/.relay/last-pairing.txt`), writes a default `~/.relay/config.yaml`, and scaffolds the seven default personas under `~/.relay/personas/`.
+   `relay init` generates a bearer token (printed once on stdout, also written to `~/.relay/last-pairing.txt`) and writes a default `~/.relay/config.yaml`.
 
 2. **Start the server** in a supervised process or a separate terminal:
 
@@ -75,10 +75,10 @@ This walks acceptance scenario E ([`docs/prd/08-acceptance.md`](docs/prd/08-acce
 
    The path is registered in place — no copy, no symlink. A `.relay/project.json` marker lands at the project root and is added to that project's `.gitignore`.
 
-4. **Start a session.** Install the Relay VS Code / Cursor extension (`.vsix` from GitHub Releases), paste the pairing snippet from `~/.relay/last-pairing.txt`, open `~/code/my-app`, and run the extension's "Start Relay session" command — pick the `dev` persona (or any from `relay persona list`). The session ID surfaces in the IDE status bar; also visible via:
+4. **Start a session.** Install the Relay VS Code / Cursor extension (`.vsix` from GitHub Releases), paste the pairing snippet from `~/.relay/last-pairing.txt`, open `~/code/my-app`, and run the extension's "Start Relay session" command. The session ID surfaces in the IDE status bar; also visible via:
 
    ```bash
-   relay session list                    # shows id, project, persona, status
+   relay session list                    # shows id, status, project
    ```
 
 5. **Close machine A entirely.** Quit the IDE, walk away from the laptop. The session keeps running on the server.
@@ -111,5 +111,5 @@ See [`docs/prd/07-phasing.md`](docs/prd/07-phasing.md) for the full roadmap and 
 - [`docs/prd.md`](docs/prd.md) — the spec. Start here for what Relay does and why.
 - [`docs/deployment.md`](docs/deployment.md) — operator guide: local mode, Docker, Compose with Caddy + Tailscale, configuration, backups.
 - [`docs/threat-model.md`](docs/threat-model.md) — security posture and the network-shape decision tree (localhost / Tailscale / Caddy + TLS / don't).
-- [`docs/build-plan.md`](docs/build-plan.md) — in-flight task tracker for Phase 1.
-- [`spike/`](spike/) — Phase 0 proof-of-concept (what runs today).
+- [`docs/build-plan.md`](docs/build-plan.md) — the task tracker (Phase 1 complete; Phase 2 PWA in flight).
+- [`docs/history/`](docs/history/) — sealed gate reports and kickoffs (Phase 0 report, acceptance walks).

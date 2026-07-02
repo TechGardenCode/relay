@@ -1,6 +1,6 @@
 # Relay — Deployment Guide
 
-> ⚠️ **Implementation status — Phase 1 in flight.** The `relay` binary and Docker image referenced below are not yet published. Track 6 (tasks 6A–6J) of [`build-plan.md`](build-plan.md) is the path to a runnable MVP; distribution itself is task **6J**. For what runs today, see [`spike/`](../spike/). This guide describes the eventual Phase 1 deployment surface so operator and packaging work can converge on the same shape.
+> ⚠️ **Implementation status — Phase 1 complete, distribution pending.** The `relay` binary and Docker image referenced below are not yet published — distribution (task **6J**) moved to Track 8 per [D-16](decisions/D-16-phase-1-ships-without-distribution.md). For what runs today, see the source-install path in [`guides/getting-started.md`](guides/getting-started.md). This guide describes the eventual deployment surface so operator and packaging work can converge on the same shape.
 
 **Scope.** Operator-facing: install, configure, persist, supervise, back up. The PRD-level deployment-shape narrative — npm vs Docker vs Compose vs Helm — lives in [`prd/06-distribution.md`](prd/06-distribution.md); this guide turns that into concrete commands.
 
@@ -30,7 +30,7 @@ On managed Linux hosts where the operator account doesn't have root, `npm instal
 
 - generates a bearer token (printed once on stdout; also written to `~/.relay/last-pairing.txt`),
 - writes a default `~/.relay/config.yaml`,
-- scaffolds the seven default personas under `~/.relay/personas/`.
+- (Phase 2, per [D-17](decisions/D-17-personas-descoped-from-mvp.md)) scaffolds the seven default personas under `~/.relay/personas/` — at MVP no personas are seeded.
 
 The token is shown **exactly once** in plain text. Copy it into the IDE extension's first-run pairing prompt (or save it somewhere you trust). Tokens are valid until revoked (`relay token revoke <id>`); there is no automatic rotation at MVP.
 
@@ -57,7 +57,7 @@ Everything Relay owns lives under `~/.relay/`:
 | `~/.relay/transcripts/<session-id>.bin`    | Append-only PTY capture per session (offsets are byte counts from `0`)     |
 | `~/.relay/tokens.json`                     | Bearer tokens, hashed at rest                                              |
 | `~/.relay/last-pairing.txt`                | Most-recent `relay init` / `relay token create` pairing snippet            |
-| `~/.relay/personas/`                       | Tenant-level persona overrides (`<name>.yaml`)                             |
+| `~/.relay/personas/`                       | Tenant-level persona overrides (`<name>.yaml`) — Phase 2, per D-17; absent at MVP |
 
 Project working directories are **not** under `~/.relay/`. They live wherever you put them and are registered in place via `relay project add <path>`; Relay stores only the canonical path.
 

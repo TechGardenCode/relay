@@ -4,14 +4,14 @@ status: resolved
 resolved-on: 2026-05-28
 title: "`relay attach` process hangs after a clean ^D detach in raw mode"
 affects: "packages/server/src/attach/tty.ts (runTty cleanup / stdin lifecycle); packages/server/src/cli/attach.ts (runAttach exit path + its 'Exits 0 on clean ^D detach' header contract); packages/server/src/cli/relay.ts (attach action — sets process.exitCode but never process.exit on a clean detach); packages/server/src/attach/tty.test.ts (the 15 specs that pass without exercising the real process.stdin lifecycle)."
-surfaced-by: "7F rollout-readiness walk (docs/rollout-readiness-walk.md) Finding F-1, 2026-05-27 — a live PTY detach test against an isolated-$HOME server."
+surfaced-by: "7F rollout-readiness walk (docs/history/rollout-readiness-walk.md) Finding F-1, 2026-05-27 — a live PTY detach test against an isolated-$HOME server."
 ---
 
 # ND-38 — `relay attach` process hangs after a clean ^D detach in raw mode
 
 **Status:** resolved (2026-05-28)
 **Affects:** `packages/server/src/attach/tty.ts` (runTty cleanup / stdin lifecycle); `packages/server/src/cli/attach.ts` (runAttach exit path + its "Exits 0 on clean ^D detach" header contract); `packages/server/src/cli/relay.ts` (attach action — sets `process.exitCode` but never `process.exit` on a clean detach); `packages/server/src/attach/tty.test.ts` (the 15 specs that pass without exercising the real `process.stdin` lifecycle).
-**Surfaced by:** 7F rollout-readiness walk ([`docs/rollout-readiness-walk.md`](../rollout-readiness-walk.md) Finding F-1, 2026-05-27) — a live PTY detach test against an isolated-`$HOME` server.
+**Surfaced by:** 7F rollout-readiness walk ([`docs/history/rollout-readiness-walk.md`](../history/rollout-readiness-walk.md) Finding F-1, 2026-05-27) — a live PTY detach test against an isolated-`$HOME` server.
 
 ## Question
 
@@ -78,7 +78,7 @@ Both defects are fixed in `runTty`'s `cleanup()` — **decision-menu option (c)*
 
 **Why option (c) and not (a) or (b).** Option (a) (release stdin in `cli/attach.ts` after `await done`) leaves `runTty`'s in-process callers (the visual harness, future embedders) still hanging, since the release would live outside the bridge. Option (b) (explicit `process.exit(code)`) is the most fragile: it bypasses the natural drain, so the just-written screen-reset bytes and the `[relay]` line can be truncated before they flush — and validation would have to separately prove both that the process exited *and* that the restore bytes reached the terminal. Option (c) puts teardown where the terminal state was acquired (the bridge that engaged raw mode), benefits every caller, and the natural drain makes the flush-vs-exit coupling a non-issue.
 
-**Validation.** Every fix shipped red→green with pasted evidence; the real-binary hang test was inverted to assert prompt exit (≤2s, 10/10) against a freshness-guarded fresh `dist/`, and the in-process overlay guard was de-`.fails`'d as a permanent regression test. See the filled Validation ledger appended to [`docs/rollout-readiness-walk.md`](../rollout-readiness-walk.md).
+**Validation.** Every fix shipped red→green with pasted evidence; the real-binary hang test was inverted to assert prompt exit (≤2s, 10/10) against a freshness-guarded fresh `dist/`, and the in-process overlay guard was de-`.fails`'d as a permanent regression test. See the filled Validation ledger appended to [`docs/history/rollout-readiness-walk.md`](../history/rollout-readiness-walk.md).
 
 **Surfaces new sub-questions:** [[nd-40-relay-attach-drops-replayed-bytes-in-connect-subscribe-gap]] (the replay-drop race, found while making the tui-visual harness faithful to the shipped binary — filed + resolved alongside this).
 

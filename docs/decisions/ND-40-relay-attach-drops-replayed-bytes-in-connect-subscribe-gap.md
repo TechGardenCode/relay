@@ -4,14 +4,14 @@ status: resolved
 resolved-on: 2026-05-28
 title: "`relay attach` drops replayed screen bytes in the connect()→subscribe() gap"
 affects: "packages/server/src/attach/client.ts (AttachClient — inbound binary delivery before a subscriber exists); packages/server/src/testkit/tui-harness.ts (spawnHarnessClient must mirror production connect→subscribe ordering, not subscribe-first); docs/arch/ws-protocol.md §3 (bracketed replay — the client must tolerate the 101 + replay frames arriving coalesced in a single read)."
-surfaced-by: "7G attach-teardown task (docs/kickoffs/7G.md), 2026-05-28 — the real-binary tui-visual harness flapped altScreen false on ~2/10 loopback runs; root-caused to a connect()→subscribe() delivery gap in AttachClient."
+surfaced-by: "7G attach-teardown task (docs/history/kickoffs/7G.md), 2026-05-28 — the real-binary tui-visual harness flapped altScreen false on ~2/10 loopback runs; root-caused to a connect()→subscribe() delivery gap in AttachClient."
 ---
 
 # ND-40 — `relay attach` drops replayed screen bytes in the connect()→subscribe() gap
 
 **Status:** resolved (2026-05-28)
 **Affects:** `packages/server/src/attach/client.ts` (AttachClient — inbound binary delivery before a subscriber exists); `packages/server/src/testkit/tui-harness.ts` (`spawnHarnessClient` must mirror production connect→subscribe ordering); `docs/arch/ws-protocol.md` §3 (bracketed replay — the client must tolerate the 101 + replay frames arriving coalesced).
-**Surfaced by:** 7G attach-teardown task ([`docs/kickoffs/7G.md`](../kickoffs/7G.md)), 2026-05-28 — the real-binary tui-visual harness flapped `altScreen=false` on ~2/10 loopback runs; root-caused to a delivery gap between `connect()` and `subscribe()`.
+**Surfaced by:** 7G attach-teardown task ([`docs/history/kickoffs/7G.md`](../history/kickoffs/7G.md)), 2026-05-28 — the real-binary tui-visual harness flapped `altScreen=false` on ~2/10 loopback runs; root-caused to a delivery gap between `connect()` and `subscribe()`.
 
 ## Question
 

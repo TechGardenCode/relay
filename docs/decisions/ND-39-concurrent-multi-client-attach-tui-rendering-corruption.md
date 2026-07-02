@@ -4,14 +4,14 @@ status: resolved
 resolved-on: 2026-05-28
 title: "Concurrent multi-client attach to a TUI agent renders corrupted (last-writer-wins viewport conflict)"
 affects: "docs/decisions/ND-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients.md (the last-writer-wins resize policy this surfaces against); docs/arch/ws-protocol.md §2.2 (resize frame) + §5.1 (universal output); packages/server/src/pty/supervisor.ts (single shared PTY, one size); packages/server/src/server/ws/handler.ts (resize dispatch, no clamp); docs/prd/08-acceptance.md scenario F (concurrent multi-client attach); docs/prd/04-ide-extension.md / ND-30 (BUSY notice painted into the frame)."
-surfaced-by: "7F rollout-readiness walk (docs/rollout-readiness-walk.md) Finding F-3, 2026-05-27 — operator screenshots of two `relay attach` clients on one session."
+surfaced-by: "7F rollout-readiness walk (docs/history/rollout-readiness-walk.md) Finding F-3, 2026-05-27 — operator screenshots of two `relay attach` clients on one session."
 ---
 
 # ND-39 — Concurrent multi-client attach to a TUI agent renders corrupted (last-writer-wins viewport conflict)
 
 **Status:** resolved (2026-05-28)
 **Affects:** [[nd-23-pty-size-negotiation-and-sigwinch-forwarding-for-attach-clients]] (the last-writer-wins resize policy this surfaces against); `docs/arch/ws-protocol.md` §2.2 (resize frame) + §5.1 (universal output); `packages/server/src/pty/supervisor.ts` (single shared PTY, one size); `packages/server/src/server/ws/handler.ts` (resize dispatch, no clamp); `docs/prd/08-acceptance.md` scenario F (concurrent multi-client attach); `docs/prd/04-ide-extension.md` / [[nd-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers]] (BUSY notice painted into the frame).
-**Surfaced by:** 7F rollout-readiness walk ([`docs/rollout-readiness-walk.md`](../rollout-readiness-walk.md) Finding F-3, 2026-05-27) — operator screenshots of two `relay attach` clients on one session.
+**Surfaced by:** 7F rollout-readiness walk ([`docs/history/rollout-readiness-walk.md`](../history/rollout-readiness-walk.md) Finding F-3, 2026-05-27) — operator screenshots of two `relay attach` clients on one session.
 
 ## Question
 

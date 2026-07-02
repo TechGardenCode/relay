@@ -33,7 +33,7 @@ If a task ID is supplied, use it verbatim. When triggered without one, read the 
 Read these at the start of every invocation:
 
 - [`docs/build-plan.md`](../../../docs/build-plan.md) — Sequencing table (top of file) for the target row's `Goal` / `Output` / `Done when` / `Reads` / `Feeders`, and for upstream `Status` confirmation. The body sections below the table carry the per-task stub.
-- [`docs/phase-0-report.md`](../../../docs/phase-0-report.md) — "What surprised the spike" section. Each surprise is assigned to a task ID; the skill pulls every surprise that names the target task.
+- [`docs/history/phase-0-report.md`](../../../docs/history/phase-0-report.md) — "What surprised the spike" section. Each surprise is assigned to a task ID; the skill pulls every surprise that names the target task.
 - [`../../../docs/decisions/index.md`](../../../docs/decisions/index.md) — anchor for the `D-NN` / `ND-NN` one-liner cheatsheet. Prefer the [`prd-link`](../prd-link/SKILL.md) skill for quotation; fall back to direct read.
 - [`docs/arch/repo-layout.md`](../../../docs/arch/repo-layout.md) — §3 (module ownership) and §4 (inter-module flow) when the target is a Track 6 row, to validate the dependency chain and identify the module's place in the boot sequence.
 - The target task's `Reads:` line — every PRD subdoc and arch doc named there. Open each before drafting.
@@ -85,7 +85,7 @@ If the target row touches `packages/server/src/{store, persona, pty, transcript}
 
 ### Step 4 — Pull Phase 0 surprises assigned to this task
 
-Read the "What surprised the spike" section of [`docs/phase-0-report.md`](../../../docs/phase-0-report.md). For each surprise:
+Read the "What surprised the spike" section of [`docs/history/phase-0-report.md`](../../../docs/history/phase-0-report.md). For each surprise:
 
 - If it names the target task ID explicitly (`Assigned to 6X` or similar), pull it verbatim.
 - If it constrains the target task indirectly (e.g. 6A's `sessions` row shape constrained by 6E's boot-sweep writer-discipline), note the cross-reference rather than including the full bullet.
@@ -167,7 +167,7 @@ _Written {date this kickoff was generated}. This kickoff is a point-in-time snap
 
 **Phase 0 surprises that apply:**
 
-- {Verbatim bullet from phase-0-report.md} — see [`docs/phase-0-report.md`](../../docs/phase-0-report.md) for full context.
+- {Verbatim bullet from phase-0-report.md} — see [`docs/history/phase-0-report.md`](../../docs/phase-0-report.md) for full context.
 
 {Or: None directly assigned. <Cross-reference if applicable>.}
 
@@ -220,7 +220,7 @@ Drive these as TodoWrite items with the `superpowers:executing-plans` skill as t
 - [`decision-log`](../../.claude/skills/decision-log/SKILL.md) — file any new decision a non-obvious behavior warrants.
 - [`relay-test-author`](../../.claude/agents/relay-test-author.md) — author and gate the module's specs.
 - [`relay-spec-reviewer`](../../.claude/agents/relay-spec-reviewer.md) — diff-time drift audit at closeout.
-- {Any task-specific skill, e.g. `sqlite-migration`, `ws-protocol-check`, `persona-yaml-check`, `scenario-runner`.}
+- {Any task-specific skill, e.g. `sqlite-migration`, `ws-protocol-check`, `scenario-runner`.}
 ````
 
 > The relative-path prefixes in the template above (`../../`) assume the file lives at `docs/kickoffs/<ID>.md`. When you write the file, resolve every link relative to that location so it clicks through from the kickoff itself.

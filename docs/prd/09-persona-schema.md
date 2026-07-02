@@ -1,6 +1,6 @@
 # Relay PRD — Persona YAML Schema
 
-> **Deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) (2026-05-28).** Personas are descoped from the MVP. This schema still stands as the Phase 2 design — the dormant `persona/` module and the seven default YAMLs validate against it — but at MVP no persona is loaded: sessions spawn a bare agent, the `/personas` routes are unmounted, `relay init` seeds no defaults, and the IDE shows no persona picker. The body below is unchanged; read it as the Phase 2 contract, not current MVP behavior.
+> **Deferred to Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) (2026-05-28).** Personas are descoped from the MVP. This schema still stands as the Phase 2 design, but the persona code and the seven default YAMLs were removed from the tree with the descope (restore point: tag `pre-cleanup-phase1`). At MVP no persona exists: sessions spawn a bare agent, no `/personas` routes exist, `relay init` seeds no defaults, and the IDE shows no persona picker. The body below is unchanged; read it as the Phase 2 contract, not current MVP behavior.
 
 **Status:** v0.4
 **Scope:** The on-disk file format for persona definitions, file naming and location, and the tenant-vs-project composition rule. Read `01-conceptual-model.md` for the conceptual entity and `03-server.md` §4 for the persona-application guarantees that this file's content drives.
@@ -72,7 +72,7 @@ A file that fails validation is logged and excluded from the persona list. Valid
 
 ## 5. Default persona set
 
-Phase 1 ships seven default personas as tenant-level YAML in `~/.relay/personas/`, written by `relay init`:
+Phase 2 ships seven default personas as tenant-level YAML in `~/.relay/personas/`, written by `relay init` (per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) nothing ships at MVP; the authored YAMLs live at tag `pre-cleanup-phase1`):
 
 - `product`
 - `design`
@@ -82,6 +82,6 @@ Phase 1 ships seven default personas as tenant-level YAML in `~/.relay/personas/
 - `architect`
 - `review`
 
-Each ships with a `systemPrompt` and a sensible `skills` / `mcpServers` posture; the concrete content is owned by the persona authoring guide (Phase 1 deliverable per `07-phasing.md`). Users edit them in place or override per-project.
+Each ships with a `systemPrompt` and a sensible `skills` / `mcpServers` posture; the concrete content is owned by the persona authoring guide (Phase 2 deliverable per `07-phasing.md`). Users edit them in place or override per-project.
 
 *Resolved by [D-09](../decisions/D-09-persona-yaml-schema.md) on 2026-05-15.*

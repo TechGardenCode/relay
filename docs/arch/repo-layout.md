@@ -11,7 +11,7 @@
 
 Server, CLI, attach client, IDE extension, and a Phase 2 PWA placeholder all live in **one repo** managed by **pnpm workspaces**.
 
-The cross-cutting artifact in Relay is the wire protocol: REST request/response shapes, WebSocket frames (CLAIM / SEND / RELEASE / BUSY per `prd/03-server.md` §5), the persona YAML schema (`prd/09-persona-schema.md`). The server speaks it; the IDE extension and the Phase 2 PWA consume it. In a polyrepo, every protocol change becomes a coordinated edit across two or three repos with an internal npm publish step in the middle. In a monorepo, the same change is one PR.
+The cross-cutting artifact in Relay is the wire protocol: REST request/response shapes, WebSocket frames (CLAIM / SEND / RELEASE / BUSY per `prd/03-server.md` §5), and — returning in Phase 2 per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) — the persona YAML schema (`prd/09-persona-schema.md`). The server speaks it; the IDE extension and the Phase 2 PWA consume it. In a polyrepo, every protocol change becomes a coordinated edit across two or three repos with an internal npm publish step in the middle. In a monorepo, the same change is one PR.
 
 D-08 already commits to a single distributed binary on the server side. Coordinated versioning extends naturally to the extension: one tag in the monorepo carries server and extension together, and a user upgrading both sees the same version on the wire. The cost a monorepo classically imposes — independent CI lifecycles, coupled blast radius — is low at single-contributor scale against thin clients whose only contract with the server is the network API.
 
@@ -31,7 +31,7 @@ relay/
 ├── packages/
 │   ├── server/                  @relay/relay — npm-distributed binary (server, CLI, attach)
 │   ├── extension/               VS Code-family extension (.vsix output)
-│   ├── protocol/                shared TS types + Zod schemas for REST, WS, persona YAML
+│   ├── protocol/                shared TS types + Zod schemas for REST + WS wire shapes
 │   └── pwa/                     Phase 2 placeholder (empty until Phase 2 begins)
 │
 ├── .claude/                     project-scoped agent scaffolding (see §9)
@@ -57,7 +57,7 @@ The only existing piece at v0.1 of this doc is `docs/`; everything else is creat
 
 `packages/server/` is the only package that ships as an executable. It contains the server, the `relay` CLI, and the `relay attach` thin client — all sharing the same TypeScript codebase so D-08's "single binary with subcommands" contract holds. The binary entrypoint is `bin/relay.js`; it loads `cli/` and dispatches.
 
-Inside `src/`, code is partitioned into eleven modules. The PRD's three load-bearing isolation targets — persona schema validation, transcript store, PTY supervision — each get their own module.
+Inside `src/`, code is partitioned into ten modules. The PRD's load-bearing isolation targets — transcript store and PTY supervision — each get their own module. (Persona schema validation was the third target; its module was removed with the [D-17](../decisions/D-17-personas-descoped-from-mvp.md) descope and returns as its own module in Phase 2 — restore point: tag `pre-cleanup-phase1`.)
 
 Each module below names what it **owns**, what it explicitly **does not own** (so boundaries are visible by negation, not just assertion), and how it's **tested in isolation**.
 
@@ -71,11 +71,8 @@ Each module below names what it **owns**, what it explicitly **does not own** (s
 - **Does not own.** Persona YAML content (lives on disk per D-09). Transcript bytes (lives in `transcript/`). Bearer-token storage (`auth/`'s `tokens.json` per `prd/03-server.md` §6). Any application logic on top of CRUD.
 - **Test isolation.** Fresh in-memory SQLite per test, fixture seed data from `test/fixtures/db/`.
 
-### `persona/` — **dormant at MVP per [D-17](../decisions/D-17-personas-descoped-from-mvp.md)**
-> Personas are descoped from the MVP. This module stays in the tree and its unit tests keep running against it, but **nothing on the live path imports it**: `session/` no longer resolves a persona, and `create()` spawns a bare agent. The ownership below is the Phase 2 design.
-- **Owns.** Reading `~/.relay/personas/*.yaml` and `<project>/.relay/personas/*.yaml`. Validating against the D-09 schema with Zod. Applying the composition rule (project file replaces tenant file by name, per `prd/09-persona-schema.md` §3). Surfacing the persona-application input that `session/` consumes (systemPrompt, skills, mcpServers, model).
-- **Does not own.** Spawning the agent or threading the persona into the PTY — that's the persona-application mechanism (D-G1, separate doc 2A).
-- **Test isolation.** Fixture YAML directories under `test/fixtures/personas/`, including invalid YAMLs covering each validation rule.
+### `persona/` — **removed per [D-17](../decisions/D-17-personas-descoped-from-mvp.md)**
+> Personas are descoped from the MVP and the module was deleted from the tree (restore point: tag `pre-cleanup-phase1`). Phase 2 restores it as its own module owning persona YAML loading, D-09 validation, and tenant/project composition; the design contract lives in [`persona-application.md`](./persona-application.md) and `prd/09-persona-schema.md`.
 
 ### `pty/`
 - **Owns.** node-pty supervisor. Spawning, supervising, signaling, killing the agent process. Per-session 32 KB ring buffer (ND-03) for on-attach replay.
@@ -93,13 +90,13 @@ Each module below names what it **owns**, what it explicitly **does not own** (s
 - **Test isolation.** Pure crypto functions + tmpfile fixtures for the JSON store.
 
 ### `session/`
-- **Owns.** Session lifecycle coordinator. ~~Resolves persona via `persona/`~~ (descoped per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) — spawns a bare agent with an empty argv and stamps the `persona_name` sentinel). Spawns under `pty/`. Wires `transcript/` as the writer. Maintains the attached-client registry. Implements the per-session claim-lock state (D-G2).
+- **Owns.** Session lifecycle coordinator. ~~Resolves persona via `persona/`~~ (descoped per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) — spawns a bare agent with an empty argv). Spawns under `pty/`. Wires `transcript/` as the writer. Maintains the attached-client registry. Implements the per-session claim-lock state (D-G2).
 - **Does not own.** The transport (HTTP/WS). The persistence (`store/`). Domain primitives live in the modules above; `session/` is the wiring.
 - **Test isolation.** Fake PTY + fake store, drive the lifecycle and assert event emissions.
 
 ### `server/rest/`
 - **Owns.** Fastify routes for the API surface in `prd/03-server.md` §2. Request validation (Zod schemas from `@relay/protocol`). Error response envelope (locked in by 2E later).
-- **Does not own.** Business logic — routes call `session/`, `store/`, `persona/`, `auth/` and format responses.
+- **Does not own.** Business logic — routes call `session/`, `store/`, `auth/` and format responses.
 - **Test isolation.** Supertest against in-memory Fastify.
 
 ### `server/ws/`
@@ -110,14 +107,13 @@ Each module below names what it **owns**, what it explicitly **does not own** (s
 ### `cli/`
 - **Owns.** commander subcommand dispatcher for the subcommands in `prd/03-server.md` §7. Each subcommand is thin: parse args → pick a data plane by the split rule below → render.
 - **Data-plane rule (which client per subcommand).** Determined by what the operation touches, not a uniform policy:
-  - **Read-only → SQLite/filesystem direct** (`session list`/`show`, `project list`, `persona list`, `token list`). No running server required; offline inspection works. Phase 1 reads render only persisted columns, never in-memory registry state.
+  - **Read-only → SQLite/filesystem direct** (`session list`/`show`, `project list`, `token list`). No running server required; offline inspection works. Phase 1 reads render only persisted columns, never in-memory registry state.
   - **Mutates a live session → REST over loopback** (`session kill`). The PTY supervisor lives only in the `relay server` process; a direct DB write would mark the row `killed` while orphaning the `node-pty` child until the next boot sweep ([D-11](../decisions/D-11-server-restart-and-session-orphaning.md)) — a correctness violation.
   - **Logic centralized in a REST handler → REST** (`project add`/`remove`). `POST /projects` owns canonicalization, slug derivation, marker-file write ([ND-07](../decisions/ND-07-marker-file-schema.md)), and `.gitignore` append; the CLI routes through it rather than duplicating.
-  - **Filesystem-only write → direct** (`persona create`). Writes a YAML file under `~/.relay/personas/`; the REST handler adds nothing beyond the write.
   - A REST-bound subcommand that can't reach the server **fails loudly (non-zero + "no relay server reachable at `<url>`")** — it never falls back to direct DB mutation. Loopback URL/token resolve as in `attach/config.ts` (`~/.relay/config.yaml` + `--token`/`RELAY_TOKEN`).
 - **Does not own.** Direct file I/O outside the read-direct / filesystem-write sets above; in-process duplication of server logic for the REST-bound mutations.
 - *CLI data-plane split rule resolved by [ND-16](../decisions/ND-16-cli-data-plane-boundary-rule.md) on 2026-05-27.*
-- **Lazy-load contract.** `relay attach`, `relay --help`, `relay --version`, `relay token *`, and `relay persona list`/`create` must NOT transitively load `node-pty`, `better-sqlite3`, or `fastify` at module-init time — a thin-client device (phone-class, IDE-extension spawn target, CI runner with no `claude` binary) must not be forced to compile native deps it never runs. Subcommands that genuinely need a heavy data plane (`init`, `doctor`, `project *`, `session *`, `server`) `await import()` their handler inside the commander `.action()` callback so the cone loads only when that action fires. A `NODE_DEBUG=module` regression test (`cli/dispatcher-deps.test.ts`) enforces this. *Lazy-load contract resolved by [ND-18](../decisions/ND-18-lazy-load-cli-dispatcher-contract.md) on 2026-05-27.*
+- **Lazy-load contract.** `relay attach`, `relay --help`, `relay --version`, and `relay token *` must NOT transitively load `node-pty`, `better-sqlite3`, or `fastify` at module-init time — a thin-client device (phone-class, IDE-extension spawn target, CI runner with no `claude` binary) must not be forced to compile native deps it never runs. Subcommands that genuinely need a heavy data plane (`init`, `doctor`, `project *`, `session *`, `server`) `await import()` their handler inside the commander `.action()` callback so the cone loads only when that action fires. A `NODE_DEBUG=module` regression test (`cli/dispatcher-deps.test.ts`) enforces this. *Lazy-load contract resolved by [ND-18](../decisions/ND-18-lazy-load-cli-dispatcher-contract.md) on 2026-05-27.*
 - **Test isolation.** Snapshot tests of subcommand stdout against fixture state.
 
 ### `attach/`
@@ -127,7 +123,7 @@ Each module below names what it **owns**, what it explicitly **does not own** (s
 
 ## 4. Inter-module flow
 
-`POST /sessions` arrives carrying `{ projectId }` (per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) — no `personaName`; the `persona/` step below is dormant Phase 2 design):
+`POST /sessions` arrives carrying `{ projectId }` (per [D-17](../decisions/D-17-personas-descoped-from-mvp.md) — no `personaName`; the persona resolution step returns in Phase 2):
 
 ```
 HTTP request
@@ -136,12 +132,7 @@ HTTP request
 server/rest/   validates payload via @relay/protocol Zod schema
     │
     ▼
-session/       creates session row in store/ (persona_name = 'agent' sentinel, D-17)
-    │
-    ├──── persona/    [DORMANT at MVP per D-17 — not on the live path]
-    │                 Phase 2: reads ~/.relay/personas/<name>.yaml +
-    │                 <project>/.relay/personas/<name>.yaml, validates,
-    │                 composes, returns PersonaInput
+session/       creates session row in store/ (bare agent, D-17)
     │
     ├──── pty/        spawns agent CLI with an empty argv (bare agent, D-17;
     │                 Phase 2: persona threaded in). Returns PtySupervisor
@@ -161,7 +152,7 @@ Every arrow is a function call across a module boundary. No module reaches acros
 A workspace package, not a folder under `packages/server/src/`. Two reasons:
 
 1. **`packages/extension/` imports the same types** without a relative path across a workspace boundary and without an internal npm publish loop.
-2. **Zod schemas are the single source of truth.** REST request/response shapes, WS frame shapes, and the persona YAML schema are all defined as Zod schemas in `protocol/`; `z.infer<typeof Schema>` derives the TS types, and the server uses the runtime validators directly. Server validation and client TS types cannot drift — they are literally the same source.
+2. **Zod schemas are the single source of truth.** REST request/response shapes and WS frame shapes are defined as Zod schemas in `protocol/` (the persona YAML schema rejoins them in Phase 2); `z.infer<typeof Schema>` derives the TS types, and the server uses the runtime validators directly. Server validation and client TS types cannot drift — they are literally the same source.
 
 What lives in `protocol/`: Zod schemas, derived TS types, wire constants (e.g., the 32 KB ring buffer default, the 30s claim timeout default).
 What does not: business logic, runtime helpers that touch I/O, anything that depends on Node-only modules. `protocol/` is portable to the browser-bound PWA.
@@ -188,7 +179,7 @@ Reserved as a top-level workspace package. Empty at v0.1. The Phase 2 mobile PWA
 | HTTP framework | Fastify + `@fastify/websocket` | Modern, fast, native WS plugin avoids stitching `ws` separately |
 | CLI framework | commander | Clean subcommand ergonomics for 7+ subcommands |
 | YAML | `js-yaml` | Standard, mature |
-| Schema validation | Zod | Type-first; same schemas serve persona YAML validation and REST request bodies |
+| Schema validation | Zod | Type-first; same schemas serve REST request bodies and WS frames (persona YAML rejoins in Phase 2) |
 | SQLite driver | `better-sqlite3` | Synchronous, mature; preferred over still-experimental `node:sqlite` |
 | Test runner | Vitest | Fast, native ESM/TS, single config across all packages |
 | Linter | ESLint 9+ flat config + `@typescript-eslint` | Standard |
@@ -200,7 +191,7 @@ Reserved as a top-level workspace package. Empty at v0.1. The Phase 2 mobile PWA
 
 Test layout convention: unit tests co-located with source as `*.test.ts`; end-to-end specs and shared fixtures under `packages/server/test/{e2e,fixtures}/`.
 
-Default persona YAMLs live at `packages/server/personas/defaults/*.yaml` and ship inside the npm tarball. At MVP they stay dormant — `relay init` does **not** copy them to `~/.relay/personas/` (personas are descoped per [D-17](../decisions/D-17-personas-descoped-from-mvp.md)); the Phase 2 persona re-enable restores the seeding.
+The seven default persona YAMLs were removed from the tree with the [D-17](../decisions/D-17-personas-descoped-from-mvp.md) descope (restore point: tag `pre-cleanup-phase1`); nothing persona-related ships in the npm tarball at MVP. The Phase 2 re-enable restores the YAMLs and the `relay init` seeding.
 
 ## 9. Decision: AI-first development foundations
 
@@ -216,7 +207,7 @@ Each skill is a `SKILL.md`-backed routine for recurring agent tasks.
 | `scenario-runner` | Drive verification of the 8 Phase 1 acceptance scenarios (`prd/08-acceptance.md`) | build-plan 3B |
 | `prd-link` | Resolve `D-NN` / `ND-NN` / `<file>.md §X.Y` refs to source text; flag broken refs | build-plan 3C |
 | `ws-protocol-check` | Verify a WS handler implementation against the 2B message catalog (CLAIM/SEND/RELEASE/BUSY) | new |
-| `persona-yaml-check` | Validate a persona YAML against D-09; surface exactly which rule failed | new |
+| `persona-yaml-check` | Validate a persona YAML against D-09 — removed with the D-17 descope (tag `pre-cleanup-phase1`); restore in Phase 2 | removed |
 | `sqlite-migration` | Scaffold a new migration file following the 2C convention | new |
 
 The four "new" skills are added to `docs/build-plan.md` as follow-on tasks; this doc commits only to location and naming.
@@ -228,7 +219,7 @@ Three project sub-agents with persistent system prompts and constrained tool all
 | Sub-agent | Role | Tool posture |
 |---|---|---|
 | `relay-architect` | Read PRD + arch docs; evaluate implementation plans for spec-fidelity before code is written | read-only |
-| `relay-test-author` | Author Vitest specs that exercise the 3 isolation targets (persona/transcript/pty); enforce fixture-library reuse | read + edit |
+| `relay-test-author` | Author Vitest specs that exercise the isolation targets (transcript/pty/store/session); enforce fixture-library reuse | read + edit |
 | `relay-spec-reviewer` | Given a branch diff, surface D-NN / ND-NN drift — code claims X but spec says Y | read-only |
 
 System-prompt content is deferred to a follow-on task; this doc commits to existence, role, and tool posture only.
@@ -239,10 +230,9 @@ Three tiers, each at the right altitude for an agent working at that level:
 
 - **Root `CLAUDE.md`.** Entry point. Points at `docs/prd.md`, `../decisions/index.md`, `docs/build-plan.md`. Lists pnpm script commands. Sets the D-NN citation convention for code comments (per build-plan 4A).
 - **Per-package `CLAUDE.md`** at `packages/server/CLAUDE.md` and `packages/extension/CLAUDE.md`. Package-local conventions; the module map (for server); packaging notes (for extension).
-- **Per-module `CLAUDE.md`** in load-bearing modules: `packages/server/src/{persona,transcript,pty,store}/CLAUDE.md`. 20–50 lines each, naming must-know constraints. Examples:
+- **Per-module `CLAUDE.md`** in load-bearing modules: `packages/server/src/{transcript,pty,store,session}/CLAUDE.md`. 20–50 lines each, naming must-know constraints. Examples:
   - `transcript/CLAUDE.md` — "writes are append-only; never seek; offsets are byte counts from session start, never logical messages."
   - `pty/CLAUDE.md` — "this module does not know about sessions or WebSockets; surfacing byte events + a kill handle is the whole contract."
-  - `persona/CLAUDE.md` — "project file replaces tenant file by name. No per-field merging. The filename stem is canonical."
 
 The per-module tier prevents the dominant friction on a structured-but-AI-built codebase: an agent re-deriving the same constraint from first principles each session.
 
@@ -252,7 +242,7 @@ Configured in `.mcp.json` at repo root (Claude Code's native location).
 
 - **GitHub MCP** — PR review, issue management.
 - **SQLite MCP (read-only)** — query `~/.relay/state.db` during local dev to inspect session and project rows under test.
-- **Filesystem MCP scoped to `~/.relay/` and `~/.claude/`** — read transcripts and personas during debugging without shelling out.
+- **Filesystem MCP scoped to `~/.relay/` and `~/.claude/`** — read transcripts and state files during debugging without shelling out.
 
 **Relay does not ship its own MCP server.** Relay is the orchestrator that hosts agents; the agents inside a session see whichever MCPs the active persona's `mcpServers` field exposes. Bundling a "Relay MCP" would invert the architecture — the product would be talking to itself.
 
@@ -267,7 +257,7 @@ Picks that compound for AI-built code:
 | Off-by-one safety | `fast-check` property tests on transcript offset math (ND-04) and ring-buffer wrap | Byte-range edge cases the spec doesn't enumerate |
 | Pre-commit hooks | lefthook (typecheck, lint, format on changed files) | Broken commits, format churn |
 | End-to-end harness | `packages/server/test/e2e/` spins Relay in-process, runs a real WS client | Acceptance regressions; backed by the `scenario-runner` skill |
-| Shared fixtures | `packages/server/test/fixtures/{personas,transcripts,db}/` | "Agent reinvents a fixture" sessions; inconsistent test data |
+| Shared fixtures | `packages/server/test/fixtures/{attach,auth,db,migrations,rest}/` | "Agent reinvents a fixture" sessions; inconsistent test data |
 
 ## 10. Out of scope
 

@@ -47,9 +47,9 @@ Before emitting any verdict, Read these. Do not skip steps — per-module `CLAUD
    | REST routes / error shapes           | `docs/arch/rest-conventions.md`    |
    | repo layout / module boundaries      | `docs/arch/repo-layout.md`         |
 
-5. **Per-module `CLAUDE.md` (mandatory when the diff touches a load-bearing module).** For every file in the diff under `packages/server/src/{persona, transcript, pty, store}/`, Read `packages/server/src/<module>/CLAUDE.md`. Every bullet under "Owns", "Does NOT own", "Test isolation", and "Surprising constraints" is a **drift dimension** — the diff either respects it, violates it, or leaves it unaddressed. Each such bullet becomes a row in §2 of the report.
+5. **Per-module `CLAUDE.md` (mandatory when the diff touches a load-bearing module).** For every file in the diff under `packages/server/src/{transcript, pty, store, session}/`, Read `packages/server/src/<module>/CLAUDE.md`. Every bullet under "Owns", "Does NOT own", "Test isolation", and "Surprising constraints" is a **drift dimension** — the diff either respects it, violates it, or leaves it unaddressed. Each such bullet becomes a row in §2 of the report.
 
-   Modules outside `{persona, transcript, pty, store}` (e.g. `auth/`, `session/`, `config/`, `cli/`, `attach/`, `server/rest/`, `server/ws/`) do not yet ship a `CLAUDE.md` per build-plan 5D-stubs. §2 is bounded to the four load-bearing modules; do not invent constraints for modules without a `CLAUDE.md`.
+   Modules outside `{transcript, pty, store, session}` (e.g. `auth/`, `session/`, `config/`, `cli/`, `attach/`, `server/rest/`, `server/ws/`) do not yet ship a `CLAUDE.md` per build-plan 5D-stubs. §2 is bounded to the four load-bearing modules; do not invent constraints for modules without a `CLAUDE.md`.
 
 ## What "drift" means here
 
@@ -76,13 +76,13 @@ A `fail` row **must** cite the decision it contradicts in the `Decision` column 
 
 ### 2. Per-module `CLAUDE.md` constraint verdicts
 
-Skip this section entirely if the diff touches none of `packages/server/src/{persona, transcript, pty, store}/`. Do not write a header line, do not write "N/A".
+Skip this section entirely if the diff touches none of `packages/server/src/{transcript, pty, store, session}/`. Do not write a header line, do not write "N/A".
 
 Otherwise one row per named constraint in each touched module's `CLAUDE.md`. Order by module, then by `CLAUDE.md` section (Owns → Does NOT own → Test isolation → Surprising constraints).
 
 | Verdict         | Module                                     | Constraint (verbatim quote)            | Diff citation                                      |
 | --------------- | ------------------------------------------ | -------------------------------------- | -------------------------------------------------- |
-| `pass` / `fail` | `persona` / `transcript` / `pty` / `store` | `"Writes are append-only; never seek"` | `packages/server/src/transcript/writer.ts:L17-L23` |
+| `pass` / `fail` | `transcript` / `pty` / `store` / `session` | `"Writes are append-only; never seek"` | `packages/server/src/transcript/writer.ts:L17-L23` |
 
 The constraint cell quotes the `CLAUDE.md` bullet verbatim (or the most concise verbatim fragment that identifies it). A `fail` row cites the offending hunk; a `pass` row cites the hunk that touches the module but respects the constraint.
 

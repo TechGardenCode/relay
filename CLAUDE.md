@@ -29,7 +29,7 @@ Each load-bearing module ships a ~25-line `CLAUDE.md` with its must-know constra
 | Working on…                                   | Read                                                                                   |
 | --------------------------------------------- | -------------------------------------------------------------------------------------- |
 | SQLite repository layer or migrations         | [`packages/server/src/store/CLAUDE.md`](packages/server/src/store/CLAUDE.md)           |
-| Persona YAML loading / composition            | [`packages/server/src/persona/CLAUDE.md`](packages/server/src/persona/CLAUDE.md)       |
+| Session lifecycle / registry orchestration    | [`packages/server/src/session/CLAUDE.md`](packages/server/src/session/CLAUDE.md)       |
 | `node-pty` supervisor or ring buffer          | [`packages/server/src/pty/CLAUDE.md`](packages/server/src/pty/CLAUDE.md)               |
 | Transcript sidecar writes or byte-range reads | [`packages/server/src/transcript/CLAUDE.md`](packages/server/src/transcript/CLAUDE.md) |
 
@@ -51,12 +51,12 @@ When you introduce behavior that warrants a new decision, file it under `docs/de
 
 ## Repo shape
 
-- **`packages/server/`** — `@relay/relay`, the npm-distributed binary. Hosts the HTTP/WS server, the `relay` CLI, and the `relay attach` thin client. Internal module boundaries (eleven modules: `config`, `store`, `persona`, `pty`, `transcript`, `auth`, `session`, `server/rest`, `server/ws`, `cli`, `attach`) are documented in [`docs/arch/repo-layout.md`](docs/arch/repo-layout.md) §3.
-- **`packages/protocol/`** — `@relay/protocol`, shared Zod schemas and TS types for REST, WS, and persona YAML. Single source of truth for wire shapes; server validation and client TS types both flow from these schemas. No I/O, no Node-only deps — portable to the browser-bound PWA.
+- **`packages/server/`** — `@relay/relay`, the npm-distributed binary. Hosts the HTTP/WS server, the `relay` CLI, and the `relay attach` thin client. Internal module boundaries (ten modules: `config`, `store`, `pty`, `transcript`, `auth`, `session`, `server/rest`, `server/ws`, `cli`, `attach`; the `persona` module was removed per D-17 — restore point: tag `pre-cleanup-phase1`) are documented in [`docs/arch/repo-layout.md`](docs/arch/repo-layout.md) §3.
+- **`packages/protocol/`** — `@relay/protocol`, shared Zod schemas and TS types for REST and WS wire shapes. Single source of truth for wire shapes; server validation and client TS types both flow from these schemas. No I/O, no Node-only deps — portable to the browser-bound PWA.
 - **`packages/extension/`** — `@relay/extension`, the VS Code family extension (`.vsix` output). Spawns `relay attach` from the user's PATH for terminal integration.
 - **`packages/pwa/`** — Phase 2 placeholder. Empty until Phase 2 begins.
 
-Per-module `CLAUDE.md` stubs ship at the load-bearing modules (`persona`, `transcript`, `pty`, `store`) — indexed under [Per-module context](#per-module-context). Bodies expand as each module's `6x` implementation task lands; build-plan task **5D-stubs** seeded them, **5D-expand** is the per-module body fill.
+Per-module `CLAUDE.md` files ship at the load-bearing modules (`transcript`, `pty`, `store`, `session`) — indexed under [Per-module context](#per-module-context). Build-plan task **5D-stubs** seeded them; bodies expanded as each module's `6x` implementation task landed.
 
 ## Scripts
 
@@ -82,4 +82,4 @@ Pre-commit hooks are managed by `lefthook` and run typecheck + lint + format:che
 2. **Cite decisions in code.** When a behavior is non-obvious, cite the `D-NN`/`ND-NN` that motivated it.
 3. **Surface new questions via the decision log skill**, not by inventing answers inline.
 4. **Update `docs/build-plan.md`** when you finish a task — flip the row to `done`, link the artifact, replace the kickoff prompt with a pointer.
-5. **Prefer skills over re-deriving.** `.claude/skills/decision-log/SKILL.md` exists today; more skills (`scenario-runner`, `ws-protocol-check`, `persona-yaml-check`, `sqlite-migration`, `prd-link`) land via build-plan tasks 3B–3F.
+5. **Prefer skills over re-deriving.** `.claude/skills/decision-log/SKILL.md` exists today; more skills (`scenario-runner`, `ws-protocol-check`, `sqlite-migration`, `prd-link`) landed via build-plan tasks 3B–3F. (`persona-yaml-check` was removed with the D-17 persona descope; restore in Phase 2.)

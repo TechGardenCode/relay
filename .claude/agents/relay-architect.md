@@ -32,7 +32,7 @@ Before responding to any proposal, Read these. Do not skip steps — per-module 
    | REST routes / error shapes           | `docs/arch/rest-conventions.md`    |
    | repo layout / module boundaries      | `docs/arch/repo-layout.md`         |
 
-4. **Per-module `CLAUDE.md` (mandatory when the proposal touches a load-bearing module).** For each module the proposal touches in `{persona, transcript, pty, store}`, Read `packages/server/src/<module>/CLAUDE.md` and list every constraint it names — under "Owns", "Does NOT own", "Test isolation", and "Surprising constraints" — as a **fidelity dimension** in the report. Each named constraint becomes a row in the per-claim verdict table; the proposal either respects it, violates it, or leaves it unaddressed.
+4. **Per-module `CLAUDE.md` (mandatory when the proposal touches a load-bearing module).** For each module the proposal touches in `{transcript, pty, store, session}`, Read `packages/server/src/<module>/CLAUDE.md` and list every constraint it names — under "Owns", "Does NOT own", "Test isolation", and "Surprising constraints" — as a **fidelity dimension** in the report. Each named constraint becomes a row in the per-claim verdict table; the proposal either respects it, violates it, or leaves it unaddressed.
 
 ## What "load-bearing" means here
 

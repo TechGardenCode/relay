@@ -32,7 +32,7 @@ If invoked without context, prompt the user once for _which scenarios_ to walk (
 
 - [`docs/prd/08-acceptance.md`](../../../docs/prd/08-acceptance.md) — scenarios A and E define the verification surface.
 - [`docs/arch/ws-protocol.md`](../../../docs/arch/ws-protocol.md) — §6 reattach sequence, §4.2 close codes. The skill verifies the on-wire ordering matches §6 when probing live frames.
-- [`docs/phase-0-report.md`](../../../docs/phase-0-report.md) — the original cross-LAN attach proof. The skill is a structured re-run of what Phase 0 proved by hand.
+- [`docs/history/phase-0-report.md`](../../../docs/history/phase-0-report.md) — the original cross-LAN attach proof. The skill is a structured re-run of what Phase 0 proved by hand.
 - This SKILL.md (no external state — host/user/path are inlined).
 
 ## Capability preflight
