@@ -4,3 +4,8 @@
    placeholder: structural utilities only, no authored tokens the delivery will
    prescribe. The swap must be a config swap, not a component rewrite. */
 @import 'tailwindcss';
+
+/* Terminal substrate stylesheet (D-18 xterm.js). Not a design token — the xterm
+   grid/cursor CSS the viewport needs; the terminal *palette* still comes from
+   the L1 delivery (foundations.md §4). */
+@import '@xterm/xterm/css/xterm.css';
