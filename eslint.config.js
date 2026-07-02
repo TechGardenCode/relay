@@ -10,7 +10,9 @@ export default tseslint.config(
       '**/node_modules/**',
       '**/coverage/**',
       'docs/**',
-      '.angular/**',
+      // Angular build/serve caches (Vite dep pre-bundles) — root or nested under
+      // packages/pwa. Recursive glob so the packages/pwa/.angular cache is ignored.
+      '**/.angular/**',
       // Sibling worktrees live here; their checkouts are managed
       // independently and aren't part of this branch's lint surface.
       '.claude/worktrees/**',
