@@ -52,8 +52,12 @@ describe('runMigrations — happy path', () => {
     const result = runMigrations(db, PRODUCTION_MIGRATIONS_DIR);
 
     expect(result).toEqual({
-      applied: [{ version: 1, name: 'initial_schema' }],
-      currentVersion: 1,
+      applied: [
+        { version: 1, name: 'initial_schema' },
+        // Per D-17: 0002 drops the sessions.persona_name sentinel column.
+        { version: 2, name: 'drop_persona_name' },
+      ],
+      currentVersion: 2,
     });
 
     // schema_versions row is present per sqlite-schema.md §6.2.
@@ -63,10 +67,12 @@ describe('runMigrations — happy path', () => {
         SchemaVersionRow
       >('SELECT version, name, applied_at FROM schema_versions ORDER BY version')
       .all();
-    expect(versionRows).toHaveLength(1);
+    expect(versionRows).toHaveLength(2);
     expect(versionRows[0]?.version).toBe(1);
     expect(versionRows[0]?.name).toBe('initial_schema');
     expect(versionRows[0]?.applied_at).toBeGreaterThan(0);
+    expect(versionRows[1]?.version).toBe(2);
+    expect(versionRows[1]?.name).toBe('drop_persona_name');
 
     // Tables — store/CLAUDE.md: owns tenants, projects, sessions, schema_versions.
     const tables = db
@@ -98,11 +104,11 @@ describe('runMigrations — happy path', () => {
 
     const second = runMigrations(db, PRODUCTION_MIGRATIONS_DIR);
 
-    expect(second).toEqual({ applied: [], currentVersion: 1 });
+    expect(second).toEqual({ applied: [], currentVersion: 2 });
 
-    // schema_versions still has exactly one row.
+    // schema_versions still has exactly one row per applied migration.
     const count = db.prepare<[], { c: number }>('SELECT COUNT(*) AS c FROM schema_versions').get();
-    expect(count?.c).toBe(1);
+    expect(count?.c).toBe(2);
   });
 
   it('creates schema_versions on a DB that does not have it (first boot)', () => {

@@ -14,14 +14,9 @@ export const SpawnRecordSchema = z
     schemaVersion: z.literal(1),
     sessionId: z.string(),
     projectId: z.string(),
-    // Per D-17, personas are descoped from MVP (dormant module). Sessions spawn
-    // a bare agent, so the runtime writer omits these four fields; they stay
-    // optional (not removed) so a Phase-2 persona re-enable restores them
-    // without a schemaVersion bump.
-    personaName: z.string().optional(),
-    personaSource: z.enum(['tenant', 'project']).optional(),
-    personaFilePath: z.string().optional(),
-    personaContentHash: z.string().optional(),
+    // Per D-17, personas are descoped from MVP; the optional persona fields were
+    // removed with the persona code (restore: tag pre-cleanup-phase1). MVP writers
+    // never emitted them, so no MVP-written spawn.json fails strict validation.
     argv: z.array(z.string()),
     envNames: z.array(z.string()),
     cwd: z.string(),

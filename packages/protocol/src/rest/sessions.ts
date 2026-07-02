@@ -14,11 +14,6 @@ export const SessionSchema = z
   .object({
     id: UlidSchema,
     projectId: UlidSchema,
-    // Per D-17: personas are descoped from MVP. This field is retained on the
-    // wire (sentinel-backed: the server stamps a fixed value at spawn) so the
-    // store row, CLI, and IDE displays are unchanged; it is NOT user-supplied.
-    // Reserved for the Phase-2 persona re-enable.
-    personaName: z.string(),
     agentCli: z.string(),
     agentSessionId: z.string().nullable(),
     ptyPid: z.number().int().nullable(),
@@ -37,8 +32,8 @@ export type Session = z.infer<typeof SessionSchema>;
 
 // POST /sessions — body names the project to spawn in. The server reads the
 // project's canonical path from the store and passes it to registry.create(),
-// which spawns a bare agent. Per D-17 personas are descoped from MVP, so the
-// body no longer carries a personaName; the server stamps a sentinel.
+// which spawns a bare agent. Per D-17 personas are descoped from MVP; the
+// persona wire surface was removed with the code (restore: tag pre-cleanup-phase1).
 export const SessionCreateRequestSchema = z
   .object({
     projectId: UlidSchema,

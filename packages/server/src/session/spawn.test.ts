@@ -32,8 +32,8 @@ afterEach(() => {
   rmSync(homeOverride, { recursive: true, force: true });
 });
 
-// Per D-17: a bare-agent spawn record — the persona fields are omitted (now
-// optional in SpawnRecordSchema) and argv is just the agent binary.
+// Per D-17: a bare-agent spawn record — the persona fields were removed from
+// SpawnRecordSchema and argv is just the agent binary.
 function baseSpawnRecord(sid: string): SpawnRecord {
   return {
     schemaVersion: 1,

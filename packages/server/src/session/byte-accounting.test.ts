@@ -47,23 +47,19 @@ function freshDb(): Database {
   return db;
 }
 
-function seedSession(db: Database, personaName = 'coder', now = 1_700_000_000_000): string {
+function seedSession(db: Database, seed = 'coder', now = 1_700_000_000_000): string {
   tenants.ensureSingleton(db, now);
   const project = projects.insert(
     db,
     {
       tenantId: SINGLETON_TENANT_ID,
-      slug: `proj-${personaName}`,
+      slug: `proj-${seed}`,
       displayName: 'Demo',
-      canonicalPath: `/home/dev/${personaName}`,
+      canonicalPath: `/home/dev/${seed}`,
     },
     now,
   );
-  const session = sessions.insert(
-    db,
-    { projectId: project.id, personaName, agentCli: 'claude' },
-    now,
-  );
+  const session = sessions.insert(db, { projectId: project.id, agentCli: 'claude' }, now);
   return session.id;
 }
 

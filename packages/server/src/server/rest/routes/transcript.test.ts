@@ -34,11 +34,7 @@ describe('routes/transcript', () => {
       },
       Date.now(),
     );
-    const row = sessionsRepo.insert(
-      rig.db,
-      { projectId: project.id, personaName: 'dev', agentCli: 'cat' },
-      Date.now(),
-    );
+    const row = sessionsRepo.insert(rig.db, { projectId: project.id, agentCli: 'cat' }, Date.now());
     sessionsRepo.incrementTotalBytes(rig.db, row.id, sidecarBytes.length, Date.now());
     mkdirSync(transcriptsDir(rig.homeOverride), { recursive: true });
     writeFileSync(transcriptPath(row.id, rig.homeOverride), sidecarBytes);
@@ -180,11 +176,7 @@ describe('routes/transcript', () => {
       },
       Date.now(),
     );
-    const row = sessionsRepo.insert(
-      rig.db,
-      { projectId: project.id, personaName: 'dev', agentCli: 'cat' },
-      Date.now(),
-    );
+    const row = sessionsRepo.insert(rig.db, { projectId: project.id, agentCli: 'cat' }, Date.now());
 
     const res = await rig.app.inject({
       method: 'GET',

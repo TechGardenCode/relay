@@ -241,7 +241,6 @@ describe('projects — cascade rules (D-12)', () => {
       db,
       {
         projectId: project.id,
-        personaName: 'coder',
         agentCli: 'claude',
       },
       2,
@@ -250,7 +249,6 @@ describe('projects — cascade rules (D-12)', () => {
       db,
       {
         projectId: project.id,
-        personaName: 'reviewer',
         agentCli: 'claude',
       },
       3,

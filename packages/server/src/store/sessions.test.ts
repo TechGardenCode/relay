@@ -68,14 +68,9 @@ describe('sessions — happy path', () => {
   });
 
   it('insert sets defaults: status=running, terminated_reason=null, total_bytes=0, agent_session_id=null, pty_pid=null', () => {
-    const row = sessions.insert(
-      db,
-      { projectId, personaName: 'coder', agentCli: 'claude' },
-      1_700_000_000_000,
-    );
+    const row = sessions.insert(db, { projectId, agentCli: 'claude' }, 1_700_000_000_000);
 
     expect(row.projectId).toBe(projectId);
-    expect(row.personaName).toBe('coder');
     expect(row.agentCli).toBe('claude');
     // Per sqlite-schema.md §3.3 + sessions.ts: new rows start as 'running'
     // with NULL terminated_reason, NULL agent_session_id, NULL pty_pid, 0 bytes.
@@ -91,11 +86,7 @@ describe('sessions — happy path', () => {
   });
 
   it('markKilled transitions running → killed with a reason', () => {
-    const inserted = sessions.insert(
-      db,
-      { projectId, personaName: 'coder', agentCli: 'claude' },
-      1,
-    );
+    const inserted = sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
 
     const result = sessions.markKilled(db, inserted.id, 'operator_kill', 2);
     expect(result.updated).toBe(true);
@@ -107,11 +98,7 @@ describe('sessions — happy path', () => {
   });
 
   it('updateAgentSessionId populates the agent_session_id column', () => {
-    const inserted = sessions.insert(
-      db,
-      { projectId, personaName: 'coder', agentCli: 'claude' },
-      1,
-    );
+    const inserted = sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
 
     sessions.updateAgentSessionId(db, inserted.id, 'agent-abc', 5);
 
@@ -121,11 +108,7 @@ describe('sessions — happy path', () => {
   });
 
   it('updatePtyPid populates the pty_pid column (regression: vm-e2e found null)', () => {
-    const inserted = sessions.insert(
-      db,
-      { projectId, personaName: 'coder', agentCli: 'claude' },
-      1,
-    );
+    const inserted = sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
     expect(inserted.ptyPid).toBeNull();
 
     sessions.updatePtyPid(db, inserted.id, 4242, 7);
@@ -136,11 +119,7 @@ describe('sessions — happy path', () => {
   });
 
   it('incrementTotalBytes accumulates the running upper bound (ND-04)', () => {
-    const inserted = sessions.insert(
-      db,
-      { projectId, personaName: 'coder', agentCli: 'claude' },
-      1,
-    );
+    const inserted = sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
 
     // Per ND-04: total_bytes is the running upper bound used by the
     // transcript pagination API. Callers pass the delta on each append.
@@ -164,11 +143,7 @@ describe('sessions — status invariants (DDL CHECK)', () => {
   });
 
   it("CHECK rejects setting terminated_reason while status='running'", () => {
-    const inserted = sessions.insert(
-      db,
-      { projectId, personaName: 'coder', agentCli: 'claude' },
-      1,
-    );
+    const inserted = sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
 
     // Per sqlite-schema.md §3.3 / 0001_initial_schema.sql:
     //   CHECK ((status='running' AND terminated_reason IS NULL)
@@ -183,11 +158,7 @@ describe('sessions — status invariants (DDL CHECK)', () => {
   });
 
   it('CHECK rejects unknown status enum values', () => {
-    const inserted = sessions.insert(
-      db,
-      { projectId, personaName: 'coder', agentCli: 'claude' },
-      1,
-    );
+    const inserted = sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
 
     // Per the DDL: CHECK (status IN ('running','idle','killed')).
     expect(() =>
@@ -198,11 +169,7 @@ describe('sessions — status invariants (DDL CHECK)', () => {
   });
 
   it("status='idle' is allowed with NULL terminated_reason", () => {
-    const inserted = sessions.insert(
-      db,
-      { projectId, personaName: 'coder', agentCli: 'claude' },
-      1,
-    );
+    const inserted = sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
 
     // The CHECK admits status IN ('idle','killed') regardless of
     // terminated_reason; only the running+non-null combination is rejected.
@@ -225,11 +192,7 @@ describe('sessions — orphan sweep (D-11)', () => {
     // Per store/CLAUDE.md: the boot-time orphan sweep is the ONLY writer of
     // sessions.terminated_reason = 'server_restart' (per D-11). The reason
     // parameter on markRunningAsKilled is typed as the literal 'server_restart'.
-    const inserted = sessions.insert(
-      db,
-      { projectId, personaName: 'coder', agentCli: 'claude' },
-      1,
-    );
+    const inserted = sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
     const result = sessions.markRunningAsKilled(db, 'server_restart', 9);
     expect(result.affected).toBe(1);
     const refetched = sessions.findById(db, inserted.id) as SessionRow;
@@ -238,23 +201,15 @@ describe('sessions — orphan sweep (D-11)', () => {
 
   it('only touches running rows: seed 2 running + 1 killed + 1 idle, affected=2, others untouched', () => {
     // Seed two running sessions.
-    const running1 = sessions.insert(
-      db,
-      { projectId, personaName: 'coder', agentCli: 'claude' },
-      1,
-    );
-    const running2 = sessions.insert(
-      db,
-      { projectId, personaName: 'reviewer', agentCli: 'claude' },
-      2,
-    );
+    const running1 = sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
+    const running2 = sessions.insert(db, { projectId, agentCli: 'claude' }, 2);
 
     // Seed one already-killed session (with a different reason).
-    const killed = sessions.insert(db, { projectId, personaName: 'ghost', agentCli: 'claude' }, 3);
+    const killed = sessions.insert(db, { projectId, agentCli: 'claude' }, 3);
     sessions.markKilled(db, killed.id, 'operator_kill', 4);
 
     // Seed one idle session.
-    const idle = sessions.insert(db, { projectId, personaName: 'idler', agentCli: 'claude' }, 5);
+    const idle = sessions.insert(db, { projectId, agentCli: 'claude' }, 5);
     db.prepare<[string]>("UPDATE sessions SET status = 'idle' WHERE id = ?").run(idle.id);
 
     // Per D-11 rule 1: the orphan sweep transitions running → killed and is
@@ -283,11 +238,7 @@ describe('sessions — orphan sweep (D-11)', () => {
   });
 
   it('returns affected=0 when there are no running rows', () => {
-    const inserted = sessions.insert(
-      db,
-      { projectId, personaName: 'coder', agentCli: 'claude' },
-      1,
-    );
+    const inserted = sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
     sessions.markKilled(db, inserted.id, 'operator_kill', 2);
 
     const result = sessions.markRunningAsKilled(db, 'server_restart', 3);
@@ -305,9 +256,9 @@ describe('sessions — listByProject / listByStatus', () => {
     const db = freshDb();
     const projectId = seedProject(db);
 
-    const oldest = sessions.insert(db, { projectId, personaName: 'a', agentCli: 'claude' }, 10);
-    const middle = sessions.insert(db, { projectId, personaName: 'b', agentCli: 'claude' }, 20);
-    const newest = sessions.insert(db, { projectId, personaName: 'c', agentCli: 'claude' }, 30);
+    const oldest = sessions.insert(db, { projectId, agentCli: 'claude' }, 10);
+    const middle = sessions.insert(db, { projectId, agentCli: 'claude' }, 20);
+    const newest = sessions.insert(db, { projectId, agentCli: 'claude' }, 30);
 
     sessions.markKilled(db, middle.id, 'operator_kill', 25);
 

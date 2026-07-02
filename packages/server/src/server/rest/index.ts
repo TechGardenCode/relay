@@ -29,8 +29,8 @@ export async function registerRest(app: FastifyInstance, opts: RestPluginOptions
 
   await registerTenantsRoutes(app, { db: opts.db });
   await registerProjectsRoutes(app, { db: opts.db });
-  // Per D-17: personas are descoped from MVP. registerPersonasRoutes is left
-  // unmounted, so GET/POST /personas return 404 and the route module is dormant.
+  // Per D-17: personas are descoped from MVP; no /personas routes exist, so
+  // GET/POST /personas return 404 (guarded in sessions.test.ts).
   await registerSessionsRoutes(app, { db: opts.db, registry: opts.registry });
   await registerTranscriptRoutes(app, { db: opts.db, homeOverride: opts.homeOverride });
 }

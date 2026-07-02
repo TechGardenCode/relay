@@ -20,7 +20,6 @@ function makeNode(): SessionNode {
     session: {
       id: SESSION_ID,
       projectId: '01HZZZZZZZZZZZZZZZZZPROJA',
-      personaName: 'reviewer',
       agentCli: 'claude',
       agentSessionId: null,
       ptyPid: null,

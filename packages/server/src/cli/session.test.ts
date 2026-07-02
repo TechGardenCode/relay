@@ -79,7 +79,6 @@ function seedKilledSession(): { sessionId: string; projectId: string } {
       db,
       {
         projectId: project.id,
-        personaName: 'dev',
         agentCli: 'claude',
       },
       Date.now(),

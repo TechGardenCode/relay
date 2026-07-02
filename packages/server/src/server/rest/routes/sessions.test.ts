@@ -60,13 +60,10 @@ describe('routes/sessions', () => {
     const body = res.json() as {
       id: string;
       projectId: string;
-      personaName: string;
       status: string;
       totalBytes: number;
     };
     expect(body.projectId).toBe(project.id);
-    // Per D-17: bare-agent spawn stamps the personaName sentinel server-side.
-    expect(body.personaName).toBe('agent');
     expect(body.status).toBe('running');
     expect(body.totalBytes).toBe(0);
   });
@@ -191,13 +188,12 @@ describe('routes/sessions', () => {
       headers: { Authorization: rig.authHeader },
     });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as { id: string; personaName: string };
+    const body = res.json() as { id: string };
     expect(body.id).toBe(sid);
-    expect(body.personaName).toBe('agent');
   });
 
-  // Per D-17: the /personas routes are left unmounted. This guards against a
-  // silent re-registration of registerPersonasRoutes in rest/index.ts.
+  // Per D-17: no /personas routes exist (the route module was removed). This
+  // guards against a /personas surface landing before the Phase-2 re-enable.
   it('GET /personas is unmounted → 404 (D-17)', async () => {
     const res = await rig.app.inject({
       method: 'GET',

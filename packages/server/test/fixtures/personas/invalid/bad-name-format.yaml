@@ -1,3 +1,0 @@
-schemaVersion: 1
-name: Bad_Name
-description: name field has uppercase and underscore — fails kebab regex.

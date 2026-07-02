@@ -1,3 +1,0 @@
-schemaVersion: 1
-name: different-name
-description: name field is valid kebab but does not match the filename stem.

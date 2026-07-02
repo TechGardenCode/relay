@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { configPath, lastPairingPath, personasDir, tokensPath } from '../config/paths.js';
+import { configPath, lastPairingPath, tokensPath } from '../config/paths.js';
 import { runInit } from './init.js';
 
 let home: string;
@@ -30,7 +30,7 @@ describe('runInit', () => {
   // means no user-reachable path exercises personas. The dir stays uncreated.
   it('does NOT create ~/.relay/personas/ or seed any default personas (D-17)', () => {
     runInit({ home });
-    expect(existsSync(personasDir(home))).toBe(false);
+    expect(existsSync(join(home, '.relay', 'personas'))).toBe(false);
   });
 
   it('emits the pairing snippet with relay:// deep link + URL + token (per D-13)', () => {

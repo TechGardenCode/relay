@@ -1,5 +1,0 @@
-schemaVersion: 1
-name: minimal
-description: Only the required fields plus a description.
-systemPrompt: |
-  Be a helpful assistant.

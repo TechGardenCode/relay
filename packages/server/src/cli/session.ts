@@ -31,7 +31,6 @@ export interface SessionListInput {
 export interface SessionListRow {
   id: string;
   projectId: string;
-  personaName: string;
   status: SessionStatus;
   terminatedReason: string | null;
   totalBytes: number;
@@ -45,7 +44,6 @@ function toViewRow(row: SessionRow): SessionListRow {
   return {
     id: row.id,
     projectId: row.projectId,
-    personaName: row.personaName,
     status: row.status,
     terminatedReason: row.terminatedReason,
     totalBytes: row.totalBytes,

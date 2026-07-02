@@ -29,13 +29,6 @@ import {
 
 const DEFAULT_AGENT_CLI = 'claude';
 
-// Per D-17: personas are descoped from MVP. Sessions spawn a bare agent, but
-// the `sessions.persona_name` column + wire field are retained (sentinel-backed)
-// so the store row, CLI, and IDE displays are unchanged for the Phase-2 re-enable.
-// This value is server-stamped and NEVER user-supplied — SessionCreateInput has
-// no personaName field, so there is no path to route a client value here.
-const PERSONA_SENTINEL = 'agent';
-
 interface InternalRecord {
   handle: SessionHandle;
   supervisor: PtySupervisor;
@@ -73,15 +66,14 @@ export function createRegistry(deps: RegistryDeps): SessionRegistry {
   let shuttingDown = false;
 
   async function create(input: SessionCreateInput): Promise<SessionHandle> {
-    // Per D-17: bare-agent spawn. No persona is resolved; the row carries the
-    // server-stamped PERSONA_SENTINEL and the agent runs with an empty argv
-    // (no --model / --append-system-prompt / --mcp-config / --disable-slash-commands).
+    // Per D-17: bare-agent spawn. No persona is resolved and the agent runs with
+    // an empty argv (no --model / --append-system-prompt / --mcp-config /
+    // --disable-slash-commands). Persona code removed at tag pre-cleanup-phase1.
     const insertNow = Date.now();
     const row = sessions.insert(
       db,
       {
         projectId: input.projectId,
-        personaName: PERSONA_SENTINEL,
         agentCli,
       },
       insertNow,
@@ -96,7 +88,6 @@ export function createRegistry(deps: RegistryDeps): SessionRegistry {
         schemaVersion: 1,
         sessionId: sid,
         projectId: input.projectId,
-        // Per D-17 the persona fields are omitted (optional in SpawnRecordSchema).
         argv: [agentCli, ...argv],
         envNames: Object.keys(env).sort(),
         cwd: input.canonicalProjectPath,

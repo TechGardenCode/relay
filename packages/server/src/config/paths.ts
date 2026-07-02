@@ -24,14 +24,6 @@ export function tokensPath(homeOverride?: string): string {
   return join(relayHome(homeOverride), 'tokens.json');
 }
 
-export function personasDir(homeOverride?: string): string {
-  return join(relayHome(homeOverride), 'personas');
-}
-
-export function projectPersonasDir(canonicalProjectPath: string): string {
-  return join(canonicalProjectPath, RELAY_DIR, 'personas');
-}
-
 export function transcriptsDir(homeOverride?: string): string {
   return join(relayHome(homeOverride), 'transcripts');
 }
@@ -47,10 +39,9 @@ export function sessionsDir(homeOverride?: string): string {
   return join(relayHome(homeOverride), 'sessions');
 }
 
-// Per persona-application.md §4.2 + ND-12: each session gets a transient
-// scratch dir at `~/.relay/sessions/<sid>/` holding `spawn.json` (always) and
-// `mcp.json` (when persona.mcpServers is set). Owner-only at 0o700; spawn.json
-// at 0o600.
+// Per ND-12: each session gets a transient scratch dir at
+// `~/.relay/sessions/<sid>/` holding `spawn.json`. Owner-only at 0o700;
+// spawn.json at 0o600.
 export function sessionWorkDir(sid: string, homeOverride?: string): string {
   return join(sessionsDir(homeOverride), sid);
 }

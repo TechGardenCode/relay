@@ -3,8 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   configPath,
   lastPairingPath,
-  personasDir,
-  projectPersonasDir,
   relayHome,
   sessionWorkDir,
   sessionsDir,
@@ -28,14 +26,6 @@ describe('paths', () => {
     expect(tokensPath(FAKE_HOME)).toBe('/tmp/relay-paths-test-home/.relay/tokens.json');
   });
 
-  it('returns personas/ as a directory under ~/.relay/', () => {
-    expect(personasDir(FAKE_HOME)).toBe('/tmp/relay-paths-test-home/.relay/personas');
-  });
-
-  it('returns <project>/.relay/personas/ for a canonical project path', () => {
-    expect(projectPersonasDir('/work/example')).toBe('/work/example/.relay/personas');
-  });
-
   it('returns transcripts/ as a directory under ~/.relay/', () => {
     expect(transcriptsDir(FAKE_HOME)).toBe('/tmp/relay-paths-test-home/.relay/transcripts');
   });
@@ -52,7 +42,7 @@ describe('paths', () => {
   });
 
   it('composes the per-session transient work dir under sessions/', () => {
-    // Per persona-application.md §4.2 + ND-12: ~/.relay/sessions/<sid>/.
+    // Per ND-12: ~/.relay/sessions/<sid>/.
     expect(sessionWorkDir('01J0SESSION', FAKE_HOME)).toBe(
       '/tmp/relay-paths-test-home/.relay/sessions/01J0SESSION',
     );

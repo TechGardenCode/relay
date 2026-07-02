@@ -2,7 +2,7 @@
 
 Orchestration glue. Spawns the agent under `pty/`, wires `transcript/` as the byte sink, maintains the attached-client registry that 6G layers claim-lock on top of, drives the byte-accountant (per ND-13), and runs the boot orphan sweep (per D-11). Authoritative inter-module flow lives in [`docs/arch/repo-layout.md`](../../../../docs/arch/repo-layout.md) §4.
 
-Per [D-17](../../../../docs/decisions/D-17-personas-descoped-from-mvp.md), personas are descoped from MVP: the `persona/` module is dormant and **not** on the spawn path. `create()` takes no persona and spawns a **bare agent** (empty argv — no `--model`/`--append-system-prompt`/`--mcp-config`/`--disable-slash-commands`). The `sessions.persona_name` column + wire field are retained, carrying a server-stamped sentinel (`'agent'`) that is never user-supplied.
+Per [D-17](../../../../docs/decisions/D-17-personas-descoped-from-mvp.md), personas are descoped from MVP: the persona code was removed from the tree (restore point: tag `pre-cleanup-phase1`). `create()` takes no persona and spawns a **bare agent** (empty argv — no `--model`/`--append-system-prompt`/`--mcp-config`/`--disable-slash-commands`). The former `sessions.persona_name` sentinel column was dropped by migration `0002`.
 
 ## Owns
 
@@ -45,5 +45,5 @@ In-memory SQLite (`:memory:`) per test plus a fake `PtySupervisor` that matches 
 - PTY bytes fan out to every attached client regardless of claim state (per [D-G3](../../../../docs/decisions/D-G3-reattach-semantics.md)). Claim arbitration lives in 6G's WS handler; this module never inspects claim state.
 - `agentSessionId` capture is fire-and-forget and non-fatal (per [ND-11](../../../../docs/decisions/ND-11-agentsessionid-capture-mechanism.md)). `NULL` on `sessions.agent_session_id` is a valid terminal state — the WS `hello` frame simply omits the field.
 - `sessions.total_bytes` is eventually consistent within the byte-accountant's 1 s flush window during a session's lifetime (per [ND-13](../../../../docs/decisions/ND-13-byte-accounting-cadence-for-sessions-total-bytes.md)). `total_bytes === fstat(sidecar).size` is guaranteed only after `pty.onExit` (per-session drain) or `registry.shutdown()` (global drain).
-- `spawn.json` is validated against [`SpawnRecordSchema`](../../../../packages/protocol/src/spawn-record.ts) (per [ND-12](../../../../docs/decisions/ND-12-spawn-json-schema-location.md)) **before** the write; a malformed record fails loud rather than landing on disk. Per D-17 it carries `argv: [agentCli]` and omits the (now-optional) persona fields.
+- `spawn.json` is validated against [`SpawnRecordSchema`](../../../../packages/protocol/src/spawn-record.ts) (per [ND-12](../../../../docs/decisions/ND-12-spawn-json-schema-location.md)) **before** the write; a malformed record fails loud rather than landing on disk. Per D-17 it carries `argv: [agentCli]` and no persona fields (removed with the persona code).
 - A spawn failure after the session row is inserted marks the row `'operator_kill'` so no `running` row is left without a live supervisor.

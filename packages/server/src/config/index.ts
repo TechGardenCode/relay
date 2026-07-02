@@ -2,8 +2,6 @@ export {
   relayHome,
   configPath,
   tokensPath,
-  personasDir,
-  projectPersonasDir,
   transcriptsDir,
   transcriptPath,
   sessionsDir,

@@ -92,7 +92,6 @@ Column shape is verbatim from [D-12](../decisions/D-12-project-record-storage-an
 CREATE TABLE sessions (
   id                TEXT PRIMARY KEY,                             -- ULID
   project_id        TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  persona_name      TEXT NOT NULL,                                -- at MVP a server-stamped sentinel 'agent' (D-17); Phase 2: persona-name snapshot, not an FK (D-09)
   agent_cli         TEXT NOT NULL,                                -- snapshot at spawn; immutable per 01-conceptual-model.md
   agent_session_id  TEXT,                                         -- agent's own session UUID; nullable until agent emits it
   pty_pid           INTEGER,                                      -- node-pty child PID; NULL once killed (01-conceptual-model.md:20)
@@ -111,7 +110,7 @@ CREATE TABLE sessions (
 
 Column shape comes from [`prd/01-conceptual-model.md`](../prd/01-conceptual-model.md) lines 18-22 plus [D-11](../decisions/D-11-server-restart-and-session-orphaning.md) (the `terminated_reason` column and its lifecycle). Two notes:
 
-- **`persona_name` is a TEXT snapshot, not a foreign key.** Personas are YAML files on disk ([D-09](../decisions/D-09-persona-yaml-schema.md)); a session captures the name at spawn time so the row remains coherent if the operator later deletes or renames the persona file. The on-disk YAML can be re-loaded for inspection, but a missing file is not a referential-integrity violation — it's a historical observation. **At MVP, personas are descoped ([D-17](../decisions/D-17-personas-descoped-from-mvp.md)): the column is retained (no migration — `NOT NULL` keeps a valid value) and carries a server-stamped sentinel `'agent'`, never a user-supplied name. The snapshot semantics above re-enter force when personas return in Phase 2.**
+- **No `persona_name` column.** Personas are descoped from MVP ([D-17](../decisions/D-17-personas-descoped-from-mvp.md)); migration `0002_drop_persona_name.sql` dropped the sentinel-backed column that 0001 created. When personas return in Phase 2, a forward migration re-adds it as a TEXT snapshot, not a foreign key — personas are YAML files on disk ([D-09](../decisions/D-09-persona-yaml-schema.md)), and a missing file is a historical observation, not a referential-integrity violation.
 - **`terminated_reason` is a free-form TEXT, not an enum table.** Documented values: `server_restart` ([D-11](../decisions/D-11-server-restart-and-session-orphaning.md) rule 1), `operator_kill` ([`prd/03-server.md`](../prd/03-server.md) §7 `relay session kill`), `agent_exit` (PTY child exited on its own; the `exitCode` rides on the `session_ended` WS frame per [`arch/ws-protocol.md`](./ws-protocol.md) §2.3 but is not persisted to the row at MVP). New reasons are added by writing the string; no schema change.
 
 The compound CHECK constraint ensures `terminated_reason` is NULL while a session is live and is *available* (not mandatory — agent crash paths may set it later) once terminal. It enforces the invariant cheaply at insert/update time.
@@ -154,11 +153,10 @@ No indexes are added on `projects` beyond the UNIQUE constraints; the table is s
 
 ## 5. Foreign keys and cascade rules
 
-`PRAGMA foreign_keys = ON` is set per-connection by the `store/` module on open; SQLite enforces foreign keys only when this pragma is active. Three rules govern the entity graph:
+`PRAGMA foreign_keys = ON` is set per-connection by the `store/` module on open; SQLite enforces foreign keys only when this pragma is active. Two rules govern the entity graph:
 
 - **`projects.tenant_id` → `tenants.id` ON DELETE RESTRICT.** No tenant-deletion path exists at MVP — there is one tenant, hidden from the UI. RESTRICT makes any attempted tenant delete a programming error rather than a silent cascade through the entire database.
 - **`sessions.project_id` → `projects.id` ON DELETE CASCADE.** [D-12](../decisions/D-12-project-record-storage-and-relay-project-add-semantics.md) rule 7 and [`prd/03-server.md`](../prd/03-server.md) §7 are explicit: `relay project remove` deletes the project row "and any session rows scoped to it." The same `prd/03-server.md` line is also explicit about what is *not* deleted — "the working directory or the on-disk marker file" — which is a filesystem concern, not a database one. The CASCADE handles only the SQLite half; the on-disk transcript files at `~/.relay/transcripts/<id>.bin` are reaped by the `transcript/` module on session row delete (a separate-from-DB cleanup pass on `sessions` row CASCADE, implementation detail of `store/` × `transcript/` integration — not specified here).
-- **`sessions.persona_name`** is a string, not an FK. Persona file deletion does not orphan a session row; the row keeps the historical name. The persona file may be missing when the row is read; that's accepted. (At MVP the column carries a server-stamped sentinel `'agent'` — personas are descoped per [D-17](../decisions/D-17-personas-descoped-from-mvp.md); the snapshot semantics return in Phase 2.)
 
 ---
 
@@ -213,7 +211,7 @@ CREATE TABLE projects (
 CREATE TABLE sessions (
   id                TEXT PRIMARY KEY,
   project_id        TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  persona_name      TEXT NOT NULL,                                -- MVP: server-stamped sentinel 'agent' (D-17); Phase 2: persona snapshot (D-09)
+  persona_name      TEXT NOT NULL,                                -- dropped by 0002_drop_persona_name.sql (D-17)
   agent_cli         TEXT NOT NULL,
   agent_session_id  TEXT,
   pty_pid           INTEGER,

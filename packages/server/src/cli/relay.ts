@@ -162,9 +162,8 @@ project
     process.stdout.write(`Removed ${id}.\n`);
   });
 
-// Per D-17: personas are descoped from MVP. The `relay persona` command block
-// (list/create) is removed so no user-reachable path exercises personas; the
-// cli/persona.ts module stays dormant on disk for the Phase-2 re-enable.
+// Per D-17: personas are descoped from MVP; the `relay persona` command block
+// and the persona module were removed (restore: tag pre-cleanup-phase1).
 
 const session = program.command('session').description('Inspect or kill agent sessions.');
 
@@ -199,9 +198,7 @@ session
     for (const row of rows) {
       const term = row.terminatedReason ?? '';
       process.stdout.write(
-        `${row.id}\t${row.status}\t${row.personaName}\t${row.projectId}\t${term}\t${String(
-          row.totalBytes,
-        )}\n`,
+        `${row.id}\t${row.status}\t${row.projectId}\t${term}\t${String(row.totalBytes)}\n`,
       );
     }
   });
@@ -220,7 +217,7 @@ session
 
 session
   .command('show')
-  .description('Show one session row (id, status, persona, project, total bytes, timestamps).')
+  .description('Show one session row (id, status, project, total bytes, timestamps).')
   .argument('<id>', 'Session id')
   .action(async (id: string) => {
     const { runSessionShow } = await import('./session.js');
@@ -234,7 +231,6 @@ session
       [
         `id: ${row.id}`,
         `status: ${row.status}`,
-        `personaName: ${row.personaName}`,
         `projectId: ${row.projectId}`,
         `terminatedReason: ${row.terminatedReason ?? 'null'}`,
         `agentSessionId: ${row.agentSessionId ?? 'null'}`,

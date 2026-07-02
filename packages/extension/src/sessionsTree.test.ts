@@ -60,7 +60,6 @@ function makeSession(id: string, projectId: string, status: SessionStatus): Sess
   return {
     id,
     projectId,
-    personaName: 'reviewer',
     agentCli: 'claude',
     agentSessionId: null,
     ptyPid: null,

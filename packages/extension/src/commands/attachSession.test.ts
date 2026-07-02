@@ -35,7 +35,6 @@ function makeSession(
   return {
     id,
     projectId,
-    personaName: 'reviewer',
     agentCli: 'claude',
     agentSessionId,
     ptyPid: null,

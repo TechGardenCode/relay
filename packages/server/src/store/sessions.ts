@@ -11,7 +11,6 @@ export type TerminatedReason = 'server_restart' | 'operator_kill' | 'agent_exit'
 export interface SessionRow {
   id: string;
   projectId: string;
-  personaName: string;
   agentCli: string;
   agentSessionId: string | null;
   ptyPid: number | null;
@@ -24,14 +23,12 @@ export interface SessionRow {
 
 export interface SessionInsertInput {
   projectId: string;
-  personaName: string;
   agentCli: string;
 }
 
 interface SessionDbRow {
   id: string;
   project_id: string;
-  persona_name: string;
   agent_cli: string;
   agent_session_id: string | null;
   pty_pid: number | null;
@@ -43,13 +40,12 @@ interface SessionDbRow {
 }
 
 const SELECT_COLUMNS =
-  'id, project_id, persona_name, agent_cli, agent_session_id, pty_pid, status, terminated_reason, total_bytes, created_at, updated_at';
+  'id, project_id, agent_cli, agent_session_id, pty_pid, status, terminated_reason, total_bytes, created_at, updated_at';
 
 function mapRow(row: SessionDbRow): SessionRow {
   return {
     id: row.id,
     projectId: row.project_id,
-    personaName: row.persona_name,
     agentCli: row.agent_cli,
     agentSessionId: row.agent_session_id,
     ptyPid: row.pty_pid,
@@ -65,10 +61,10 @@ function mapRow(row: SessionDbRow): SessionRow {
 // compound CHECK in §3.3 enforces this invariant.
 export function insert(db: Database, input: SessionInsertInput, now: number): SessionRow {
   const id = ulid();
-  db.prepare<[string, string, string, string, number, number]>(
-    `INSERT INTO sessions (id, project_id, persona_name, agent_cli, status, terminated_reason, total_bytes, created_at, updated_at)
-     VALUES (?, ?, ?, ?, 'running', NULL, 0, ?, ?)`,
-  ).run(id, input.projectId, input.personaName, input.agentCli, now, now);
+  db.prepare<[string, string, string, number, number]>(
+    `INSERT INTO sessions (id, project_id, agent_cli, status, terminated_reason, total_bytes, created_at, updated_at)
+     VALUES (?, ?, ?, 'running', NULL, 0, ?, ?)`,
+  ).run(id, input.projectId, input.agentCli, now, now);
 
   const row = db
     .prepare<[string], SessionDbRow>(`SELECT ${SELECT_COLUMNS} FROM sessions WHERE id = ?`)

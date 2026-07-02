@@ -11,7 +11,7 @@
  *     - PTY bytes fan out to every attached client regardless of claim state
  *       (D-G3)                                                                → describe("D-G3 universal output") > it("...all attached clients") + it("late attach sees post-attach only") + it("misbehaving client does not poison fan-out")
  *     - agentSessionId capture is fire-and-forget and non-fatal (ND-11)       → describe("agent-session-id capture (ND-11)") > it("resolves to UUID → column populated") + it("resolves to null → column stays NULL")
- *     - Per D-17 bare-agent spawn: empty argv, personaName sentinel 'agent'   → describe("create happy path") > it("spawns a bare agent with empty argv")
+ *     - Per D-17 bare-agent spawn: empty argv                                 → describe("create happy path") > it("spawns a bare agent with empty argv")
  *     - Spawn failure after insert → row marked 'operator_kill'               → describe("create — error paths") > it("supervisor factory throws → row marked operator_kill")
  *   Does NOT own (deferred to composition):
  *     - The HTTP/REST surface (→ server/rest/, 6F)                           → enforced at e2e layer; 6F maps SessionCreateError codes to status
@@ -214,8 +214,6 @@ describe('createRegistry — create happy path', () => {
     expect(handle.row.status).toBe('running');
     expect(handle.row.terminatedReason).toBeNull();
     expect(handle.row.totalBytes).toBe(0);
-    // Per D-17: personaName is the server-stamped sentinel, never user-supplied.
-    expect(handle.row.personaName).toBe('agent');
 
     // spawn.json materialized under the homeOverride.
     const spawnJsonPath = join(sessionWorkDir(handle.id, h.homeOverride), 'spawn.json');

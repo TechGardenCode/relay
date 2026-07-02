@@ -64,11 +64,11 @@ describe('bootOrphanSweep — happy path', () => {
   it('flips exactly the running rows to killed/server_restart', () => {
     // Seed 3 running + 1 pre-killed (the only other achievable shape without
     // a manual UPDATE that would violate the running+NULL-reason CHECK).
-    const r1 = sessions.insert(db, { projectId, personaName: 'a', agentCli: 'claude' }, 1);
-    const r2 = sessions.insert(db, { projectId, personaName: 'b', agentCli: 'claude' }, 2);
-    const r3 = sessions.insert(db, { projectId, personaName: 'c', agentCli: 'claude' }, 3);
+    const r1 = sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
+    const r2 = sessions.insert(db, { projectId, agentCli: 'claude' }, 2);
+    const r3 = sessions.insert(db, { projectId, agentCli: 'claude' }, 3);
 
-    const k = sessions.insert(db, { projectId, personaName: 'd', agentCli: 'claude' }, 4);
+    const k = sessions.insert(db, { projectId, agentCli: 'claude' }, 4);
     // Per session/CLAUDE.md: kill() writes 'operator_kill'; that row must NOT
     // be touched by the boot sweep.
     sessions.markKilled(db, k.id, 'operator_kill', 5);
@@ -98,8 +98,8 @@ describe('bootOrphanSweep — idempotence (D-11)', () => {
   it('second sweep returns affected: 0 and changes nothing', () => {
     const db = freshDb();
     const projectId = seedProject(db);
-    sessions.insert(db, { projectId, personaName: 'a', agentCli: 'claude' }, 1);
-    sessions.insert(db, { projectId, personaName: 'b', agentCli: 'claude' }, 2);
+    sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
+    sessions.insert(db, { projectId, agentCli: 'claude' }, 2);
 
     const first = bootOrphanSweep(db, 100);
     expect(first.affected).toBe(2);
@@ -126,8 +126,8 @@ describe('bootOrphanSweep — idempotence (D-11)', () => {
   it('advances updated_at only on flipped rows', () => {
     const db = freshDb();
     const projectId = seedProject(db);
-    const r = sessions.insert(db, { projectId, personaName: 'a', agentCli: 'claude' }, 1);
-    const k = sessions.insert(db, { projectId, personaName: 'b', agentCli: 'claude' }, 2);
+    const r = sessions.insert(db, { projectId, agentCli: 'claude' }, 1);
+    const k = sessions.insert(db, { projectId, agentCli: 'claude' }, 2);
     sessions.markKilled(db, k.id, 'operator_kill', 3);
 
     const preFlipped = sessions.findById(db, r.id) as SessionRow;

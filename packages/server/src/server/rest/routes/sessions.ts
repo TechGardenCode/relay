@@ -26,7 +26,6 @@ function toWire(row: SessionRow): Session {
   return {
     id: row.id,
     projectId: row.projectId,
-    personaName: row.personaName,
     agentCli: row.agentCli,
     agentSessionId: row.agentSessionId,
     ptyPid: row.ptyPid,
@@ -103,8 +102,7 @@ export async function registerSessionsRoutes(
     }
 
     try {
-      // Per D-17: no personaName is forwarded — the registry spawns a bare
-      // agent and stamps the personaName sentinel itself.
+      // Per D-17: no personaName is forwarded — the registry spawns a bare agent.
       const handle = await opts.registry.create({
         projectId: body.projectId,
         canonicalProjectPath: project.canonicalPath,
