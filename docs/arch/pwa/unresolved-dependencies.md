@@ -24,6 +24,8 @@ change). The grouping as "Scratch" vs first-class project is a client/IA concern
 **Open for the server pass.** Cleanup trigger for the scratch dir; whether "Scratch" is a reserved
 project flag, a path-prefix convention, or a client-only view.
 
+**Filed as** [[nd-41-scratch-create-by-path-project-registration]] (open, 2026-07-02).
+
 **Cites.** FR-9, FR-10; [[d-12-project-record-storage-and-relay-project-add-semantics]];
 [`server-touchpoints.md`](../../design/pwa/server-touchpoints.md) §1.
 
@@ -38,6 +40,8 @@ server must treat a single non-newline control send as fire-and-release.
 **Open for the server pass.** Client-driven explicit RELEASE per control-key send vs server-side
 rule; file as ND.
 
+**Filed as** [[nd-42-control-key-claim-release-semantics]] (open, 2026-07-02).
+
 **Cites.** FR-5; [[nd-24-per-keystroke-input-streaming-for-tui-agents]];
 [[nd-01-claim-lock-timeout-duration]]; [`server-touchpoints.md`](../../design/pwa/server-touchpoints.md) §2.
 
@@ -51,6 +55,8 @@ fields, e.g. `updated_at` / `total_bytes`).
 ([[nd-13-byte-accounting-cadence-for-sessions-total-bytes]] cadence). Avoid a "waiting-for-input"
 heuristic per [[d-18-pwa-terminal-substrate-and-mvp-scope]] §4.
 
+**Filed as** [[nd-43-session-running-idle-status-field]] (open, 2026-07-02).
+
 **Cites.** FR-2; [`interaction-model.md`](../../design/pwa/interaction-model.md) §5;
 [[nd-13-byte-accounting-cadence-for-sessions-total-bytes]];
 [`server-touchpoints.md`](../../design/pwa/server-touchpoints.md) §3.
@@ -61,3 +67,28 @@ heuristic per [[d-18-pwa-terminal-substrate-and-mvp-scope]] §4.
 
 *(entries appended as new couplings surface during L1–L6 work; each captures the need, what's open
 for the server pass, and citations to the requirement / decision that surfaced it)*
+
+### 2.1 File-viewer server surface
+
+**Need.** The file viewer (FR-13) is a read-only file tree + light text viewer over the session's
+working dir ([`feature-modules.md`](feature-modules.md) §6). The PWA is a **browser client with no
+filesystem access to the server host**, and the canonical REST surface today
+([`../rest-conventions.md`](../rest-conventions.md); routes are projects + sessions + transcript) has
+**no directory-listing or file-read endpoint**. FR-13 therefore needs an **additive** server surface:
+list a session's working-dir tree, and read a single file's contents — both scoped to that session's
+working dir. Surfaced by L4 (§6); no equivalent seed existed in
+[`server-touchpoints.md`](../../design/pwa/server-touchpoints.md).
+
+**Open for the server pass.** REST shape (e.g. `GET /sessions/:id/files` for the tree +
+`GET /sessions/:id/files/*` for content, per the sub-resource convention in
+[`../rest-conventions.md`](../rest-conventions.md) §4); path-traversal / working-dir sandboxing;
+max-file-size and binary-vs-text handling for the "light text viewer"; whether the tree is eager or
+lazy per-directory. Because FR-13 is conditional/separable, this can defer to a fast-follow if not
+picked up in the first server pass.
+
+**Filed as** [[nd-44-file-viewer-server-surface]] (open, 2026-07-02).
+
+**Cites.** FR-13; [`interaction-model.md`](../../design/pwa/interaction-model.md) §4;
+[[d-18-pwa-terminal-substrate-and-mvp-scope]] §4 (read-only, no editing/diff);
+[`feature-modules.md`](feature-modules.md) §6; [`../rest-conventions.md`](../rest-conventions.md) §4
+(sub-resource convention).

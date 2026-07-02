@@ -4,7 +4,7 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 47 · Open: 5 · Deferred: 8.
+**Counts.** Resolved: 47 · Open: 9 · Deferred: 8.
 
 ## Open / in-deliberation
 
@@ -13,6 +13,10 @@ See [`protocol.md`](protocol.md) for the per-decision file template and the 5-st
 - [`ND-28` — Programmatic / machine-to-machine credential flow](ND-28-programmatic-machine-to-machine-credential-flow.md)
 - [`ND-30` — `relay attach` stderr event-stream protocol for subprocess-of-attach consumers](ND-30-relay-attach-stderr-event-stream-for-subprocess-of-attach-consumers.md)
 - [`ND-31` — SecretStorage key namespace for multi-server IDE pairing](ND-31-secretstorage-key-namespace-for-multi-server-ide-pairing.md)
+- [`ND-41` — Scratch / create-by-path project registration for client-initiated sessions](ND-41-scratch-create-by-path-project-registration.md) _(surfaced by D-18 §5 / PWA tech-arch — L5 §1.1)_
+- [`ND-42` — Control-key claim/release semantics for keyless control affordances](ND-42-control-key-claim-release-semantics.md) _(surfaced by D-18 §5 / PWA tech-arch — L5 §1.2)_
+- [`ND-43` — Session running/idle status on the sessions-list payload](ND-43-session-running-idle-status-field.md) _(surfaced by D-18 §5 / PWA tech-arch — L5 §1.3)_
+- [`ND-44` — File-viewer server surface — read-only working-dir listing + file read](ND-44-file-viewer-server-surface.md) _(surfaced by PWA tech-arch L4 — L5 §2.1)_
 
 ## Deferred
 
