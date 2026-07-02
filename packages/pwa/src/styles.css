@@ -1,0 +1,6 @@
+/* Per foundations.md §4: Tailwind v4 is the design-system *consumption* seam.
+   The delivered scheme (tokens, palette, type ramp, primitives — foundations §5,
+   §6) swaps in HERE on L1 delivery. Until then this is a deliberately empty
+   placeholder: structural utilities only, no authored tokens the delivery will
+   prescribe. The swap must be a config swap, not a component rewrite. */
+@import 'tailwindcss';

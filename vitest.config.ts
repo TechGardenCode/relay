@@ -6,7 +6,10 @@ export default defineConfig({
   test: {
     passWithNoTests: true,
     include: ['packages/**/*.{test,spec}.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**'],
+    // packages/pwa is an Angular 21 app with its own test runner (`ng test` →
+    // Angular's Vitest integration, a different Vitest major). Exclude it from
+    // the root run; use `pnpm -F @relay/pwa test` for PWA specs.
+    exclude: ['**/node_modules/**', '**/dist/**', 'packages/pwa/**'],
   },
   resolve: {
     // `vscode` is not an npm package — the VS Code host injects it at runtime.
