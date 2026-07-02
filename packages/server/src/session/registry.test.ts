@@ -444,14 +444,10 @@ describe('createRegistry — natural exit / kill discipline', () => {
     await reg.shutdown();
   });
 
-  it('attach on an unknown sid throws SessionCreateError(session_not_found)', async () => {
+  it('attach on an unknown sid throws SessionCreateError', async () => {
     const reg = createRegistry(buildDeps(h));
     expect(() => reg.attach('does-not-exist', fakeClient('x'))).toThrow(SessionCreateError);
-    try {
-      reg.attach('does-not-exist', fakeClient('x'));
-    } catch (err) {
-      expect((err as SessionCreateError).code).toBe('session_not_found');
-    }
+    expect(() => reg.attach('does-not-exist', fakeClient('x'))).toThrow(/not found/);
     await reg.shutdown();
   });
 });

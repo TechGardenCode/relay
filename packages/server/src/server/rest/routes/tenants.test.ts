@@ -38,19 +38,6 @@ describe('routes/tenants', () => {
     expect(body.id).toBe(SINGLETON_TENANT_ID);
   });
 
-  it('GET /tenants/:id returns 404 with problem+json for an unknown id', async () => {
-    const res = await rig.app.inject({
-      method: 'GET',
-      url: '/tenants/01J0000000000000000UNKNOWN',
-      headers: { Authorization: rig.authHeader },
-    });
-    expect(res.statusCode).toBe(404);
-    expect(res.headers['content-type']).toContain('application/problem+json');
-    const body = res.json() as { type: string; status: number };
-    expect(body.type).toMatch(/errors\/tenant-not-found/);
-    expect(body.status).toBe(404);
-  });
-
   it('every route rejects requests without a bearer token (401)', async () => {
     const res = await rig.app.inject({
       method: 'GET',

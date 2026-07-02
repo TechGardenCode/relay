@@ -112,8 +112,7 @@ export async function registerSessionsRoutes(
       return toWire(row);
     } catch (err) {
       if (err instanceof SessionCreateError) {
-        // Per D-17 the only remaining code is 'session_not_found' (the
-        // persona_not_found path was removed with the persona spawn path).
+        // Per D-17: SessionCreateError now signals only the session-not-found case.
         throw new HttpProblemError({
           status: 404,
           typeSlug: 'session-not-found',

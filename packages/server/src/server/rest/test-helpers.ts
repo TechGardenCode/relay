@@ -2,9 +2,9 @@
 // route file's *.test.ts can stand up the same in-memory server in a few
 // lines (DB → migrations → singleton tenant → registry → tokenStore → app).
 //
-// Tests use Fastify's `app.inject({ method, url, headers, payload })` rather
-// than supertest — no socket bind, fully synchronous, identical assertion
-// surface (status, headers, JSON body).
+// Suites drive the app through Fastify's `app.inject({ method, url, headers,
+// payload })` — no socket bind, fully synchronous, identical assertion surface
+// (status, headers, JSON body).
 
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

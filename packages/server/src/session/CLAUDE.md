@@ -27,9 +27,9 @@ Per [D-17](../../../../docs/decisions/D-17-personas-descoped-from-mvp.md), perso
 - `createRegistry(deps): SessionRegistry` — for tests that want the registry without the migration boot dance.
 - `SessionRegistry` — `create`, `get`, `attach`, `kill('operator_kill')`, `shutdown()`, `shuttingDown: boolean`.
 - `SessionHandle` — `id`, `row` (fresh read), `pid`, `bytesEmitted`, `write`, `resize`, `snapshot`.
-- `SessionCreateError` with code `'session_not_found'` — 6F maps to 404 per [`rest-conventions.md`](../../../../docs/arch/rest-conventions.md) §3. (Per D-17 the `'persona_not_found'` code was removed with the persona spawn path.)
+- `SessionCreateError` — thrown for the session-not-found case; 6F discriminates by `instanceof` and maps to 404 per [`rest-conventions.md`](../../../../docs/arch/rest-conventions.md) §3. (Per D-17 the former `code` field / `'persona_not_found'` member were removed with the persona spawn path.)
 - `bootOrphanSweep(db, now?)` — direct access for tests + ops scripts.
-- `captureAgentSessionId(opts)` + `claudeProjectDir(path)` + `encodeClaudeProjectPath(path)` — exported for `agent-session-id.test.ts` and for 6G if it ever needs to compute the path.
+- `captureAgentSessionId(opts)` — the ND-11 capture, re-exported from the barrel. Its path helpers (`claudeProjectDir`, `encodeClaudeProjectPath`) and timing constants (`CAPTURE_TIMEOUT_MS`, `POLL_INTERVAL_MS`) are exported from `agent-session-id.ts` directly — not the barrel — and `agent-session-id.test.ts` imports them from that module file.
 - `createByteAccountant(opts)` — exported so tests can exercise the accountant without standing up a registry.
 - `writeTransientDir(args)` — exported for `spawn.test.ts`. (Per D-17 `buildArgv`/`hashPersonaFile` were removed with the persona spawn path.)
 

@@ -92,15 +92,11 @@ export interface SessionRegistry {
   readonly shuttingDown: boolean;
 }
 
-// Per D-17 the 'persona_not_found' code is removed (no persona on the spawn
-// path). 'session_not_found' remains for the project-resolution failure 6F maps.
-export type SessionCreateErrorCode = 'session_not_found';
-
+// The class name (via instanceof) is the discriminator 6F maps to a 404. Per
+// D-17 the persona-related failure code was removed with the persona spawn path.
 export class SessionCreateError extends Error {
-  readonly code: SessionCreateErrorCode;
-  constructor(code: SessionCreateErrorCode, message: string) {
+  constructor(message: string) {
     super(message);
     this.name = 'SessionCreateError';
-    this.code = code;
   }
 }

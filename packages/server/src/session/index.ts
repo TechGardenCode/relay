@@ -5,14 +5,7 @@
 // is dormant and no longer on the spawn path; sessions spawn a bare agent.
 
 export { bootOrphanSweep } from './boot.js';
-export {
-  captureAgentSessionId,
-  claudeProjectDir,
-  encodeClaudeProjectPath,
-  CAPTURE_TIMEOUT_MS,
-  POLL_INTERVAL_MS,
-  type CaptureOptions,
-} from './agent-session-id.js';
+export { captureAgentSessionId, type CaptureOptions } from './agent-session-id.js';
 export {
   createByteAccountant,
   DEFAULT_FLUSH_INTERVAL_MS,
@@ -34,7 +27,6 @@ export {
   type AgentSessionIdCapture,
   type AttachedClient,
   type RegistryDeps,
-  type SessionCreateErrorCode,
   type SessionCreateInput,
   type SessionEndInfo,
   type SessionHandle,

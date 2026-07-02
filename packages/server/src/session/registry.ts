@@ -263,7 +263,7 @@ export function createRegistry(deps: RegistryDeps): SessionRegistry {
   function attach(sid: string, client: AttachedClient): { unsubscribe: () => void } {
     const rec = records.get(sid);
     if (rec === undefined) {
-      throw new SessionCreateError('session_not_found', `session '${sid}' not found`);
+      throw new SessionCreateError(`session '${sid}' not found`);
     }
     rec.attached.add(client);
     return {
