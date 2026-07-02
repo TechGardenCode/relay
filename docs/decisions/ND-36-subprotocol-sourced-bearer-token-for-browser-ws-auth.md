@@ -62,4 +62,6 @@ Wire compatibility:
 
 **Forward path.** When ND-28 (programmatic / machine-to-machine credential flow) resolves and adds a PAT / token-create REST endpoint, that endpoint and subprotocol-WS auth compose cleanly — the PAT issued by the new endpoint is the same bearer token, sourced via whichever header the client can set.
 
-**Propagated to:** `packages/server/src/server/rest/plugins/auth.ts` (2026-05-22), `packages/server/src/server/ws/handler.ts` (2026-05-22). `docs/arch/ws-protocol.md` §6 propagation pending — a one-paragraph "browser variant" addition that documents the subprotocol grammar.
+**Amendment (2026-07-02) — spike serving surface removed; auth path unchanged.** The Track 9 spike (`packages/spike-pwa/`) was deleted in the post-Phase-1 cleanup (archived at tag `pre-cleanup-phase1`), taking with it the `server/static` module that served `/app/*` and the auth-preHandler `/app/*` public-prefix skip. The `relay.bearer` subprotocol path this decision resolved — `auth.ts` header fallback + `handleProtocols` echo — is untouched and remains the browser-WS auth contract for the Phase 2 PWA.
+
+**Propagated to:** `packages/server/src/server/rest/plugins/auth.ts` (2026-05-22), `packages/server/src/server/ws/handler.ts` (2026-05-22), `docs/arch/ws-protocol.md` §6 "Browser variant" paragraph (2026-07-02). Amendment propagated to: `server/static` module + `/app/*` auth-skip removal (2026-07-02).
