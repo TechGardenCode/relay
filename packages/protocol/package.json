@@ -12,7 +12,8 @@
   "types": "./dist/index.d.ts",
   "main": "./dist/index.js",
   "scripts": {
-    "typecheck": "tsc -b --pretty"
+    "typecheck": "tsc -b --pretty",
+    "build": "tsc -b --force"
   },
   "dependencies": {
     "zod": "^4.4.3"
