@@ -25,7 +25,7 @@ pnpm link --global
 
 That puts the local build's `relay` binary on PATH so the extension's "Start session" terminal spawn resolves it.
 
-**For production** (post-6J): `npm install -g @relay/relay`.
+**For production** (npm slice implemented per [D-19](../../docs/decisions/D-19-npm-distribution-posture.md), pending first publish): `npm install -g @techgardencode/relay`.
 
 If `relay` is not on PATH when the extension tries to spawn it, the terminal pane will display the shell's "command not found" error verbatim.
 

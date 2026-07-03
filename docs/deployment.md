@@ -1,6 +1,6 @@
 # Relay — Deployment Guide
 
-> ⚠️ **Implementation status — Phase 1 complete, distribution pending.** The `relay` binary and Docker image referenced below are not yet published — distribution (task **6J**) moved to Track 8 per [D-16](decisions/D-16-phase-1-ships-without-distribution.md). For what runs today, see the source-install path in [`guides/getting-started.md`](guides/getting-started.md). This guide describes the eventual deployment surface so operator and packaging work can converge on the same shape.
+> ⚠️ **Implementation status — Phase 1 complete, npm distribution implemented pending first publish; Docker/Compose not yet published.** The npm slice of distribution is implemented per [D-19](decisions/D-19-npm-distribution-posture.md) — CI publishes `@techgardencode/relay` + `@techgardencode/protocol` on a pushed `v*` tag — but the package is not on the registry yet; that happens when the maintainer pushes the release tag. The Docker image and Compose stack referenced below remain unpublished — the rest of task **6J** (Docker/Compose/Helm, extension marketplace) stays deferred to Track 8 per [D-16](decisions/D-16-phase-1-ships-without-distribution.md). For what runs today, see the source-install path in [`guides/getting-started.md`](guides/getting-started.md). This guide describes the eventual deployment surface so operator and packaging work can converge on the same shape.
 
 **Scope.** Operator-facing: install, configure, persist, supervise, back up. The PRD-level deployment-shape narrative — npm vs Docker vs Compose vs Helm — lives in [`prd/06-distribution.md`](prd/06-distribution.md); this guide turns that into concrete commands.
 
@@ -20,11 +20,18 @@ The lowest-overhead deployment: one Node process on the host, state under `~/.re
 
 ```bash
 claude auth login                       # skip if already logged in on this host
-npm install -g @relay/relay
+npm install -g @techgardencode/relay
 relay init
 ```
 
 On managed Linux hosts where the operator account doesn't have root, `npm install -g` fails on `/usr/lib/node_modules` (EACCES). Either run the install with `sudo` or set a user-local prefix once before installing — `mkdir -p ~/.local/npm && npm config set prefix ~/.local/npm && export PATH="$HOME/.local/npm/bin:$PATH"` (persist the PATH addition in `~/.bashrc`). The same caveat applies to `@anthropic-ai/claude-code` if it isn't already installed on the host.
+
+**Platform install notes** (per [D-19](decisions/D-19-npm-distribution-posture.md) / [ND-45](decisions/ND-45-node-pty-linux-prebuild-resolution.md)):
+
+- **Linux glibc (x64/arm64)** — zero-toolchain install. `node-pty` and `better-sqlite3` both ship prebuilt native addons for these targets, so `npm install -g` needs no compiler.
+- **Alpine/musl, or other architectures** — no prebuild is published for these targets, so `npm install` compiles the native addons from source. Install `build-essential` (or your distro's C/C++ toolchain equivalent) and `python3` first, or the install will fail with a node-gyp error.
+- **Windows** — experimental / best-effort. CI builds it (non-blocking) but it isn't part of the release gate; expect rough edges.
+- **Upgrade and verify** (any supported platform): `npm i -g @techgardencode/relay@latest && relay doctor` — reinstalls the latest published version and runs the full diagnostic set, including the `native-deps` load probe.
 
 `relay init` performs one-time setup:
 

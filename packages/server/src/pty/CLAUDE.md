@@ -31,7 +31,7 @@
 
 ## Test isolation
 
-Spawn a benign command (`cat`, `echo`, `printf`) and assert against the byte-stream. No real Claude CLI invocation in unit tests. `fast-check` covers ring-buffer overflow / wrap edge cases. The supervisor test file probes the macOS spawn-helper exec bit and `describe.skip`s with a clear diagnostic (`pnpm --filter @relay/relay fix-pty`) if missing; ring-buffer tests are unaffected (no `node-pty` dep).
+Spawn a benign command (`cat`, `echo`, `printf`) and assert against the byte-stream. No real Claude CLI invocation in unit tests. `fast-check` covers ring-buffer overflow / wrap edge cases. The supervisor test file probes the macOS spawn-helper exec bit and `describe.skip`s with a clear diagnostic (`pnpm --filter @techgardencode/relay fix-pty`) if missing; ring-buffer tests are unaffected (no `node-pty` dep).
 
 ## Surprising constraints
 
