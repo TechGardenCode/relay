@@ -28,6 +28,7 @@ function goodDeps(overrides: Partial<DoctorDeps> = {}): DoctorDeps {
     claudeOnPath: () => true,
     oauthCredentialPresent: () => true,
     probeServer: () => Promise.resolve('ok'),
+    nativeAddonsLoad: () => ({ ok: true, failed: [] }),
     ...overrides,
   };
 }
@@ -153,5 +154,28 @@ describe('runDoctor', () => {
 
     const serialized = JSON.stringify(report);
     expect(serialized).not.toContain(secret);
+  });
+
+  it('reports native-deps ok when addons load', async () => {
+    seedHome();
+    const report = await runDoctor(
+      goodDeps({ nativeAddonsLoad: () => ({ ok: true, failed: [] }) }),
+    );
+
+    const check = findCheck(report.checks, 'native-deps');
+    expect(check.status).toBe('ok');
+  });
+
+  it('fails native-deps with a remediation when an addon does not load', async () => {
+    seedHome();
+    const report = await runDoctor(
+      goodDeps({ nativeAddonsLoad: () => ({ ok: false, failed: ['node-pty'] }) }),
+    );
+
+    const check = findCheck(report.checks, 'native-deps');
+    expect(check.status).toBe('fail');
+    expect(check.detail).toMatch(/node-pty/);
+    expect(check.remediation).toBeDefined();
+    expect(report.ok).toBe(false);
   });
 });
