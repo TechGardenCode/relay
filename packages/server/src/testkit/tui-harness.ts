@@ -407,7 +407,7 @@ export function distFreshness(): DistFreshness {
   if (!existsSync(DIST_CLI)) {
     return {
       state: 'absent',
-      reason: `dist not built (${DIST_CLI} missing) — run \`pnpm -F @relay/relay build\``,
+      reason: `dist not built (${DIST_CLI} missing) — run \`pnpm -F @techgardencode/relay build\``,
     };
   }
   const serverRoot = join(import.meta.dirname, '..', '..');
@@ -418,7 +418,7 @@ export function distFreshness(): DistFreshness {
       state: 'stale',
       reason:
         'dist is STALE — a source under src/attach/ or src/cli/ is newer than the built dist. ' +
-        'Run `pnpm -F @relay/relay build` (tsc -b --force) before the real-binary suite.',
+        'Run `pnpm -F @techgardencode/relay build` (tsc -b --force) before the real-binary suite.',
     };
   }
   return { state: 'fresh', reason: 'dist is fresh' };

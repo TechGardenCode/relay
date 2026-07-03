@@ -6,7 +6,7 @@
 export interface HttpProblemErrorInit {
   status: number;
   // Kebab-slug; the full URI is built with errorType() in
-  // @relay/protocol/problem-details.
+  // @techgardencode/protocol/problem-details.
   typeSlug: string;
   title: string;
   detail?: string;

@@ -1,24 +1,47 @@
 {
-  "name": "@relay/relay",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@techgardencode/relay",
+  "version": "0.1.0",
+  "description": "Relay — self-hosted server, CLI, and attach client for remote-controlling Claude Code agent sessions.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TechGardenCode/relay.git",
+    "directory": "packages/server"
+  },
+  "homepage": "https://github.com/TechGardenCode/relay#readme",
+  "bugs": {
+    "url": "https://github.com/TechGardenCode/relay/issues"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "bin": {
     "relay": "./dist/cli/relay.js"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src/store/migrations",
+    "scripts"
+  ],
   "scripts": {
     "typecheck": "tsc -b --pretty",
     "build": "tsc -b --force",
-    "fix-pty": "node scripts/fix-pty.mjs"
+    "fix-pty": "node scripts/fix-pty.mjs",
+    "postinstall": "node scripts/postinstall.mjs",
+    "prepack": "tsc -b --force && node scripts/strip-dist-tests.mjs"
   },
   "dependencies": {
     "@fastify/websocket": "^11.2.0",
-    "@relay/protocol": "workspace:*",
+    "@techgardencode/protocol": "workspace:^",
     "better-sqlite3": "^12.10.0",
     "commander": "^14.0.3",
     "fastify": "^5.8.5",
     "js-yaml": "^4.1.1",
-    "node-pty": "^1.1.0",
+    "node-pty": "1.2.0-beta.14",
     "ulid": "^3.0.2",
     "ws": "^8.20.1",
     "zod": "^4.4.3"

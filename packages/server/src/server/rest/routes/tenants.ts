@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 
-import type { Tenant, TenantListResponse } from '@relay/protocol';
+import type { Tenant, TenantListResponse } from '@techgardencode/protocol';
 
 import { tenants, type Database, type TenantRow } from '../../../store/index.js';
 

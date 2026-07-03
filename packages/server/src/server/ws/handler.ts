@@ -26,7 +26,7 @@ import {
   type ServerFrame,
   type SessionEndedFrame,
   type WsErrorCode,
-} from '@relay/protocol';
+} from '@techgardencode/protocol';
 
 import type { TokenStore } from '../../auth/index.js';
 import type { RelayConfig } from '../../config/index.js';
@@ -588,5 +588,5 @@ function mapTerminatedReasonToSessionEndedReason(
 }
 
 // Silence unused-import lint by re-exporting the type alias the handler
-// consumes through @relay/protocol.
+// consumes through @techgardencode/protocol.
 export type { ClaimReleasedReason };

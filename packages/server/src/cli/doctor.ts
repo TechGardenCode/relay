@@ -3,18 +3,21 @@
 // installed, an unreachable server, a bad token) into an actionable remediation
 // line, so a non-author can recover without DMing the author. It is
 // deliberately dependency-light — file-existence / writability / parse / PATH /
-// credential-presence / HTTP-reachability probes only, no `better-sqlite3` open
-// (per ND-18's thin-client posture) and no mutation of ~/.relay/.
+// credential-presence / HTTP-reachability / native-deps (node-pty +
+// better-sqlite3) load probes only, no `better-sqlite3` open (per ND-18's
+// thin-client posture) and no mutation of ~/.relay/.
 //
 // Per D-17: the persona-YAML probe was removed with the persona descope.
 
 import { accessSync, constants as fsConstants, existsSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
 
 import { resolveAttachConfig, AttachConfigError } from '../attach/config.js';
 import { loadConfig } from '../config/loader.js';
 import { configPath, relayHome, tokensPath } from '../config/paths.js';
+import { RELAY_VERSION } from './version.js';
 
 export type DoctorStatus = 'ok' | 'warn' | 'fail';
 
@@ -53,9 +56,9 @@ export interface DoctorDeps {
   oauthCredentialPresent?: (platform: NodeJS.Platform, home: string | undefined) => boolean;
   /** Authenticated server reachability + token-validity probe. Injected in tests. */
   probeServer?: (home: string | undefined) => Promise<ServerProbeResult>;
+  /** Whether the native addons (node-pty, better-sqlite3) load. Injected in tests. */
+  nativeAddonsLoad?: () => { ok: boolean; failed: string[] };
 }
-
-const RELAY_CLI_VERSION = '0.0.0';
 
 function defaultClaudeOnPath(): boolean {
   try {
@@ -113,14 +116,31 @@ async function defaultProbeServer(home: string | undefined): Promise<ServerProbe
   }
 }
 
+// Per D-19: a *load* check (require the addon), not a DB open — compatible
+// with ND-18's thin-client posture. Catches ABI/prebuild mismatches that would
+// otherwise crash at first `POST /sessions`.
+function defaultNativeAddonsLoad(): { ok: boolean; failed: string[] } {
+  const require = createRequire(import.meta.url);
+  const failed: string[] = [];
+  for (const name of ['node-pty', 'better-sqlite3']) {
+    try {
+      require(name);
+    } catch {
+      failed.push(name);
+    }
+  }
+  return { ok: failed.length === 0, failed };
+}
+
 export async function runDoctor(deps: DoctorDeps = {}): Promise<DoctorReport> {
   const home = deps.home;
   const env = deps.env ?? process.env;
   const platform = deps.platform ?? process.platform;
-  const version = deps.version ?? RELAY_CLI_VERSION;
+  const version = deps.version ?? RELAY_VERSION;
   const claudeOnPath = deps.claudeOnPath ?? defaultClaudeOnPath;
   const oauthCredentialPresent = deps.oauthCredentialPresent ?? defaultOauthCredentialPresent;
   const probeServer = deps.probeServer ?? defaultProbeServer;
+  const nativeAddonsLoad = deps.nativeAddonsLoad ?? defaultNativeAddonsLoad;
 
   const checks: DoctorCheck[] = [];
 
@@ -213,7 +233,22 @@ export async function runDoctor(deps: DoctorDeps = {}): Promise<DoctorReport> {
     });
   }
 
-  // 6. server: reachable with a valid token. WARN on unreachable (doctor is
+  // 6. native-deps: node-pty + better-sqlite3 load. Catches ABI/prebuild
+  //    mismatches loud, at `relay doctor` time, instead of at first session.
+  const native = nativeAddonsLoad();
+  if (native.ok) {
+    checks.push({ name: 'native-deps', status: 'ok', detail: 'node-pty + better-sqlite3 load' });
+  } else {
+    checks.push({
+      name: 'native-deps',
+      status: 'fail',
+      detail: `native addon(s) failed to load: ${native.failed.join(', ')}`,
+      remediation:
+        'reinstall with `npm i -g @techgardencode/relay`; if it persists your platform may need a C++ toolchain (Windows/musl are experimental)',
+    });
+  }
+
+  // 7. server: reachable with a valid token. WARN on unreachable (doctor is
   //    usually run while the server is down) / no-token; FAIL only on 401.
   const serverResult = await probeServer(home);
   switch (serverResult) {

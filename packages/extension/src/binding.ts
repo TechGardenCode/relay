@@ -2,9 +2,9 @@
 // schema; this module enforces strict-parse with refuse-to-bind on unknown
 // schemaVersion.
 //
-// The local Zod schema here does NOT import from @relay/protocol because the
+// The local Zod schema here does NOT import from @techgardencode/protocol because the
 // marker is workspace-filesystem state, not a wire surface. Keeping it local
-// also keeps the @relay/protocol surface minimal (no consumer outside the
+// also keeps the @techgardencode/protocol surface minimal (no consumer outside the
 // extension reads project.json over the wire).
 
 import { promises as fs } from 'node:fs';

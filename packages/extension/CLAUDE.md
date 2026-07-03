@@ -1,4 +1,4 @@
-# `@relay/extension` — Package context
+# `relay-extension` — Package context
 
 The VS Code family extension (`.vsix` output). Spawns `relay attach` from the
 user's PATH for terminal integration and renders the sessions tree view in the

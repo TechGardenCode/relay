@@ -17,10 +17,11 @@ import { Command } from 'commander';
 import { runAttach } from './attach.js';
 import { CliHttpError, CliHttpUnreachableError } from './http.js';
 import { runTokenCreate, runTokenList, runTokenRevoke } from './token.js';
+import { RELAY_VERSION } from './version.js';
 
 const program = new Command();
 
-program.name('relay').description('Relay — multi-device agent harness CLI').version('0.0.0');
+program.name('relay').description('Relay — multi-device agent harness CLI').version(RELAY_VERSION);
 
 program
   .command('init')
@@ -124,7 +125,7 @@ project
   .option('--agent-cli <cli>', 'Override the default agent CLI (claude)')
   .action(
     async (path: string, opts: { name?: string; displayName?: string; agentCli?: string }) => {
-      // Lazy-load: project.ts pulls @relay/relay store (better-sqlite3) +
+      // Lazy-load: project.ts pulls @techgardencode/relay store (better-sqlite3) +
       // the loopback REST client.
       const { runProjectAdd } = await import('./project.js');
       const row = await runProjectAdd({

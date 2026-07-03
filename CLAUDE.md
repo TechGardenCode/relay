@@ -51,9 +51,9 @@ When you introduce behavior that warrants a new decision, file it under `docs/de
 
 ## Repo shape
 
-- **`packages/server/`** — `@relay/relay`, the npm-distributed binary. Hosts the HTTP/WS server, the `relay` CLI, and the `relay attach` thin client. Internal module boundaries (ten modules: `config`, `store`, `pty`, `transcript`, `auth`, `session`, `server/rest`, `server/ws`, `cli`, `attach`; the `persona` module was removed per D-17 — restore point: tag `pre-cleanup-phase1`) are documented in [`docs/arch/repo-layout.md`](docs/arch/repo-layout.md) §3.
-- **`packages/protocol/`** — `@relay/protocol`, shared Zod schemas and TS types for REST and WS wire shapes. Single source of truth for wire shapes; server validation and client TS types both flow from these schemas. No I/O, no Node-only deps — portable to the browser-bound PWA.
-- **`packages/extension/`** — `@relay/extension`, the VS Code family extension (`.vsix` output). Spawns `relay attach` from the user's PATH for terminal integration.
+- **`packages/server/`** — `@techgardencode/relay`, the npm-distributed binary (npm slice implemented per [D-19](docs/decisions/D-19-npm-distribution-posture.md); first publish is operator-gated and has not happened yet). Hosts the HTTP/WS server, the `relay` CLI, and the `relay attach` thin client. Internal module boundaries (ten modules: `config`, `store`, `pty`, `transcript`, `auth`, `session`, `server/rest`, `server/ws`, `cli`, `attach`; the `persona` module was removed per D-17 — restore point: tag `pre-cleanup-phase1`) are documented in [`docs/arch/repo-layout.md`](docs/arch/repo-layout.md) §3.
+- **`packages/protocol/`** — `@techgardencode/protocol`, shared Zod schemas and TS types for REST and WS wire shapes. Single source of truth for wire shapes; server validation and client TS types both flow from these schemas. No I/O, no Node-only deps — portable to the browser-bound PWA.
+- **`packages/extension/`** — `relay-extension`, the VS Code family extension (`.vsix` output, private/unpublished). Spawns `relay attach` from the user's PATH for terminal integration.
 - **`packages/pwa/`** — Phase 2 placeholder. Empty until Phase 2 begins.
 
 Per-module `CLAUDE.md` files ship at the load-bearing modules (`transcript`, `pty`, `store`, `session`) — indexed under [Per-module context](#per-module-context). Build-plan task **5D-stubs** seeded them; bodies expanded as each module's `6x` implementation task landed.
@@ -62,17 +62,17 @@ Per-module `CLAUDE.md` files ship at the load-bearing modules (`transcript`, `pt
 
 All commands run from the repo root. pnpm fans out to workspaces where applicable.
 
-| Command             | What it does                                                             |
-| ------------------- | ------------------------------------------------------------------------ |
-| `pnpm install`      | Install workspace dependencies; link `@relay/*` packages via symlink.    |
-| `pnpm typecheck`    | `tsc -b` across all workspaces using project references.                 |
-| `pnpm lint`         | ESLint flat config over `packages/**/*.ts`.                              |
-| `pnpm lint:fix`     | ESLint with `--fix`.                                                     |
-| `pnpm format`       | Prettier write across the tree (excludes `docs/`).                       |
-| `pnpm format:check` | Prettier check; the lefthook pre-commit hook calls this on staged files. |
-| `pnpm test`         | Vitest run; `passWithNoTests: true` until specs exist.                   |
-| `pnpm test:watch`   | Vitest in watch mode.                                                    |
-| `pnpm build`        | Per-package build (`--if-present`); no-op until packages define `build`. |
+| Command             | What it does                                                                   |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `pnpm install`      | Install workspace dependencies; link `@techgardencode/*` packages via symlink. |
+| `pnpm typecheck`    | `tsc -b` across all workspaces using project references.                       |
+| `pnpm lint`         | ESLint flat config over `packages/**/*.ts`.                                    |
+| `pnpm lint:fix`     | ESLint with `--fix`.                                                           |
+| `pnpm format`       | Prettier write across the tree (excludes `docs/`).                             |
+| `pnpm format:check` | Prettier check; the lefthook pre-commit hook calls this on staged files.       |
+| `pnpm test`         | Vitest run; `passWithNoTests: true` until specs exist.                         |
+| `pnpm test:watch`   | Vitest in watch mode.                                                          |
+| `pnpm build`        | Per-package build (`--if-present`); no-op until packages define `build`.       |
 
 Pre-commit hooks are managed by `lefthook` and run typecheck + lint + format:check on staged TypeScript and config files. `pnpm install` installs hooks via the `prepare` script.
 

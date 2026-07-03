@@ -22,3 +22,6 @@ packages/server/test/fixtures/personas/invalid/parse-error.yaml
 # nested code fences requiring 4-backtick outer wrappers, which prettier would
 # collapse to 3 and break. Exclude them from prettier; they're authored by hand.
 .claude/skills/**/SKILL.md
+
+# Superpowers SDD artifacts (temporary build-plan working documents, not shipped code).
+.superpowers/

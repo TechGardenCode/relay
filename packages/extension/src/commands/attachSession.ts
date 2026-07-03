@@ -4,7 +4,7 @@
 
 import * as vscode from 'vscode';
 
-import { type Session } from '@relay/protocol';
+import { type Session } from '@techgardencode/protocol';
 
 import { loadCredentials } from '../pairing.js';
 import { groupQuickPickItems } from '../quickPickGroups.js';

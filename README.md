@@ -4,7 +4,7 @@
 
 > 👉 **New to Relay? Start with the [Getting Started handbook](docs/guides/getting-started.md)** — an A–Z walkthrough from install through your first cross-device session.
 
-> ⚠️ **Implementation status — Phase 1 complete, distribution pending.** Acceptance scenarios A, C–G pass ([`docs/history/phase-1-acceptance-walk.md`](docs/history/phase-1-acceptance-walk.md)), but the `relay` binary is not yet published to npm — distribution is Track 8 work per [D-16](docs/decisions/D-16-phase-1-ships-without-distribution.md). The "Quick install" snippet below describes that eventual UX; the [handbook](docs/guides/getting-started.md) covers the source-install path that works today.
+> ⚠️ **Implementation status — Phase 1 complete, npm distribution implemented pending first publish.** Acceptance scenarios A, C–G pass ([`docs/history/phase-1-acceptance-walk.md`](docs/history/phase-1-acceptance-walk.md)). The npm slice of distribution is implemented per [D-19](docs/decisions/D-19-npm-distribution-posture.md) — CI publishes `@techgardencode/relay` + `@techgardencode/protocol` to public npm on a pushed `v*` tag — but the first published release lands only once the maintainer pushes that tag; the package is not on the registry yet. Docker/Compose/Helm and the extension marketplace listing remain deferred to Track 8 per [D-16](docs/decisions/D-16-phase-1-ships-without-distribution.md). The "Quick install" snippet below describes the eventual UX; the [handbook](docs/guides/getting-started.md) covers the source-install path that works today.
 
 ---
 
@@ -22,12 +22,18 @@ Relay is **not** an editor, **not** an agent, and **not** a mobile coding tool �
 
 ```bash
 claude auth login                       # skip if already logged in on this host
-npm install -g @relay/relay
+npm install -g @techgardencode/relay
 relay init                              # one-time: token + ~/.relay/ scaffold
 relay server                            # foreground; supervise under systemd/launchd/pm2
 ```
 
-Requires Node.js 22+. `claude login` writes OAuth state to the macOS Keychain or `~/.claude/.credentials.json` on Linux; Relay's spawned agents inherit it via process credentials and `$HOME`. For headless deployments (CI, immutable containers), `ANTHROPIC_API_KEY` is the documented fallback — see [`docs/deployment.md`](docs/deployment.md) → Headless deployments.
+Requires Node.js 22+. Install is zero-build-tools on macOS and Linux glibc (x64/arm64) — `node-pty` and `better-sqlite3` both ship prebuilt native addons for those targets ([ND-45](docs/decisions/ND-45-node-pty-linux-prebuild-resolution.md)). Alpine/musl and other architectures compile the native addons from source at install time (needs a C++ toolchain — `build-essential`/`python3` on Linux); Windows is experimental (CI build-only, not release-gated). `claude login` writes OAuth state to the macOS Keychain or `~/.claude/.credentials.json` on Linux; Relay's spawned agents inherit it via process credentials and `$HOME`. For headless deployments (CI, immutable containers), `ANTHROPIC_API_KEY` is the documented fallback — see [`docs/deployment.md`](docs/deployment.md) → Headless deployments.
+
+**Upgrade and verify:**
+
+```bash
+npm i -g @techgardencode/relay@latest && relay doctor
+```
 
 **Docker (one-liner):**
 
@@ -55,7 +61,7 @@ This walks acceptance scenario E ([`docs/prd/08-acceptance.md`](docs/prd/08-acce
 
    ```bash
    claude auth login                     # skip if already logged in on this host
-   npm install -g @relay/relay
+   npm install -g @techgardencode/relay
    relay init
    ```
 
@@ -87,7 +93,7 @@ This walks acceptance scenario E ([`docs/prd/08-acceptance.md`](docs/prd/08-acce
 
 6. **Attach from a plain SSH terminal:**
    ```bash
-   npm install -g @relay/relay           # or use the IDE extension on B instead
+   npm install -g @techgardencode/relay  # or use the IDE extension on B instead
    export RELAY_SERVER_URL=http://machine-a:7777
    export RELAY_TOKEN=…                  # the token from step 1
    relay attach <session-id>

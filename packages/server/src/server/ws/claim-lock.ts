@@ -7,7 +7,7 @@
 // claim_ack / busy / error / claim_released frames. Keeping the FSM pure
 // makes the four §5.3 races exercisable with fake timers and no WebSocket.
 
-import type { ClaimReleasedReason } from '@relay/protocol';
+import type { ClaimReleasedReason } from '@techgardencode/protocol';
 
 export type { ClaimReleasedReason };
 
