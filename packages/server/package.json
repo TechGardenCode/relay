@@ -28,6 +28,7 @@
     "typecheck": "tsc -b --pretty",
     "build": "tsc -b --force",
     "fix-pty": "node scripts/fix-pty.mjs",
+    "postinstall": "node scripts/postinstall.mjs",
     "prepack": "tsc -b --force"
   },
   "dependencies": {
