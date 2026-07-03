@@ -28,7 +28,13 @@ jobs:
           fi
       # Publishes every non-private workspace package (the two @techgardencode/*)
       # in dependency order. --no-git-checks: tag checkout is detached HEAD.
+      # Per ND-46: NPM_CONFIG_PROVENANCE is what actually attaches the provenance
+      # attestation — the --provenance CLI flag is a no-op under `pnpm -r`
+      # (recursive) publish, which is why v0.1.0 shipped without one. The env var
+      # does the work; the flag stays only to document intent (id-token: write
+      # above supplies the OIDC token provenance signing needs).
       - run: pnpm -r publish --access public --provenance --no-git-checks
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
   # docker-publish: appended when Docker distribution lands (Track 8) — same tag.
