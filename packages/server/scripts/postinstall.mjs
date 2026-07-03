@@ -14,7 +14,12 @@ function chmodSpawnHelper() {
   if (process.platform !== 'darwin') return;
   try {
     const ptyRoot = dirname(require.resolve('node-pty/package.json'));
-    const helper = join(ptyRoot, 'prebuilds', `${process.platform}-${process.arch}`, 'spawn-helper');
+    const helper = join(
+      ptyRoot,
+      'prebuilds',
+      `${process.platform}-${process.arch}`,
+      'spawn-helper',
+    );
     if (existsSync(helper)) {
       chmodSync(helper, 0o755);
       process.stdout.write(`[relay postinstall] chmod +x ${helper}\n`);
