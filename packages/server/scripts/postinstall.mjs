@@ -1,4 +1,4 @@
-// Per D-npm / ND-node-pty: repair + verify native addons after `npm i`.
+// Per D-19 / ND-45: repair + verify native addons after `npm i`.
 // (1) Re-chmod node-pty's macOS spawn-helper — npm usually preserves the exec
 //     bit, but some installers/CI drop it. No-op off darwin.
 // (2) Verify node-pty + better-sqlite3 load; on failure print guidance and

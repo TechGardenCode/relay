@@ -3,8 +3,9 @@
 // installed, an unreachable server, a bad token) into an actionable remediation
 // line, so a non-author can recover without DMing the author. It is
 // deliberately dependency-light — file-existence / writability / parse / PATH /
-// credential-presence / HTTP-reachability probes only, no `better-sqlite3` open
-// (per ND-18's thin-client posture) and no mutation of ~/.relay/.
+// credential-presence / HTTP-reachability / native-addon-load probes only, no
+// `better-sqlite3` open (per ND-18's thin-client posture) and no mutation of
+// ~/.relay/.
 //
 // Per D-17: the persona-YAML probe was removed with the persona descope.
 
@@ -115,7 +116,7 @@ async function defaultProbeServer(home: string | undefined): Promise<ServerProbe
   }
 }
 
-// Per D-npm: a *load* check (require the addon), not a DB open — compatible
+// Per D-19: a *load* check (require the addon), not a DB open — compatible
 // with ND-18's thin-client posture. Catches ABI/prebuild mismatches that would
 // otherwise crash at first `POST /sessions`.
 function defaultNativeAddonsLoad(): { ok: boolean; failed: string[] } {
