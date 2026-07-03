@@ -1,7 +1,13 @@
 {
   "name": "@techgardencode/protocol",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Shared Zod schemas and TypeScript types for the Relay REST and WebSocket wire protocol.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TechGardenCode/relay.git",
+    "directory": "packages/protocol"
+  },
   "type": "module",
   "exports": {
     ".": {
@@ -11,9 +17,16 @@
   },
   "types": "./dist/index.d.ts",
   "main": "./dist/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "typecheck": "tsc -b --pretty",
-    "build": "tsc -b --force"
+    "build": "tsc -b --force",
+    "prepack": "tsc -b --force"
   },
   "dependencies": {
     "zod": "^4.4.3"

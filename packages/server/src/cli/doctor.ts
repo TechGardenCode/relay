@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { resolveAttachConfig, AttachConfigError } from '../attach/config.js';
 import { loadConfig } from '../config/loader.js';
 import { configPath, relayHome, tokensPath } from '../config/paths.js';
+import { RELAY_VERSION } from './version.js';
 
 export type DoctorStatus = 'ok' | 'warn' | 'fail';
 
@@ -54,8 +55,6 @@ export interface DoctorDeps {
   /** Authenticated server reachability + token-validity probe. Injected in tests. */
   probeServer?: (home: string | undefined) => Promise<ServerProbeResult>;
 }
-
-const RELAY_CLI_VERSION = '0.0.0';
 
 function defaultClaudeOnPath(): boolean {
   try {
@@ -117,7 +116,7 @@ export async function runDoctor(deps: DoctorDeps = {}): Promise<DoctorReport> {
   const home = deps.home;
   const env = deps.env ?? process.env;
   const platform = deps.platform ?? process.platform;
-  const version = deps.version ?? RELAY_CLI_VERSION;
+  const version = deps.version ?? RELAY_VERSION;
   const claudeOnPath = deps.claudeOnPath ?? defaultClaudeOnPath;
   const oauthCredentialPresent = deps.oauthCredentialPresent ?? defaultOauthCredentialPresent;
   const probeServer = deps.probeServer ?? defaultProbeServer;

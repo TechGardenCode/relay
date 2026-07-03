@@ -1,15 +1,34 @@
 {
   "name": "@techgardencode/relay",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Relay — self-hosted server, CLI, and attach client for remote-controlling Claude Code agent sessions.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TechGardenCode/relay.git",
+    "directory": "packages/server"
+  },
+  "homepage": "https://github.com/TechGardenCode/relay#readme",
+  "bugs": {
+    "url": "https://github.com/TechGardenCode/relay/issues"
+  },
   "type": "module",
   "bin": {
     "relay": "./dist/cli/relay.js"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src/store/migrations",
+    "scripts"
+  ],
   "scripts": {
     "typecheck": "tsc -b --pretty",
     "build": "tsc -b --force",
-    "fix-pty": "node scripts/fix-pty.mjs"
+    "fix-pty": "node scripts/fix-pty.mjs",
+    "prepack": "tsc -b --force"
   },
   "dependencies": {
     "@fastify/websocket": "^11.2.0",
