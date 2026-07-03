@@ -31,7 +31,7 @@ import type { FastifyInstance } from 'fastify';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WebSocket } from 'ws';
 
-import type { ClientFrame, ServerFrame } from '@relay/protocol';
+import type { ClientFrame, ServerFrame } from '@techgardencode/protocol';
 
 import { RevocationBus, TokenStore } from '../../auth/index.js';
 import { tokensPath } from '../../config/paths.js';

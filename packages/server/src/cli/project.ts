@@ -10,7 +10,7 @@
 
 import { dbPath } from '../config/paths.js';
 import { openDatabase, projects, tenants } from '../store/index.js';
-import type { Project, ProjectListResponse } from '@relay/protocol';
+import type { Project, ProjectListResponse } from '@techgardencode/protocol';
 
 import { buildCliHttpClient } from './http.js';
 

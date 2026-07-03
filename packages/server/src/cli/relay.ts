@@ -124,7 +124,7 @@ project
   .option('--agent-cli <cli>', 'Override the default agent CLI (claude)')
   .action(
     async (path: string, opts: { name?: string; displayName?: string; agentCli?: string }) => {
-      // Lazy-load: project.ts pulls @relay/relay store (better-sqlite3) +
+      // Lazy-load: project.ts pulls @techgardencode/relay store (better-sqlite3) +
       // the loopback REST client.
       const { runProjectAdd } = await import('./project.js');
       const row = await runProjectAdd({

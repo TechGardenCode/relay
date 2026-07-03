@@ -23,7 +23,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 
 import * as vscode from 'vscode';
 
-import { type Project, type Session, type SessionStatus } from '@relay/protocol';
+import { type Project, type Session, type SessionStatus } from '@techgardencode/protocol';
 
 import {
   SessionsTreeProvider,

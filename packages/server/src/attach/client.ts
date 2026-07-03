@@ -38,7 +38,7 @@ import {
   type HelloFrame,
   type ServerFrame,
   type SessionEndedFrame,
-} from '@relay/protocol';
+} from '@techgardencode/protocol';
 
 export type ClientState = 'idle' | 'claiming' | 'streaming' | 'backoff' | 'closed';
 

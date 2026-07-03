@@ -1,5 +1,5 @@
 // Typed wrapper around the Relay REST surface the extension consumes. Each
-// method validates the response with the Zod schema from @relay/protocol and
+// method validates the response with the Zod schema from @techgardencode/protocol and
 // surfaces RFC 9457 problem-details (per docs/arch/rest-conventions.md §2) as
 // a typed RelayHttpError so callers can render `title` + `detail` in
 // vscode.window.showErrorMessage.
@@ -20,7 +20,7 @@ import {
   type SessionCreateRequest,
   type SessionListResponse,
   type Tenant,
-} from '@relay/protocol';
+} from '@techgardencode/protocol';
 
 export interface RelayCredentials {
   serverUrl: string;

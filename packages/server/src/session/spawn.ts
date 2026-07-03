@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { SpawnRecordSchema, type SpawnRecord } from '@relay/protocol';
+import { SpawnRecordSchema, type SpawnRecord } from '@techgardencode/protocol';
 
 import { sessionWorkDir } from '../config/paths.js';
 

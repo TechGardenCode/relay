@@ -5,7 +5,7 @@ import {
   SessionListQuerySchema,
   type Session,
   type SessionListResponse,
-} from '@relay/protocol';
+} from '@techgardencode/protocol';
 
 import {
   projects,

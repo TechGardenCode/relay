@@ -16,7 +16,7 @@ import { describe, it, expect } from 'vitest';
 
 import * as vscode from 'vscode';
 
-import { type Session, type SessionStatus } from '@relay/protocol';
+import { type Session, type SessionStatus } from '@techgardencode/protocol';
 
 import { buildSessionQuickPickItems } from './attachSession.js';
 

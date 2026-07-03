@@ -4,7 +4,7 @@ import {
   TranscriptFullQuerySchema,
   TranscriptPaginatedQuerySchema,
   type TranscriptResponse,
-} from '@relay/protocol';
+} from '@techgardencode/protocol';
 
 import { sessions as sessionsRepo, type Database } from '../../../store/index.js';
 import { readRange, transcriptPath, MAX_RANGE_LIMIT_BYTES } from '../../../transcript/index.js';

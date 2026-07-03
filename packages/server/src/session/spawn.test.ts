@@ -15,7 +15,7 @@ import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SpawnRecordSchema, type SpawnRecord } from '@relay/protocol';
+import { SpawnRecordSchema, type SpawnRecord } from '@techgardencode/protocol';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { sessionWorkDir } from '../config/paths.js';

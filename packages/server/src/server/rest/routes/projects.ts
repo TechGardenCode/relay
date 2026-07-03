@@ -8,7 +8,7 @@ import {
   ProjectCreateRequestSchema,
   type Project,
   type ProjectListResponse,
-} from '@relay/protocol';
+} from '@techgardencode/protocol';
 
 import { projects, tenants, type Database, type ProjectRow } from '../../../store/index.js';
 import { HttpProblemError } from '../http-error.js';

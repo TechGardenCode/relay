@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 
-import { type Project, type Session, type SessionStatus } from '@relay/protocol';
+import { type Project, type Session, type SessionStatus } from '@techgardencode/protocol';
 
 import { loadCredentials } from './pairing.js';
 import { PollLoop, POLL_INTERVAL_MS } from './poll.js';

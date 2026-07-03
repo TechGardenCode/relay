@@ -38,8 +38,8 @@ importers:
 
   packages/extension:
     dependencies:
-      '@relay/protocol':
-        specifier: workspace:*
+      '@techgardencode/protocol':
+        specifier: workspace:^
         version: link:../protocol
       zod:
         specifier: ^4.4.3
@@ -69,8 +69,8 @@ importers:
       '@fastify/websocket':
         specifier: ^11.2.0
         version: 11.2.0
-      '@relay/protocol':
-        specifier: workspace:*
+      '@techgardencode/protocol':
+        specifier: workspace:^
         version: link:../protocol
       better-sqlite3:
         specifier: ^12.10.0

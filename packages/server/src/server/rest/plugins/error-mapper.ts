@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyError, FastifyRequest, FastifyReply } from 'fastify';
 import { ZodError } from 'zod';
 
-import { errorType } from '@relay/protocol';
+import { errorType } from '@techgardencode/protocol';
 
 import { HttpProblemError } from '../http-error.js';
 
