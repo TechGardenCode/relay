@@ -9,12 +9,13 @@ type ClaimState = 'released' | 'claimed-local' | 'busy-other';
 
 function setup(initial: ClaimState) {
   const claimState = signal<ClaimState>(initial);
+  const busyTick = signal(0);
   TestBed.configureTestingModule({
-    providers: [{ provide: WsClientService, useValue: { claimState } }],
+    providers: [{ provide: WsClientService, useValue: { claimState, busyTick } }],
   });
   const fixture = TestBed.createComponent(BusyIndicatorComponent);
   fixture.detectChanges();
-  return { fixture, cmp: fixture.componentInstance, claimState };
+  return { fixture, cmp: fixture.componentInstance, claimState, busyTick };
 }
 
 describe('BusyIndicatorComponent (ND-02)', () => {
@@ -45,5 +46,16 @@ describe('BusyIndicatorComponent (ND-02)', () => {
     claimState.set('claimed-local');
     fixture.detectChanges();
     expect(cmp.visible()).toBe(false);
+  });
+
+  it('re-shows on a repeat busy after auto-dismiss (busyTick re-arm, ND-02)', () => {
+    vi.useFakeTimers();
+    const { fixture, cmp, busyTick } = setup('busy-other');
+    fixture.detectChanges();
+    vi.advanceTimersByTime(4000);
+    expect(cmp.visible()).toBe(false); // auto-dismissed
+    busyTick.set(1); // a fresh busy while claimState is still 'busy-other'
+    fixture.detectChanges();
+    expect(cmp.visible()).toBe(true); // re-armed
   });
 });

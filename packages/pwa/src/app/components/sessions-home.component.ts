@@ -3,11 +3,13 @@ import {
   Component,
   OnDestroy,
   OnInit,
+  effect,
   inject,
   signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
 
+import { AuthService } from '../services/auth.service';
 import { SessionRow, SessionsService } from '../services/sessions.service';
 import { SpawnSheetComponent } from './spawn-sheet.component';
 
@@ -78,10 +80,19 @@ import { SpawnSheetComponent } from './spawn-sheet.component';
 })
 export class SessionsHomeComponent implements OnInit, OnDestroy {
   private readonly sessions = inject(SessionsService);
+  private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
   readonly groups = this.sessions.groups;
   readonly showSpawn = signal(false);
+
+  constructor() {
+    // A poll that hits 401 clears the bearer (RestClient) → pairStatus 'unpaired';
+    // the guard won't re-run without a navigation, so route to /pair here.
+    effect(() => {
+      if (this.auth.pairStatus() === 'unpaired') void this.router.navigate(['/pair']);
+    });
+  }
 
   ngOnInit(): void {
     this.sessions.startPolling();

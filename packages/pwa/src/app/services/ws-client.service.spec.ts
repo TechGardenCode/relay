@@ -158,4 +158,88 @@ describe('WsClientService', () => {
     vi.advanceTimersByTime(60_000);
     expect(sockets.length).toBe(1); // no reconnect socket
   });
+
+  it('a 4401 close clears the bearer, routes to /pair, and does NOT reconnect', () => {
+    vi.useFakeTimers();
+    const { svc, sockets, auth } = make('tok-1');
+    svc.attach('s1');
+    sockets[0].emitOpen();
+    sockets[0].emitClose(4401);
+    expect(auth.bearer()).toBeNull();
+    expect(svc.terminal()).toBe('pair');
+    vi.advanceTimersByTime(60_000);
+    expect(sockets.length).toBe(1); // never stuck reconnecting a tokenless socket
+  });
+
+  it('an auth_expired frame clears the bearer, routes to /pair, and stops', () => {
+    vi.useFakeTimers();
+    const { svc, sockets, auth } = make('tok-1');
+    svc.attach('s1');
+    sockets[0].emitOpen();
+    sockets[0].emitText({ type: 'auth_expired', tokenId: 'tok' });
+    expect(auth.bearer()).toBeNull();
+    expect(svc.terminal()).toBe('pair');
+    vi.advanceTimersByTime(60_000);
+    expect(sockets.length).toBe(1);
+  });
+
+  it('a 4404 close routes home and does NOT reconnect (no storm)', () => {
+    vi.useFakeTimers();
+    const { svc, sockets } = make('tok-1');
+    svc.attach('s1');
+    sockets[0].emitOpen();
+    sockets[0].emitClose(4404);
+    expect(svc.terminal()).toBe('home');
+    vi.advanceTimersByTime(60_000);
+    expect(sockets.length).toBe(1);
+  });
+
+  it('queues sends issued before claim_ack and flushes all in order (no drop)', () => {
+    const { svc, sockets } = make('tok-1');
+    svc.attach('s1');
+    sockets[0].emitOpen();
+    svc.sendInput(new Uint8Array([0x61])); // 'a' → claim
+    svc.sendInput(new Uint8Array([0x62])); // 'b' → queued (still claiming)
+    svc.sendInput(new Uint8Array([0x63])); // 'c' → queued
+    sockets[0].emitText({ type: 'claim_ack', expiresAt: ISO });
+    const sends = sockets[0].sent
+      .filter((f) => f['type'] === 'send')
+      .map((f) => atob(f['data'] as string));
+    expect(sends).toEqual(['a', 'b', 'c']); // none overwritten/dropped
+    expect(sockets[0].sent.filter((f) => f['type'] === 'claim').length).toBe(1); // one claim
+  });
+
+  it('detach() resets rawMode so it does not leak into the next session', () => {
+    const { svc } = make('tok-1');
+    svc.attach('s1');
+    svc.setRawMode(true);
+    expect(svc.rawMode()).toBe(true);
+    svc.detach();
+    expect(svc.rawMode()).toBe(false);
+  });
+
+  it('re-attach unbinds the prior socket (no stale-close clobber, no stacked sockets)', () => {
+    vi.useFakeTimers();
+    const { svc, sockets } = make('tok-1');
+    svc.attach('sA');
+    sockets[0].emitOpen();
+    svc.attach('sB'); // discards socket A (unbinds), opens socket B
+    sockets[1].emitOpen();
+    expect(sockets[0].onclose).toBeNull(); // A fully unbound — its late close is inert
+    expect(sockets[0].onmessage).toBeNull();
+    expect(svc.connectionState()).toBe('attached'); // B unaffected
+    vi.advanceTimersByTime(60_000);
+    expect(sockets.length).toBe(2); // no spurious reconnect
+  });
+
+  it('reconnect discards the prior socket before opening a new one', () => {
+    vi.useFakeTimers();
+    const { svc, sockets } = make('tok-1');
+    svc.attach('s1');
+    sockets[0].emitOpen();
+    sockets[0].emitClose(1006); // unexpected → reconnecting
+    vi.advanceTimersByTime(5); // backoff fires → open() creates socket[1]
+    expect(sockets.length).toBe(2);
+    expect(sockets[0].onmessage).toBeNull(); // prior socket unbound — no dup dispatch
+  });
 });

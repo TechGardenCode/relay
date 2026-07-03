@@ -65,6 +65,10 @@ export class PairComponent {
       await this.rest.get('/tenants/self');
       await this.router.navigate(['/']);
     } catch (e) {
+      // The probe failed (unreachable host, 5xx, or 401). Clear the just-persisted
+      // bearer/url so invalid credentials never survive to the next launch and
+      // silently pass the guard into a broken home. The draft is preserved for retry.
+      this.auth.clear();
       const detail =
         e instanceof RestError ? (e.problem?.detail ?? e.message) : 'Could not reach the server.';
       this.error.set(detail);

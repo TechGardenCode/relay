@@ -40,6 +40,9 @@ export class BusyIndicatorComponent implements OnDestroy {
 
   constructor() {
     effect(() => {
+      // Depend on busyTick so a REPEAT busy re-arms the notice even when
+      // claimState is already 'busy-other' (same value → no claimState emission).
+      this.ws.busyTick();
       if (this.ws.claimState() === 'busy-other') {
         // A fresh busy shows the notice and arms the §3 auto-dismiss.
         this.dismissed.set(false);

@@ -94,8 +94,16 @@ export class ComposeComponent {
     if (!this.canSend()) return;
     // Trailing newline → server auto-releases on the newline byte (ND-24). One
     // CLAIM → SEND → RELEASE. Explicit send only (FR-6).
-    this.sending = true;
+    const heldAlready = this.ws.claimState() === 'claimed-local';
     this.ws.sendInput(encoder.encode(this.text() + '\n'));
+    if (heldAlready) {
+      // Streamed out immediately (no claim RTT, so no claimed-local transition
+      // for the effect to catch) — clear now.
+      this.compose.clear(this.sessionId());
+    } else {
+      // Clear on claim_ack (effect), keep on busy (FR-12).
+      this.sending = true;
+    }
   }
 
   toggleRaw(ev: Event): void {

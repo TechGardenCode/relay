@@ -13,7 +13,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run",
+    "test": "vitest run && pnpm -F @relay/pwa test",
     "test:watch": "vitest",
     "tui:capture": "vitest run packages/server/src/attach/tty-visual.test.ts packages/server/src/server/ws/multiclient-resize-visual.test.ts",
     "build": "pnpm -r --if-present run build",

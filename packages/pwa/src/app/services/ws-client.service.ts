@@ -1,11 +1,14 @@
 import { Injectable, Signal, signal } from '@angular/core';
-import { HelloFrame, SessionEndedFrame, ServerFrameSchema } from '@relay/protocol';
+import { HelloFrame, ServerFrameSchema } from '@relay/protocol';
 
 import { AuthService } from './auth.service';
 import { PtyOutputService } from './pty-output.service';
 
 export type ConnState = 'idle' | 'connecting' | 'attached' | 'reconnecting' | 'error';
 export type ClaimState = 'released' | 'claimed-local' | 'busy-other';
+// Terminal conditions the live-session view routes on: 'home' → session gone
+// (ended / not-found), 'pair' → auth failed (re-pair needed).
+export type TerminalReason = 'home' | 'pair' | null;
 
 // Minimal WebSocket surface so specs can inject a FakeWebSocket without a real
 // socket. The default factory wraps the browser global.
@@ -40,6 +43,11 @@ function toBase64(bytes: Uint8Array): string {
 // (ws-protocol.md §2.2); send_without_claim is handled by the claim FSM (§5.1).
 const BENIGN_ERROR_CODES = new Set(['release_without_claim', 'send_without_claim']);
 
+interface PendingSend {
+  bytes: Uint8Array;
+  releaseAfter: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class WsClientService {
   private readonly _connectionState = signal<ConnState>('idle');
@@ -49,7 +57,10 @@ export class WsClientService {
   private readonly _hello = signal<HelloFrame | null>(null);
   private readonly _claimExpiresAt = signal<string | null>(null);
   private readonly _reconnectAttempt = signal(0);
-  private readonly _ended = signal<SessionEndedFrame | null>(null);
+  private readonly _terminal = signal<TerminalReason>(null);
+  // Increments on every busy frame so the BUSY notice re-arms even when
+  // claimState is already 'busy-other' (a repeated busy is the same signal value).
+  private readonly _busyTick = signal(0);
 
   readonly connectionState = this._connectionState.asReadonly();
   readonly claimState = this._claimState.asReadonly();
@@ -58,7 +69,8 @@ export class WsClientService {
   readonly hello = this._hello.asReadonly();
   readonly claimExpiresAt = this._claimExpiresAt.asReadonly(); // ND-01 countdown source
   readonly reconnectAttempt = this._reconnectAttempt.asReadonly();
-  readonly ended: Signal<SessionEndedFrame | null> = this._ended.asReadonly();
+  readonly terminal: Signal<TerminalReason> = this._terminal.asReadonly();
+  readonly busyTick = this._busyTick.asReadonly();
 
   private socket: IWebSocket | null = null;
   private socketOpen = false;
@@ -70,7 +82,9 @@ export class WsClientService {
   private buffer: Uint8Array[] = [];
 
   private claiming = false;
-  private pendingSend: { bytes: Uint8Array; releaseAfter: boolean } | null = null;
+  // A FIFO queue (not a single slot): sends issued during the claim RTT must all
+  // survive and flush in order on claim_ack, else fast keystrokes are dropped.
+  private pending: PendingSend[] = [];
   private lastResize: { cols: number; rows: number } | null = null;
 
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -94,7 +108,8 @@ export class WsClientService {
     this.detach(); // idempotent reset of any prior attach
     this.currentSessionId = sessionId;
     this.intentionalClose = false;
-    this._ended.set(null);
+    this._terminal.set(null);
+    this._lastError.set(null);
     this.windowStartMs = null;
     this._reconnectAttempt.set(0);
     // ND-40: drain the buffer to the viewport the moment it subscribes.
@@ -107,29 +122,23 @@ export class WsClientService {
     this.intentionalClose = true;
     this.clearReconnectTimer();
     window.removeEventListener('online', this.onOnline);
-    if (this.socket) {
-      // Per feature-modules.md §4.6 + FR-14: close and leave the session running.
-      try {
-        this.socket.close(1000);
-      } catch {
-        /* already closing */
-      }
-    }
-    this.socket = null;
-    this.socketOpen = false;
+    // Per feature-modules.md §4.6 + FR-14: close and leave the session running.
+    this.discardSocket(1000);
     this.buffer = [];
     this.pty.setDrainHook(null);
     this.claiming = false;
-    this.pendingSend = null;
+    this.pending = [];
     this._connectionState.set('idle');
     this._claimState.set('released');
     this._claimExpiresAt.set(null);
     this._hello.set(null);
+    this._lastError.set(null);
+    this._rawMode.set(false); // per-session state — never leak raw mode into the next session
     this.currentSessionId = null;
   }
 
   reconnectNow(): void {
-    if (!this.currentSessionId) return;
+    if (!this.currentSessionId || !this.auth.bearer()) return;
     this.clearReconnectTimer();
     this.windowStartMs = null; // manual retry resets the 10-minute window
     this._reconnectAttempt.set(0);
@@ -147,10 +156,10 @@ export class WsClientService {
       this.sendData(bytes); // streaming — server releases on a newline byte
       return;
     }
-    // released (or a manual retry from busy): claim, flush on ack. Compose bytes
-    // carry a trailing \n so the server auto-releases (ND-24) — no explicit release.
-    this.pendingSend = { bytes, releaseAfter: false };
-    this.sendClaim();
+    // released (or a manual retry from busy): queue, claim once, flush on ack.
+    // Compose bytes carry a trailing \n so the server auto-releases (ND-24) — no
+    // explicit release.
+    this.enqueue({ bytes, releaseAfter: false });
   }
 
   // Control rail (FR-5). Per ND-42 stopgap, claim-aware so it composes with
@@ -165,8 +174,7 @@ export class WsClientService {
     // Line mode: claim → send → release, UNLESS the byte self-releases. Enter's
     // \r triggers the server newline-release (ND-24); an explicit release after
     // it would provoke a spurious release_without_claim (NFR-10 regression).
-    this.pendingSend = { bytes, releaseAfter: !containsNewline(bytes) };
-    this.sendClaim();
+    this.enqueue({ bytes, releaseAfter: !containsNewline(bytes) });
   }
 
   release(): void {
@@ -181,10 +189,19 @@ export class WsClientService {
 
   // ----- internals -----
 
+  private enqueue(item: PendingSend): void {
+    this.pending.push(item);
+    if (!this.claiming) this.sendClaim();
+  }
+
   private open(): void {
     const sessionId = this.currentSessionId;
     const bearer = this.auth.bearer();
     if (!sessionId || !bearer) return;
+    // Never leave a prior socket live (reconnect / online / reconnectNow could
+    // otherwise stack sockets). Discard unbinds handlers first so its close does
+    // not re-enter handleClose.
+    this.discardSocket(1000);
     this._connectionState.set(this.windowStartMs !== null ? 'reconnecting' : 'connecting');
 
     // Per ND-36: browser WS auth is the subprotocol-sourced bearer — never a
@@ -192,9 +209,17 @@ export class WsClientService {
     const socket = this.socketFactory(this.streamUrl(sessionId), ['relay.bearer', bearer]);
     socket.binaryType = 'arraybuffer';
     this.socket = socket;
-    socket.onopen = () => this.handleOpen();
-    socket.onmessage = (ev) => this.handleMessage(ev.data);
-    socket.onclose = (ev) => this.handleClose(ev.code);
+    // Identity-guard every handler: a stale socket's late event must not mutate
+    // shared state on the root singleton.
+    socket.onopen = () => {
+      if (socket === this.socket) this.handleOpen();
+    };
+    socket.onmessage = (ev) => {
+      if (socket === this.socket) this.handleMessage(ev.data);
+    };
+    socket.onclose = (ev) => {
+      if (socket === this.socket) this.handleClose(ev.code);
+    };
     socket.onerror = () => {
       /* the close handler drives reconnect; error is informational */
     };
@@ -203,10 +228,11 @@ export class WsClientService {
   private handleOpen(): void {
     this.socketOpen = true;
     this._connectionState.set('attached');
-    this._reconnectAttempt.set(0);
-    this.windowStartMs = null;
     // Re-assert viewport size on (re)connect so the PTY matches (ND-23).
     if (this.lastResize) this.sendFrame({ type: 'resize', ...this.lastResize });
+    // NOTE: the backoff window is reset on `hello` (a real successful attach),
+    // NOT here — an accept-then-immediately-close (4404/4409) must keep the
+    // window counting so it eventually reaches the manual-retry 'error' state.
   }
 
   private handleClose(code: number): void {
@@ -217,7 +243,20 @@ export class WsClientService {
       this._connectionState.set('idle');
       return;
     }
-    if (code === 4401) this.auth.clear(); // token revoked mid-stream (ws-protocol §4.2)
+    // Terminal close codes — do NOT reconnect (ws-protocol.md §4.2).
+    if (code === 4401 || code === 1008) {
+      // Token revoked / policy violation. Clear the bearer and route to /pair.
+      this.auth.clear();
+      this._connectionState.set('error');
+      this._terminal.set('pair');
+      return;
+    }
+    if (code === 4404) {
+      // Session not found / killed before any frame — go home, don't storm.
+      this._connectionState.set('error');
+      this._terminal.set('home');
+      return;
+    }
     this.scheduleReconnect();
   }
 
@@ -241,6 +280,10 @@ export class WsClientService {
       case 'hello':
         this._hello.set(frame);
         this._connectionState.set('attached');
+        this._lastError.set(null); // a successful (re)attach clears any stale error banner
+        // A real successful attach resets the backoff window + attempt counter.
+        this._reconnectAttempt.set(0);
+        this.windowStartMs = null;
         break;
       case 'replay_start':
         // Per D-G3: clear stale scrollback before the reattach repaint (no-op on
@@ -253,31 +296,33 @@ export class WsClientService {
         this.claiming = false;
         this._claimState.set('claimed-local');
         this._claimExpiresAt.set(frame.expiresAt);
-        if (this.pendingSend) {
-          const { bytes, releaseAfter } = this.pendingSend;
-          this.pendingSend = null;
-          this.sendData(bytes);
-          if (releaseAfter) this.release();
-        }
+        this.flushPending();
         break;
       case 'busy':
         // Per ND-02: another connection holds the claim. Draft is preserved in
-        // ComposeService; drop the in-flight pending payload, surface BUSY.
+        // ComposeService; drop the in-flight pending payloads, surface BUSY.
         this.claiming = false;
-        this.pendingSend = null;
+        this.pending = [];
         this._claimState.set('busy-other');
+        this._busyTick.update((n) => n + 1);
         break;
       case 'claim_released':
         this._claimState.set('released');
         this._claimExpiresAt.set(null);
         // Post-newline leftover (rare paste case) — re-claim to flush it.
-        if (this.pendingSend) this.sendClaim();
+        if (this.pending.length > 0) this.sendClaim();
         break;
       case 'session_ended':
-        this._ended.set(frame);
+        this._terminal.set('home');
         break;
       case 'auth_expired':
+        // In-band revocation (socket stays open per ws-protocol §4.1). Clear the
+        // bearer, stop the connection, and route to /pair — do not keep accepting
+        // input against a now-unauthenticated socket.
         this.auth.clear();
+        this.discardSocket(1000);
+        this._connectionState.set('error');
+        this._terminal.set('pair');
         break;
       case 'error':
         if (frame.fatal) {
@@ -297,6 +342,18 @@ export class WsClientService {
   private drain(): void {
     for (const chunk of this.buffer) this.pty.push(chunk);
     this.buffer = [];
+  }
+
+  private flushPending(): void {
+    if (this.pending.length === 0) return;
+    const items = this.pending;
+    this.pending = [];
+    let release = false;
+    for (const item of items) {
+      this.sendData(item.bytes);
+      if (item.releaseAfter) release = true;
+    }
+    if (release) this.release();
   }
 
   private scheduleReconnect(): void {
@@ -327,6 +384,24 @@ export class WsClientService {
     if (this.reconnectTimer !== null) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+  }
+
+  // Unbind handlers BEFORE closing so the resulting close does not re-enter
+  // handleClose, then close and forget the socket.
+  private discardSocket(code: number): void {
+    const s = this.socket;
+    this.socket = null;
+    this.socketOpen = false;
+    if (!s) return;
+    s.onopen = null;
+    s.onmessage = null;
+    s.onclose = null;
+    s.onerror = null;
+    try {
+      s.close(code);
+    } catch {
+      /* already closing */
     }
   }
 

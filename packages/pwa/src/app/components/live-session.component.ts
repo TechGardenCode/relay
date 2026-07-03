@@ -2,7 +2,6 @@ import {
   ChangeDetectionStrategy,
   Component,
   OnDestroy,
-  OnInit,
   afterNextRender,
   effect,
   inject,
@@ -48,28 +47,38 @@ import { TerminalViewportComponent } from './terminal-viewport.component';
     </div>
   `,
 })
-export class LiveSessionComponent implements OnInit, OnDestroy {
+export class LiveSessionComponent implements OnDestroy {
   private readonly ws = inject(WsClientService);
   private readonly router = inject(Router);
   // Bound from the :id route param via withComponentInputBinding.
   readonly id = input.required<string>();
 
+  private attachedId: string | null = null;
   private teardownKeyboard?: () => void;
 
   constructor() {
-    // FR-11/session_ended: when the agent exits or the session is killed, the
-    // server emits session_ended — return home.
+    // Attach in an effect keyed on the :id — Angular reuses this component when
+    // only the route param changes (A → B → A), so ngOnInit would fire only once
+    // and leave the socket bound to the wrong session. attach() is idempotent
+    // (detaches first); guard so we attach once per distinct id. This opens the
+    // socket (subprotocol bearer, ND-36) and begins the ND-40 buffer; reattach
+    // repaints via the server's bracketed replay (D-G3).
     effect(() => {
-      if (this.ws.ended()) void this.router.navigate(['/']);
+      const id = this.id();
+      if (id && id !== this.attachedId) {
+        this.attachedId = id;
+        this.ws.attach(id);
+      }
+    });
+    // Terminal conditions route the user away: session gone (session_ended /
+    // 4404) → home; auth failed (4401 / 1008 / auth_expired) → /pair. Without
+    // this, an auth failure leaves the client stuck in 'reconnecting' forever.
+    effect(() => {
+      const t = this.ws.terminal();
+      if (t === 'pair') void this.router.navigate(['/pair']);
+      else if (t === 'home') void this.router.navigate(['/']);
     });
     afterNextRender(() => this.wireKeyboard());
-  }
-
-  ngOnInit(): void {
-    // Attach opens the socket (subprotocol bearer, ND-36) and begins the ND-40
-    // buffer; the viewport drains it on subscribe. Reattach repaints via the
-    // server's bracketed replay (D-G3).
-    this.ws.attach(this.id());
   }
 
   ngOnDestroy(): void {
