@@ -4,7 +4,7 @@ Every resolved, deferred, or open Relay decision lives in its own file under `do
 
 See [`protocol.md`](protocol.md) for the per-decision file template and the 5-step propagation protocol.
 
-**Counts.** Resolved: 49 · Open: 9 · Deferred: 8.
+**Counts.** Resolved: 50 · Open: 9 · Deferred: 8.
 
 ## Open / in-deliberation
 
@@ -36,6 +36,7 @@ _Superseded-for-MVP by [`D-17` — Personas descoped from MVP](D-17-personas-des
 
 _Newest first._
 
+- [`ND-46` — npm provenance requires `NPM_CONFIG_PROVENANCE` under recursive publish](ND-46-npm-provenance-requires-config-env.md) _(2026-07-03)_
 - [`ND-45` — `node-pty` Linux prebuild resolution](ND-45-node-pty-linux-prebuild-resolution.md) _(2026-07-02)_
 - [`D-19` — npm distribution posture](D-19-npm-distribution-posture.md) _(2026-07-02)_
 - [`D-18` — Relay PWA Phase 2 — terminal-style substrate and MVP product scope](D-18-pwa-terminal-substrate-and-mvp-scope.md) _(2026-05-28)_

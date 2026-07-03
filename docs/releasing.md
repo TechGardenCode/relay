@@ -33,15 +33,28 @@ only a tag push triggers `release.yml`.
    ```
    This triggers `release.yml`, which builds, tests, and runs
    `pnpm -r publish --access public --provenance --no-git-checks` — publishing both
-   `@techgardencode/protocol` and `@techgardencode/relay` with npm provenance.
+   `@techgardencode/protocol` and `@techgardencode/relay` with npm provenance. Provenance
+   is attached by the `NPM_CONFIG_PROVENANCE` env var in that step, not by the
+   `--provenance` flag (a no-op under pnpm recursive publish); see
+   [ND-46](decisions/ND-46-npm-provenance-requires-config-env.md).
 
 ## Verify the release
 
 ```bash
-npm view @techgardencode/relay version   # expect 0.1.0
+npm view @techgardencode/relay version   # expect the tagged version
 npm i -g @techgardencode/relay@latest
 relay doctor                              # native-deps: ok
+
+# Provenance (attached from the next release onward — see ND-46). A populated
+# `attestations` array means it worked; HTTP 404 means it did not attach.
+curl -s "https://registry.npmjs.org/-/npm/v1/attestations/@techgardencode%2frelay@$(npm view @techgardencode/relay version)"
 ```
+
+> Provenance note: `@techgardencode/relay@0.1.0` and `@techgardencode/protocol@0.1.0` were
+> published **without** provenance (the `--provenance` flag alone is a no-op under
+> `pnpm -r publish`). Provenance is per-version immutable, so 0.1.0 cannot be fixed;
+> the `NPM_CONFIG_PROVENANCE` env var added to `release.yml` attaches it from the next
+> `v*` tag onward. See [ND-46](decisions/ND-46-npm-provenance-requires-config-env.md).
 
 ## Acceptance evidence (this task, 2026-07-02, macOS/darwin-arm64)
 
