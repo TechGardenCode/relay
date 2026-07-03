@@ -9,6 +9,9 @@
     "directory": "packages/protocol"
   },
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

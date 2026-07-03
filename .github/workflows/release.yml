@@ -19,6 +19,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test
+      - name: Verify tag matches package version
+        run: |
+          PKG_VERSION="v$(node -p "require('./packages/server/package.json').version")"
+          if [ "$PKG_VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match package version $PKG_VERSION — bump versions to match the tag before releasing." >&2
+            exit 1
+          fi
       # Publishes every non-private workspace package (the two @techgardencode/*)
       # in dependency order. --no-git-checks: tag checkout is detached HEAD.
       - run: pnpm -r publish --access public --provenance --no-git-checks

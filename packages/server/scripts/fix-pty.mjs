@@ -1,6 +1,6 @@
 // Re-apply executable bit to node-pty's spawn-helper. pnpm's content-addressable
 // hardlinks can drop the bit during install; until Phase 1 owns this fixup as
-// part of @relay/relay install, this repairs it on demand.
+// part of @techgardencode/relay install, this repairs it on demand.
 //
 // node-pty's spawn-helper only exists on macOS (per binding.gyp's
 // `OS=="mac"` target). Linux uses an in-process code path and Windows uses
